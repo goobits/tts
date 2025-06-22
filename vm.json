@@ -1,0 +1,23 @@
+{
+  "provider": "docker",
+  "project": {
+    "name": "tts",
+    "hostname": "dev.tts.local",
+    "workspace_path": "/workspace"
+  },
+  "services": {
+    "postgresql": {
+      "enabled": false
+    },
+    "redis": {
+      "enabled": false
+    },
+    "mongodb": {
+      "enabled": false
+    }
+  },
+  "terminal": {
+    "emoji": "🎤",
+    "username": "tts-dev"
+  }
+}

@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  myproject:
+    build:
+      context: /home/miko/projects/vm
+      dockerfile: providers/docker/Dockerfile
+      args:
+        PROJECT_USER: "vagrant"
+    container_name: myproject-dev
+    hostname: dev.myproject.local
+    tty: true
+    stdin_open: true
+    environment:
+      - LANG=en_US.UTF-8
+      - LC_ALL=en_US.UTF-8
+    volumes:
+      - /home/miko/projects/tts:/workspace:delegated
+      - /home/miko/projects/vm:/vm-tool:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - myproject_nvm:/home/vagrant/.nvm
+      - myproject_cache:/home/vagrant/.cache
+      - myproject_config:/tmp
+    networks:
+      - myproject_network
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+
+networks:
+  myproject_network:
+    driver: bridge
+
+volumes:
+  myproject_nvm:
+  myproject_cache:
+  myproject_config:
