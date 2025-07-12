@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+"""
+Simple TTS command-line interface
+Usage: tts "your text here" [options]
+"""
+import sys
+import os
+import argparse
+import socket
+import subprocess
+
+def check_internet():
+    """Check if we have internet connectivity"""
+    try:
+        # Try to reach a reliable server quickly
+        subprocess.run(['ping', '-c', '1', '-W', '2', '8.8.8.8'], 
+                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, 
+                      timeout=3, check=True)
+        return True
+    except:
+        return False
+
+def send_to_chatterbox(text, port=12345):
+    """Send text to Chatterbox server"""
+    try:
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_socket.connect(('localhost', port))
+        client_socket.send(text.encode('utf-8'))
+        response = client_socket.recv(1024).decode('utf-8')
+        client_socket.close()
+        return True, response
+    except ConnectionRefusedError:
+        return False, "❌ TTS server not running! Start with: python chatterbox_server_daemon.py"
+    except Exception as e:
+        return False, f"❌ Error: {e}"
+
+def main():
+    parser = argparse.ArgumentParser(description='Simple TTS - Text to Speech')
+    parser.add_argument('text', nargs='*', help='Text to speak')
+    parser.add_argument('-e', '--engine', choices=['chatterbox', 'edge_tts', 'auto'], 
+                       default='auto', help='TTS engine (auto: edge_tts if online, chatterbox if offline)')
+    parser.add_argument('-v', '--voice', help='Voice name/ID (edge: en-US-JennyNeural, orpheus: 7306)')
+    parser.add_argument('--clone', help='Audio file to clone voice from (for chatterbox)')
+    parser.add_argument('--start-server', action='store_true', 
+                       help='Start the TTS server in background')
+    parser.add_argument('--status', action='store_true', 
+                       help='Check if TTS server is running')
+    
+    args = parser.parse_args()
+    
+    # Handle special commands
+    if args.start_server:
+        print("🚀 Starting TTS server...")
+        os.system("bash -c 'cd /home/miko/projects/tts && source venv/bin/activate && nohup python chatterbox_server_daemon.py > /dev/null 2>&1 &'")
+        print("✅ TTS server started in background")
+        return
+    
+    if args.status:
+        success, response = send_to_chatterbox("test", 12345)
+        if success:
+            print("✅ TTS server is running")
+        else:
+            print("❌ TTS server is not running")
+        return
+    
+    # Get text to speak
+    if not args.text:
+        if not sys.stdin.isatty():
+            # Read from pipe
+            text = sys.stdin.read().strip()
+        else:
+            print("Usage: tts \"your text here\"")
+            print("   or: echo \"text\" | tts")
+            return
+    else:
+        text = " ".join(args.text)
+    
+    if not text.strip():
+        print("❌ No text provided")
+        return
+    
+    # Auto-detect engine based on connectivity
+    if args.engine == 'auto':
+        if check_internet():
+            args.engine = 'edge_tts'
+            print("🌐 Online - using Edge TTS")
+        else:
+            args.engine = 'chatterbox'
+            print("📱 Offline - using Chatterbox")
+    
+    # Send to appropriate TTS engine
+    if args.engine == 'chatterbox' and not args.clone:
+        # Use fast server for default Chatterbox voice
+        success, response = send_to_chatterbox(text)
+        if success:
+            print(f"🎵 {response}")
+        else:
+            print(response)
+    else:
+        # Use CLI for voice cloning or other engines
+        if args.engine == 'edge_tts' and not args.voice:
+            voice_param = " voice=en-GB-SoniaNeural"  # Default to British female
+        else:
+            voice_param = f" voice={args.voice}" if args.voice else ""
+        clone_param = f" voice={args.clone}" if args.clone else ""
+        cmd = f"bash -c 'cd /home/miko/projects/tts && source venv/bin/activate && python -m tts_cli.tts \"{text}\" -m {args.engine} -s{voice_param}{clone_param}'"
+        os.system(cmd)
+
+if __name__ == "__main__":
+    main()

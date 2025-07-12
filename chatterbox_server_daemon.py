@@ -3,6 +3,10 @@
 Persistent Chatterbox TTS server that stays running and accepts requests via socket.
 Run once, then send text via client script.
 """
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="perth")
+warnings.filterwarnings("ignore", category=FutureWarning, module="diffusers")
+
 import socket
 import threading
 import time
@@ -10,6 +14,7 @@ import subprocess
 import io
 import wave
 import numpy as np
+import torch
 from chatterbox.tts import ChatterboxTTS
 
 class ChatterboxServer:
@@ -25,7 +30,6 @@ class ChatterboxServer:
         self.model = ChatterboxTTS.from_pretrained(device='cuda')
         load_time = time.time() - start_time
         
-        import torch
         gpu_memory = torch.cuda.memory_allocated(0) / 1e9
         print(f"✅ Model loaded in {load_time:.2f}s!")
         print(f"🎯 GPU Memory: {gpu_memory:.2f}GB allocated")
@@ -62,14 +66,18 @@ class ChatterboxServer:
                 return
                 
             print(f"🎵 Generating: '{data[:50]}{'...' if len(data) > 50 else ''}'")
-            start_time = time.time()
             
-            # Generate and play
+            # Time just the generation
+            gen_start = time.time()
             wav = self.model.generate(data)
-            self._stream_to_speakers(wav)
+            gen_time = time.time() - gen_start
             
-            gen_time = time.time() - start_time
-            print(f"⚡ Completed in {gen_time:.2f}s")
+            # Play audio (separate from generation timing)
+            play_start = time.time()
+            self._stream_to_speakers(wav)
+            play_time = time.time() - play_start
+            
+            print(f"⚡ Generated in {gen_time:.2f}s, played in {play_time:.2f}s")
             
             # Send response
             client_socket.send(f"✅ Generated in {gen_time:.2f}s".encode('utf-8'))

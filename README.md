@@ -1,91 +1,84 @@
-# TTS CLI
+# 🗣️ TTS CLI - Smart Text-to-Speech
 
-A modular command-line interface for multiple text-to-speech engines.
+A lightning-fast, intelligent TTS system that automatically chooses the best engine based on your connectivity.
 
-## Installation
+## ✨ Features
 
-### From source
+- 🌐 **Smart Auto-Selection** - Edge TTS when online, Chatterbox when offline
+- 🎭 **Voice Cloning** - Clone any voice with a short audio sample
+- ⚡ **Real-time Streaming** - No file creation, direct audio playback
+- 🇬🇧 **High-Quality Voices** - British female default, multiple accents available
+- 🚀 **GPU Accelerated** - CUDA support for local generation
+- 🔧 **Simple CLI** - One command does everything
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/tts-cli.git
-cd tts-cli
-
-# Install in development mode
-pip install -e .
-
-# Or install specific providers
-pip install -e ".[edge_tts]"
-pip install -e ".[chatterbox]"
-pip install -e ".[all]"  # Install all providers
-```
-
-### Install for development
+## 🚀 Quick Start
 
 ```bash
-pip install -e ".[dev]"  # Includes testing and linting tools
+# Basic usage (auto-selects best engine)
+tts "Hello, world!"
+
+# Use specific engine
+tts "British accent" -e edge_tts
+tts "High quality local" -e chatterbox
+
+# Voice cloning
+tts "Clone my voice" --clone ~/my_voice.wav
+
+# Different accents
+tts "American voice" -e edge_tts -v en-US-JennyNeural
+tts "Australian voice" -e edge_tts -v en-AU-NatashaNeural
 ```
 
-## Usage
+## 📦 Installation
 
-Basic usage:
+Already installed! The `tts` command is available system-wide.
+
+## 🎯 Engines
+
+| Engine | Speed | Quality | Offline | Voice Cloning |
+|--------|-------|---------|---------|---------------|
+| **Edge TTS** | ⚡ Instant | 🌟 Excellent | ❌ No | ❌ No |
+| **Chatterbox** | 🔥 Fast | 🏆 Best-in-class | ✅ Yes | ✅ Yes |
+
+## 🛠️ Commands
+
 ```bash
-tts-cli "Your text here" -m edge_tts
+tts "text"                    # Auto-select engine
+tts "text" -e edge_tts        # Force Edge TTS  
+tts "text" -e chatterbox      # Force Chatterbox
+tts "text" --clone voice.wav  # Voice cloning
+tts --start-server            # Start TTS server
+tts --status                  # Check server status
 ```
 
-With custom output file:
+## 🎤 Voice Cloning
+
+1. Record your voice:
 ```bash
-tts-cli "Your text here" -m edge_tts -o output.mp3
+arecord -f cd -t wav -d 30 ~/my_voice.wav
 ```
 
-With provider-specific options:
+2. Use it:
 ```bash
-tts-cli "Hello" -m edge_tts voice=en-GB-SoniaNeural rate=+20% pitch=+5Hz
+tts "This is my cloned voice!" --clone ~/my_voice.wav
 ```
 
-Get provider information:
+## 🔧 Server Management
+
 ```bash
-tts-cli "dummy" -m edge_tts info=true
+# Start persistent server (faster Chatterbox)
+tts --start-server
+
+# Check if running
+tts --status
 ```
 
-## Available Providers
+## 🌟 Why This Setup Rocks
 
-- **edge_tts**: Free Microsoft Edge TTS (no API key required)
-- **chatterbox**: Voice cloning TTS with reference audio support
-- **orpheus**: Fast ONNX-based TTS with multiple voices
-- **naturalspeech**: Microsoft's high-quality TTS with emotion control
-- **maskgct**: Masked Generative Codec Transformer for high-quality TTS
+- **Beats ElevenLabs** in blind tests (Chatterbox)
+- **Free forever** - no API costs
+- **Smart fallbacks** - always works online/offline  
+- **Voice cloning** without training
+- **Multiple accents** and languages
 
-## Provider-Specific Options
-
-### edge_tts
-- `voice`: Voice name (default: en-US-JennyNeural)
-- `rate`: Speech rate adjustment (e.g., +20%, -10%)
-- `pitch`: Pitch adjustment (e.g., +5Hz, -10Hz)
-
-### chatterbox
-- `ref_audio`: Path to reference audio file for voice cloning
-- `temperature`: Sampling temperature (default: 0.7)
-
-### orpheus
-- `voice`: Voice ID (default, alice, bob, charlie, diana)
-- `speed`: Speech speed multiplier (default: 1.0)
-
-### naturalspeech
-- `emotion`: Emotion style (neutral, happy, sad, angry, surprised)
-- `pitch`: Pitch shift in semitones (default: 0.0)
-- `energy`: Energy/intensity multiplier (default: 1.0)
-
-### maskgct
-- `steps`: Number of denoising steps (default: 50)
-- `guidance`: Guidance scale for classifier-free guidance (default: 3.0)
-- `temperature`: Sampling temperature (default: 1.0)
-- `seed`: Random seed for reproducibility
-
-## Architecture
-
-The CLI uses a plugin-based architecture with:
-- Abstract `TTSProvider` base class
-- Lazy loading of provider dependencies
-- Simple dictionary-based provider registry
-- Flexible key=value options system for provider-specific parameters
+Built with ❤️ using cutting-edge open-source TTS models.

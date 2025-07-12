@@ -4,13 +4,10 @@ click>=8.0.0
 # Edge TTS provider
 edge-tts>=7.0.0
 
-# Orpheus provider (Microsoft SpeechT5)
-transformers>=4.46.0
-datasets>=3.6.0
+# Keep torch and torchaudio for Chatterbox
 torch>=2.6.0
 torchaudio>=2.6.0
 soundfile>=0.13.0
-sentencepiece>=0.2.0
 
 # Chatterbox provider (Resemble AI)
 chatterbox-tts>=0.1.2
