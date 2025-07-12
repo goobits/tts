@@ -25,7 +25,7 @@
   - [x] Add `--find-voice` to search voices by language/gender
   - [x] Validate voice names before synthesis to prevent failures
   - [x] Set edge_tts as default model (no -m required)
-  - [ ] Show voice samples/previews
+  - [x] Show voice samples/previews with `--preview-voice` command
 
 - [x] **Audio format options** ✅
   - [x] Support multiple output formats (WAV, OGG, FLAC) beyond just MP3
