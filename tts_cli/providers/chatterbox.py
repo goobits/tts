@@ -1,5 +1,6 @@
 from ..base import TTSProvider
 from ..utils.audio import convert_with_cleanup
+from ..exceptions import DependencyError, AudioPlaybackError, ProviderError
 from typing import Optional, Dict, Any
 import logging
 
@@ -21,9 +22,9 @@ class ChatterboxProvider(TTSProvider):
                 print("Chatterbox model loaded successfully.")
                 
             except ImportError:
-                raise ImportError("chatterbox dependencies not installed. Please install with: pip install chatterbox-tts")
+                raise DependencyError("chatterbox dependencies not installed. Please install with: pip install chatterbox-tts")
             except Exception as e:
-                raise RuntimeError(f"Failed to load Chatterbox model: {e}")
+                raise ProviderError(f"Failed to load Chatterbox model: {e}")
     
     def _has_cuda(self):
         try:
@@ -106,7 +107,7 @@ class ChatterboxProvider(TTSProvider):
                 ], stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
             except FileNotFoundError:
                 self.logger.error("FFplay not found for audio streaming")
-                raise RuntimeError("ffplay not found. Please install ffmpeg to use audio streaming.")
+                raise DependencyError("ffplay not found. Please install ffmpeg to use audio streaming.")
             
             self.logger.debug("Streaming audio to ffplay")
             ffplay_process.stdin.write(buffer.getvalue())
@@ -116,7 +117,7 @@ class ChatterboxProvider(TTSProvider):
             
         except Exception as e:
             self.logger.error(f"Audio streaming failed: {e}")
-            raise RuntimeError(f"Audio streaming failed: {e}")
+            raise AudioPlaybackError(f"Audio streaming failed: {e}")
     
     def get_info(self) -> Optional[Dict[str, Any]]:
         return {

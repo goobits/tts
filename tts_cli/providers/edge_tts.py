@@ -1,5 +1,6 @@
 from ..base import TTSProvider
 from ..utils.audio import convert_with_cleanup
+from ..exceptions import DependencyError, NetworkError, AudioPlaybackError, ProviderError
 from typing import Optional, Dict, Any
 import asyncio
 import logging
@@ -16,7 +17,7 @@ class EdgeTTSProvider(TTSProvider):
                 import edge_tts
                 self.edge_tts = edge_tts
             except ImportError:
-                raise ImportError("edge-tts not installed. Please install with: pip install edge-tts")
+                raise DependencyError("edge-tts not installed. Please install with: pip install edge-tts")
     
     async def _synthesize_async(self, text: str, output_path: str, voice: str, rate: str, pitch: str, output_format: str = "mp3"):
         try:
@@ -40,10 +41,10 @@ class EdgeTTSProvider(TTSProvider):
         except Exception as e:
             if "internet" in str(e).lower() or "network" in str(e).lower() or "connection" in str(e).lower():
                 self.logger.error(f"Network error during Edge TTS synthesis: {e}")
-                raise RuntimeError("Network error: Edge TTS requires internet connection. Check your network and try again.")
+                raise NetworkError("Edge TTS requires internet connection. Check your network and try again.")
             else:
                 self.logger.error(f"Edge TTS synthesis failed: {e}")
-                raise
+                raise ProviderError(f"Edge TTS synthesis failed: {e}")
     
     async def _stream_async(self, text: str, voice: str, rate: str, pitch: str):
         """Stream TTS audio directly to speakers without saving to file"""
@@ -88,7 +89,7 @@ class EdgeTTSProvider(TTSProvider):
                 )
             except FileNotFoundError:
                 self.logger.error("FFplay not found for audio streaming")
-                raise RuntimeError("ffplay not found. Please install ffmpeg to use audio streaming.")
+                raise DependencyError("ffplay not found. Please install ffmpeg to use audio streaming.")
             
             try:
                 # Stream audio data with improved error handling
@@ -161,18 +162,18 @@ class EdgeTTSProvider(TTSProvider):
                         ffplay_process.kill()
                 
                 if "internet" in str(e).lower() or "network" in str(e).lower():
-                    raise RuntimeError("Network error during streaming. Check your internet connection.")
+                    raise NetworkError("Network error during streaming. Check your internet connection.")
                 elif isinstance(e, BrokenPipeError):
-                    raise RuntimeError("Audio streaming failed: Audio device may not be available or configured properly.")
-                raise e
+                    raise AudioPlaybackError("Audio streaming failed: Audio device may not be available or configured properly.")
+                raise ProviderError(f"Audio streaming failed: {e}")
                 
         except Exception as e:
             if "internet" in str(e).lower() or "network" in str(e).lower() or "connection" in str(e).lower():
                 self.logger.error(f"Network error during Edge TTS streaming: {e}")
-                raise RuntimeError("Network error: Edge TTS requires internet connection. Check your network and try again.")
+                raise NetworkError("Edge TTS requires internet connection. Check your network and try again.")
             else:
                 self.logger.error(f"Edge TTS streaming failed: {e}")
-                raise
+                raise ProviderError(f"Edge TTS streaming failed: {e}")
     
     def _check_audio_environment(self):
         """Check if audio streaming is available in current environment"""
@@ -241,10 +242,10 @@ class EdgeTTSProvider(TTSProvider):
                 self.logger.debug("Temporary file streaming completed")
             except FileNotFoundError:
                 self.logger.warning(f"FFplay not available, audio saved to: {temp_file}")
-                raise RuntimeError(f"Audio generated but cannot play automatically. File saved to: {temp_file}")
+                raise DependencyError(f"Audio generated but cannot play automatically. File saved to: {temp_file}")
             except subprocess.CalledProcessError as e:
                 self.logger.warning(f"FFplay failed to play temporary file: {e}")
-                raise RuntimeError(f"Audio generated but playback failed. File saved to: {temp_file}")
+                raise AudioPlaybackError(f"Audio generated but playback failed. File saved to: {temp_file}")
                 
         finally:
             # Clean up temporary file

@@ -3,6 +3,7 @@ import os
 import tempfile
 from unittest.mock import Mock, patch, AsyncMock
 from tts_cli.providers.edge_tts import EdgeTTSProvider
+from tts_cli.exceptions import DependencyError
 
 
 def test_edge_tts_synthesize():
@@ -40,7 +41,7 @@ def test_edge_tts_lazy_load_import_error():
     provider = EdgeTTSProvider()
     
     with patch('builtins.__import__', side_effect=ImportError):
-        with pytest.raises(ImportError, match="edge-tts not installed"):
+        with pytest.raises(DependencyError, match="edge-tts not installed"):
             provider._lazy_load()
 
 

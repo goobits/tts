@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import Dict, Type
 from .base import TTSProvider
+from .exceptions import TTSError, ProviderNotFoundError, ProviderLoadError, DependencyError, NetworkError
 from .__version__ import __version__
 
 
@@ -42,16 +43,21 @@ def setup_logging():
 
 def load_provider(name: str) -> Type[TTSProvider]:
     if name not in PROVIDERS:
-        raise ValueError(f"Unknown provider: {name}. Available: {', '.join(PROVIDERS.keys())}")
+        raise ProviderNotFoundError(f"Unknown provider: {name}. Available: {', '.join(PROVIDERS.keys())}")
     
-    module_path, class_name = PROVIDERS[name].rsplit(".", 1)
-    module = importlib.import_module(module_path, package=__package__)
-    provider_class = getattr(module, class_name)
-    
-    if not issubclass(provider_class, TTSProvider):
-        raise TypeError(f"{provider_class} is not a TTSProvider")
-    
-    return provider_class
+    try:
+        module_path, class_name = PROVIDERS[name].rsplit(".", 1)
+        module = importlib.import_module(module_path, package=__package__)
+        provider_class = getattr(module, class_name)
+        
+        if not issubclass(provider_class, TTSProvider):
+            raise ProviderLoadError(f"{provider_class} is not a TTSProvider")
+        
+        return provider_class
+    except ImportError as e:
+        raise ProviderLoadError(f"Failed to load provider {name}: {e}")
+    except AttributeError as e:
+        raise ProviderLoadError(f"Provider class not found for {name}: {e}")
 
 
 def handle_list_voices(provider_name: str) -> None:
@@ -66,8 +72,10 @@ def handle_list_voices(provider_name: str) -> None:
                 click.echo(f"  - {voice}")
         else:
             click.echo(f"No voice list available for {provider_name}")
-    except Exception as e:
+    except TTSError as e:
         click.echo(f"Error listing voices for {provider_name}: {e}", err=True)
+    except Exception as e:
+        click.echo(f"Unexpected error listing voices for {provider_name}: {e}", err=True)
 
 
 def handle_find_voice(search_term: str, model: str) -> None:
@@ -95,8 +103,10 @@ def handle_find_voice(search_term: str, model: str) -> None:
                 click.echo(f"No voices found matching '{search_term}'")
         else:
             click.echo(f"No voice search available for {model}")
-    except Exception as e:
+    except TTSError as e:
         click.echo(f"Error searching voices: {e}", err=True)
+    except Exception as e:
+        click.echo(f"Unexpected error searching voices: {e}", err=True)
 
 
 def handle_preview_voice(voice_name: str, model: str, logger: logging.Logger) -> None:
@@ -143,9 +153,15 @@ def handle_preview_voice(voice_name: str, model: str, logger: logging.Logger) ->
             except:
                 pass
         
-    except Exception as e:
+    except DependencyError as e:
+        logger.error(f"Voice preview failed: {e}")
+        click.echo(f"Dependency missing: {e}", err=True)
+    except TTSError as e:
         logger.error(f"Voice preview failed: {e}")
         click.echo(f"Error playing voice preview: {e}", err=True)
+    except Exception as e:
+        logger.error(f"Voice preview failed: {e}")
+        click.echo(f"Unexpected error playing voice preview: {e}", err=True)
 
 
 def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str, 
@@ -228,9 +244,21 @@ def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str
         else:
             logger.info("Audio streaming completed")
         
+    except DependencyError as e:
+        logger.error(f"Synthesis failed - dependency missing: {e}")
+        click.echo(f"Dependency missing: {e}", err=True)
+        sys.exit(1)
+    except NetworkError as e:
+        logger.error(f"Synthesis failed - network error: {e}")
+        click.echo(f"Network error: {e}", err=True)
+        sys.exit(1)
+    except TTSError as e:
+        logger.error(f"Synthesis failed: {e}")
+        click.echo(f"TTS error: {e}", err=True)
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Synthesis failed: {e}")
-        click.echo(f"Error: {e}", err=True)
+        click.echo(f"Unexpected error: {e}", err=True)
         sys.exit(1)
 
 

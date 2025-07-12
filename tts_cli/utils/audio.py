@@ -3,6 +3,7 @@ import subprocess
 import os
 import logging
 from typing import Optional
+from ..exceptions import AudioConversionError, DependencyError
 
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,8 @@ def convert_audio(input_path: str, output_path: str, output_format: str) -> None
         output_format: Target format (e.g., 'mp3', 'wav', 'ogg')
         
     Raises:
-        RuntimeError: If ffmpeg is not available or conversion fails
+        AudioConversionError: If conversion fails
+        DependencyError: If ffmpeg is not available
     """
     logger.debug(f"Converting {input_path} to {output_format} format")
     
@@ -30,10 +32,10 @@ def convert_audio(input_path: str, output_path: str, output_format: str) -> None
         
     except subprocess.CalledProcessError as e:
         logger.error(f"FFmpeg conversion failed: {e.stderr}")
-        raise RuntimeError(f"Audio format conversion failed. Is ffmpeg installed? Error: {e.stderr}")
+        raise AudioConversionError(f"Audio format conversion failed. Error: {e.stderr}")
     except FileNotFoundError:
         logger.error("FFmpeg not found")
-        raise RuntimeError("ffmpeg not found. Please install ffmpeg to use non-default formats.")
+        raise DependencyError("ffmpeg not found. Please install ffmpeg to use non-default formats.")
 
 
 def convert_with_cleanup(input_path: str, output_path: str, output_format: str, 
@@ -48,7 +50,8 @@ def convert_with_cleanup(input_path: str, output_path: str, output_format: str,
         cleanup_input: Whether to delete input file after conversion
         
     Raises:
-        RuntimeError: If conversion fails
+        AudioConversionError: If conversion fails
+        DependencyError: If ffmpeg is not available
     """
     try:
         convert_audio(input_path, output_path, output_format)
