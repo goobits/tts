@@ -60,7 +60,7 @@ def load_provider(name: str) -> Type[TTSProvider]:
 @click.option("--list-voices", help="List available voices for a specific provider")
 @click.option("--find-voice", help="Search voices by language/gender (e.g., 'british female')")
 @click.option("--preview-voice", help="Play a sample of the specified voice")
-@click.option("-s", "--stream", is_flag=True, help="Stream directly to speakers (no file saved)")
+@click.option("-s", "--save", is_flag=True, help="Save to file instead of streaming to speakers")
 @click.argument("text", required=False)
 @click.option("-m", "--model", default="edge_tts", help="TTS model to use (default: edge_tts)")
 @click.option("-o", "--output", default="output.wav", help="Output file path")
@@ -68,7 +68,7 @@ def load_provider(name: str) -> Type[TTSProvider]:
 @click.option("--voice", help="Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
 @click.option("--clone", help="Audio file to clone voice from (for chatterbox)")
 @click.argument("options", nargs=-1)
-def main(text: str, model: str, output: str, options: tuple, list_models: bool, stream: bool, voice: str, clone: str, list_voices: str, find_voice: str, preview_voice: str, output_format: str):
+def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, list_voices: str, find_voice: str, preview_voice: str, output_format: str):
     """Text-to-speech CLI with multiple providers."""
     
     # Setup logging
@@ -181,19 +181,20 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
         click.echo("Error: You must provide text to synthesize", err=True)
         sys.exit(1)
     
-    # Check output file permissions
-    output_path = Path(output)
-    try:
-        # Check if output directory exists and is writable
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        # Test write permissions by creating a temporary file
-        test_file = output_path.parent / ".tts_write_test"
-        test_file.touch()
-        test_file.unlink()
-    except (PermissionError, OSError) as e:
-        logger.error(f"Cannot write to output path {output_path}: {e}")
-        click.echo(f"Error: Cannot write to output path {output_path}: {e}", err=True)
-        sys.exit(1)
+    # Check output file permissions only if saving to file
+    if save:
+        output_path = Path(output)
+        try:
+            # Check if output directory exists and is writable
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            # Test write permissions by creating a temporary file
+            test_file = output_path.parent / ".tts_write_test"
+            test_file.touch()
+            test_file.unlink()
+        except (PermissionError, OSError) as e:
+            logger.error(f"Cannot write to output path {output_path}: {e}")
+            click.echo(f"Error: Cannot write to output path {output_path}: {e}", err=True)
+            sys.exit(1)
     
     # Parse key=value options
     kwargs = {}
@@ -204,7 +205,8 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
         key, value = opt.split("=", 1)
         kwargs[key] = value
     
-    # Add stream flag to kwargs if set
+    # Default to streaming unless --save flag is used
+    stream = not save
     if stream:
         kwargs["stream"] = "true"
     
@@ -260,7 +262,7 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
             click.echo(f"Streaming with {model}...")
         else:
             logger.info(f"Synthesizing audio to {output}")
-            click.echo(f"Synthesizing with {model}...")
+            click.echo(f"Saving with {model}...")
         
         provider.synthesize(text, output, **kwargs)
         

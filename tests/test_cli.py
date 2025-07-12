@@ -34,7 +34,15 @@ def test_cli_list_models():
 
 def test_cli_default_model():
     runner = CliRunner()
-    # This should use edge_tts by default but will fail because edge-tts isn't mocked
-    result = runner.invoke(cli, ['Hello world', '-o', 'test.mp3'])
+    # This should use edge_tts by default and stream (not save)
+    result = runner.invoke(cli, ['Hello world'])
+    # We expect it to try to use edge_tts (the error will be about edge-tts not being installed)
+    assert 'edge-tts not installed' in result.output or result.exit_code == 0
+
+
+def test_cli_save_mode():
+    runner = CliRunner()
+    # This should save to file when --save flag is used
+    result = runner.invoke(cli, ['Hello world', '--save', '-o', 'test.mp3'])
     # We expect it to try to use edge_tts (the error will be about edge-tts not being installed)
     assert 'edge-tts not installed' in result.output or result.exit_code == 0
