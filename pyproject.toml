@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tts-cli"
 version = "0.1.0"
-description = "A modular command-line interface for multiple text-to-speech engines"
+description = "Smart Text-to-Speech CLI with auto-selection and voice cloning"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
@@ -31,21 +31,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-edge_tts = ["edge-tts"]
-chatterbox = ["chat-tts", "torch", "torchaudio"]
-orpheus = ["onnxruntime", "transformers", "soundfile"]
-naturalspeech = ["naturalspeech", "torch", "torchaudio"]
-maskgct = ["maskgct", "torch", "torchaudio"]
+edge_tts = ["edge-tts>=7.0.0"]
+chatterbox = ["chatterbox-tts>=0.1.2", "torch>=2.6.0", "torchaudio>=2.6.0", "soundfile>=0.13.0"]
 all = [
-    "edge-tts",
-    "chat-tts",
-    "onnxruntime",
-    "transformers",
-    "soundfile",
-    "naturalspeech",
-    "maskgct",
-    "torch",
-    "torchaudio",
+    "edge-tts>=7.0.0",
+    "chatterbox-tts>=0.1.2", 
+    "torch>=2.6.0",
+    "torchaudio>=2.6.0",
+    "soundfile>=0.13.0",
 ]
 dev = [
     "pytest>=7.0",
@@ -62,8 +55,8 @@ dev = [
 tts-cli = "tts_cli.tts:cli"
 
 [project.urls]
-"Homepage" = "https://github.com/yourusername/tts-cli"
-"Bug Tracker" = "https://github.com/yourusername/tts-cli/issues"
+"Homepage" = "https://github.com/mudcube/tts-cli"
+"Bug Tracker" = "https://github.com/mudcube/tts-cli/issues"
 
 [tool.setuptools]
 packages = ["tts_cli", "tts_cli.providers"]
