@@ -109,5 +109,5 @@ class EdgeTTSProvider(TTSProvider):
                 "stream": "Stream directly to speakers instead of saving to file (true/false)"
             },
             "output_format": "MP3",
-            "sample_voices": voices[:10] if voices else []
+            "sample_voices": voices if voices else []
         }
