@@ -1,4 +1,5 @@
 from ..base import TTSProvider
+from ..utils.audio import convert_with_cleanup
 from typing import Optional, Dict, Any
 import logging
 
@@ -65,29 +66,14 @@ class ChatterboxProvider(TTSProvider):
             else:
                 # Convert to other formats using ffmpeg
                 import tempfile
-                import subprocess
                 with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
                     wav_path = tmp.name
                 
-                try:
-                    import torchaudio as ta
-                    ta.save(wav_path, wav, self.tts.sr)
-                    self.logger.debug(f"Converting {wav_path} to {output_format} format")
-                    # Convert using ffmpeg
-                    subprocess.run([
-                        'ffmpeg', '-i', wav_path, '-y', output_path
-                    ], check=True, capture_output=True, text=True)
-                    self.logger.debug("Format conversion completed successfully")
-                except subprocess.CalledProcessError as e:
-                    self.logger.error(f"FFmpeg conversion failed: {e.stderr}")
-                    raise RuntimeError(f"Audio format conversion failed. Is ffmpeg installed? Error: {e.stderr}")
-                except FileNotFoundError:
-                    self.logger.error("FFmpeg not found for format conversion")
-                    raise RuntimeError("ffmpeg not found. Please install ffmpeg to use non-WAV formats.")
-                finally:
-                    import os
-                    if os.path.exists(wav_path):
-                        os.remove(wav_path)
+                import torchaudio as ta
+                ta.save(wav_path, wav, self.tts.sr)
+                
+                # Convert using utility function with cleanup
+                convert_with_cleanup(wav_path, output_path, output_format)
     
     def _stream_to_speakers(self, wav_tensor):
         """Stream audio tensor directly to speakers using ffplay"""

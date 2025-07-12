@@ -54,148 +54,103 @@ def load_provider(name: str) -> Type[TTSProvider]:
     return provider_class
 
 
-@click.command()
-@click.version_option(version=__version__, prog_name="tts-cli")
-@click.option("-l", "--list", "list_models", is_flag=True, help="List available models")
-@click.option("--list-voices", help="List available voices for a specific provider")
-@click.option("--find-voice", help="Search voices by language/gender (e.g., 'british female')")
-@click.option("--preview-voice", help="Play a sample of the specified voice")
-@click.option("-s", "--save", is_flag=True, help="Save to file instead of streaming to speakers")
-@click.argument("text", required=False)
-@click.option("-m", "--model", default="edge_tts", help="TTS model to use (default: edge_tts)")
-@click.option("-o", "--output", default="output.wav", help="Output file path")
-@click.option("-f", "--format", "output_format", default="mp3", type=click.Choice(['mp3', 'wav', 'ogg', 'flac']), help="Audio output format")
-@click.option("--voice", help="Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
-@click.option("--clone", help="Audio file to clone voice from (for chatterbox)")
-@click.argument("options", nargs=-1)
-def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, list_voices: str, find_voice: str, preview_voice: str, output_format: str):
-    """Text-to-speech CLI with multiple providers."""
-    
-    # Setup logging
-    logger = setup_logging()
-    
-    # Handle list command
-    if list_models:
-        click.echo("Available models:")
-        for name in PROVIDERS.keys():
-            click.echo(f"  - {name}")
-        return
-    
-    # Handle list voices command
-    if list_voices:
-        try:
-            provider_class = load_provider(list_voices)
-            provider = provider_class()
-            info = provider.get_info()
-            if info and 'sample_voices' in info:
-                click.echo(f"Available voices for {list_voices}:")
-                for voice in info['sample_voices']:
+def handle_list_voices(provider_name: str) -> None:
+    """Handle --list-voices command"""
+    try:
+        provider_class = load_provider(provider_name)
+        provider = provider_class()
+        info = provider.get_info()
+        if info and 'sample_voices' in info:
+            click.echo(f"Available voices for {provider_name}:")
+            for voice in info['sample_voices']:
+                click.echo(f"  - {voice}")
+        else:
+            click.echo(f"No voice list available for {provider_name}")
+    except Exception as e:
+        click.echo(f"Error listing voices for {provider_name}: {e}", err=True)
+
+
+def handle_find_voice(search_term: str, model: str) -> None:
+    """Handle --find-voice command"""
+    if not model:
+        click.echo("Error: --find-voice requires -m/--model to specify provider", err=True)
+        sys.exit(1)
+    try:
+        provider_class = load_provider(model)
+        provider = provider_class()
+        info = provider.get_info()
+        if info and 'sample_voices' in info:
+            search_terms = search_term.lower().split()
+            matches = []
+            for voice in info['sample_voices']:
+                voice_lower = voice.lower()
+                if all(term in voice_lower for term in search_terms):
+                    matches.append(voice)
+            
+            if matches:
+                click.echo(f"Matching voices for '{search_term}':")
+                for voice in matches:
                     click.echo(f"  - {voice}")
             else:
-                click.echo(f"No voice list available for {list_voices}")
-        except Exception as e:
-            click.echo(f"Error listing voices for {list_voices}: {e}", err=True)
-        return
+                click.echo(f"No voices found matching '{search_term}'")
+        else:
+            click.echo(f"No voice search available for {model}")
+    except Exception as e:
+        click.echo(f"Error searching voices: {e}", err=True)
+
+
+def handle_preview_voice(voice_name: str, model: str, logger: logging.Logger) -> None:
+    """Handle --preview-voice command"""
+    import tempfile
+    import subprocess
     
-    # Handle find voice command
-    if find_voice:
-        if not model:
-            click.echo("Error: --find-voice requires -m/--model to specify provider", err=True)
-            sys.exit(1)
-        try:
-            provider_class = load_provider(model)
-            provider = provider_class()
-            info = provider.get_info()
-            if info and 'sample_voices' in info:
-                search_terms = find_voice.lower().split()
-                matches = []
-                for voice in info['sample_voices']:
-                    voice_lower = voice.lower()
-                    if all(term in voice_lower for term in search_terms):
-                        matches.append(voice)
-                
-                if matches:
-                    click.echo(f"Matching voices for '{find_voice}':")
-                    for voice in matches:
-                        click.echo(f"  - {voice}")
-                else:
-                    click.echo(f"No voices found matching '{find_voice}'")
-            else:
-                click.echo(f"No voice search available for {model}")
-        except Exception as e:
-            click.echo(f"Error searching voices: {e}", err=True)
-        return
-    
-    # Handle preview voice command
-    if preview_voice:
-        import tempfile
-        import subprocess
+    try:
+        provider_class = load_provider(model)
+        provider = provider_class()
+        
+        # Standard preview text that showcases voice characteristics
+        preview_text = "Hello! This is a preview of my voice. I can speak clearly with natural intonation and emotion."
+        
+        logger.info(f"Playing voice preview for {voice_name} using {model}")
+        click.echo(f"Playing preview of voice '{voice_name}' with {model}...")
+        
+        # Create temporary file for preview
+        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+            temp_file = tmp.name
         
         try:
-            provider_class = load_provider(model)
-            provider = provider_class()
+            # Generate audio to temporary file
+            kwargs = {"voice": voice_name}
+            provider.synthesize(preview_text, temp_file, **kwargs)
             
-            # Standard preview text that showcases voice characteristics
-            preview_text = "Hello! This is a preview of my voice. I can speak clearly with natural intonation and emotion."
-            
-            logger.info(f"Playing voice preview for {preview_voice} using {model}")
-            click.echo(f"Playing preview of voice '{preview_voice}' with {model}...")
-            
-            # Create temporary file for preview
-            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
-                temp_file = tmp.name
-            
+            # Play the temporary file
             try:
-                # Generate audio to temporary file
-                kwargs = {"voice": preview_voice}
-                provider.synthesize(preview_text, temp_file, **kwargs)
+                subprocess.run([
+                    'ffplay', '-nodisp', '-autoexit', temp_file
+                ], check=True, stderr=subprocess.DEVNULL)
+                click.echo("Preview completed.")
+            except FileNotFoundError:
+                click.echo(f"Audio generated: {temp_file}")
+                click.echo("Install ffmpeg to play audio automatically, or play the file manually.")
+            except subprocess.CalledProcessError:
+                click.echo(f"Audio generated: {temp_file}")
+                click.echo("Could not play audio automatically. Play the file manually.")
                 
-                # Play the temporary file
-                try:
-                    subprocess.run([
-                        'ffplay', '-nodisp', '-autoexit', temp_file
-                    ], check=True, stderr=subprocess.DEVNULL)
-                    click.echo("Preview completed.")
-                except FileNotFoundError:
-                    click.echo(f"Audio generated: {temp_file}")
-                    click.echo("Install ffmpeg to play audio automatically, or play the file manually.")
-                except subprocess.CalledProcessError:
-                    click.echo(f"Audio generated: {temp_file}")
-                    click.echo("Could not play audio automatically. Play the file manually.")
-                    
-            finally:
-                # Clean up temporary file
-                try:
-                    Path(temp_file).unlink()
-                except:
-                    pass
-            
-        except Exception as e:
-            logger.error(f"Voice preview failed: {e}")
-            click.echo(f"Error playing voice preview: {e}", err=True)
-        return
-    
-    # Check required arguments
-    if not text:
-        logger.error("No text provided for synthesis")
-        click.echo("Error: You must provide text to synthesize", err=True)
-        sys.exit(1)
-    
-    # Check output file permissions only if saving to file
-    if save:
-        output_path = Path(output)
-        try:
-            # Check if output directory exists and is writable
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            # Test write permissions by creating a temporary file
-            test_file = output_path.parent / ".tts_write_test"
-            test_file.touch()
-            test_file.unlink()
-        except (PermissionError, OSError) as e:
-            logger.error(f"Cannot write to output path {output_path}: {e}")
-            click.echo(f"Error: Cannot write to output path {output_path}: {e}", err=True)
-            sys.exit(1)
-    
+        finally:
+            # Clean up temporary file
+            try:
+                Path(temp_file).unlink()
+            except:
+                pass
+        
+    except Exception as e:
+        logger.error(f"Voice preview failed: {e}")
+        click.echo(f"Error playing voice preview: {e}", err=True)
+
+
+def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str, 
+                     clone: str, output_format: str, options: tuple, logger: logging.Logger) -> None:
+    """Handle main synthesis command"""
     # Parse key=value options
     kwargs = {}
     for opt in options:
@@ -277,6 +232,73 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
         logger.error(f"Synthesis failed: {e}")
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
+
+
+@click.command()
+@click.version_option(version=__version__, prog_name="tts-cli")
+@click.option("-l", "--list", "list_models", is_flag=True, help="List available models")
+@click.option("--list-voices", help="List available voices for a specific provider")
+@click.option("--find-voice", help="Search voices by language/gender (e.g., 'british female')")
+@click.option("--preview-voice", help="Play a sample of the specified voice")
+@click.option("-s", "--save", is_flag=True, help="Save to file instead of streaming to speakers")
+@click.argument("text", required=False)
+@click.option("-m", "--model", default="edge_tts", help="TTS model to use (default: edge_tts)")
+@click.option("-o", "--output", default="output.wav", help="Output file path")
+@click.option("-f", "--format", "output_format", default="mp3", type=click.Choice(['mp3', 'wav', 'ogg', 'flac']), help="Audio output format")
+@click.option("--voice", help="Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
+@click.option("--clone", help="Audio file to clone voice from (for chatterbox)")
+@click.argument("options", nargs=-1)
+def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, list_voices: str, find_voice: str, preview_voice: str, output_format: str):
+    """Text-to-speech CLI with multiple providers."""
+    
+    # Setup logging
+    logger = setup_logging()
+    
+    # Handle list command
+    if list_models:
+        click.echo("Available models:")
+        for name in PROVIDERS.keys():
+            click.echo(f"  - {name}")
+        return
+    
+    # Handle list voices command
+    if list_voices:
+        handle_list_voices(list_voices)
+        return
+    
+    # Handle find voice command
+    if find_voice:
+        handle_find_voice(find_voice, model)
+        return
+    
+    # Handle preview voice command
+    if preview_voice:
+        handle_preview_voice(preview_voice, model, logger)
+        return
+    
+    # Check required arguments
+    if not text:
+        logger.error("No text provided for synthesis")
+        click.echo("Error: You must provide text to synthesize", err=True)
+        sys.exit(1)
+    
+    # Check output file permissions only if saving to file
+    if save:
+        output_path = Path(output)
+        try:
+            # Check if output directory exists and is writable
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            # Test write permissions by creating a temporary file
+            test_file = output_path.parent / ".tts_write_test"
+            test_file.touch()
+            test_file.unlink()
+        except (PermissionError, OSError) as e:
+            logger.error(f"Cannot write to output path {output_path}: {e}")
+            click.echo(f"Error: Cannot write to output path {output_path}: {e}", err=True)
+            sys.exit(1)
+    
+    # Handle main synthesis
+    handle_synthesize(text, model, output, save, voice, clone, output_format, options, logger)
 
 
 def cli():

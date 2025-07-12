@@ -59,7 +59,7 @@ tts-cli = "tts_cli.tts:cli"
 "Bug Tracker" = "https://github.com/mudcube/tts-cli/issues"
 
 [tool.setuptools]
-packages = ["tts_cli", "tts_cli.providers"]
+packages = ["tts_cli", "tts_cli.providers", "tts_cli.utils"]
 package-dir = {"" = "."}
 
 [tool.black]

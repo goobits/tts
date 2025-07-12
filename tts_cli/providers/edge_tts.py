@@ -1,4 +1,5 @@
 from ..base import TTSProvider
+from ..utils.audio import convert_with_cleanup
 from typing import Optional, Dict, Any
 import asyncio
 import logging
@@ -28,30 +29,14 @@ class EdgeTTSProvider(TTSProvider):
             else:
                 # For other formats, save as MP3 first then convert
                 import tempfile
-                import subprocess
                 with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
                     mp3_path = tmp.name
                 
-                try:
-                    self.logger.debug(f"Saving MP3 to temporary file: {mp3_path}")
-                    await communicate.save(mp3_path)
-                    
-                    # Convert using ffmpeg
-                    self.logger.debug(f"Converting {mp3_path} to {output_format} format")
-                    result = subprocess.run([
-                        'ffmpeg', '-i', mp3_path, '-y', output_path
-                    ], check=True, capture_output=True, text=True)
-                    self.logger.debug("Format conversion completed successfully")
-                except subprocess.CalledProcessError as e:
-                    self.logger.error(f"FFmpeg conversion failed: {e.stderr}")
-                    raise RuntimeError(f"Audio format conversion failed. Is ffmpeg installed? Error: {e.stderr}")
-                except FileNotFoundError:
-                    self.logger.error("FFmpeg not found")
-                    raise RuntimeError("ffmpeg not found. Please install ffmpeg to use non-MP3 formats.")
-                finally:
-                    import os
-                    if os.path.exists(mp3_path):
-                        os.remove(mp3_path)
+                self.logger.debug(f"Saving MP3 to temporary file: {mp3_path}")
+                await communicate.save(mp3_path)
+                
+                # Convert using utility function with cleanup
+                convert_with_cleanup(mp3_path, output_path, output_format)
         except Exception as e:
             if "internet" in str(e).lower() or "network" in str(e).lower() or "connection" in str(e).lower():
                 self.logger.error(f"Network error during Edge TTS synthesis: {e}")
