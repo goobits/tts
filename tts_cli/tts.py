@@ -35,7 +35,7 @@ def load_provider(name: str) -> Type[TTSProvider]:
 @click.option("--find-voice", help="Search voices by language/gender (e.g., 'british female')")
 @click.option("-s", "--stream", is_flag=True, help="Stream directly to speakers (no file saved)")
 @click.argument("text", required=False)
-@click.option("-m", "--model", help="TTS model to use")
+@click.option("-m", "--model", default="edge_tts", help="TTS model to use (default: edge_tts)")
 @click.option("-o", "--output", default="output.wav", help="Output file path")
 @click.option("-f", "--format", "output_format", default="mp3", type=click.Choice(['mp3', 'wav', 'ogg', 'flac']), help="Audio output format")
 @click.option("--voice", help="Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
@@ -97,8 +97,8 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
         return
     
     # Check required arguments
-    if not text or not model:
-        click.echo("Error: You must specify a model with -m/--model", err=True)
+    if not text:
+        click.echo("Error: You must provide text to synthesize", err=True)
         sys.exit(1)
     
     # Parse key=value options
