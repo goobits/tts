@@ -5,13 +5,12 @@ from unittest.mock import Mock, patch, AsyncMock
 from tts_cli.providers.edge_tts import EdgeTTSProvider
 
 
-@patch('tts_cli.providers.edge_tts.asyncio.run')
-def test_edge_tts_synthesize(mock_asyncio_run):
+def test_edge_tts_synthesize():
     provider = EdgeTTSProvider()
     
-    # Mock edge_tts module
+    # Mock edge_tts module and the async communicate object
     mock_edge_tts = Mock()
-    mock_communicate = Mock()
+    mock_communicate = AsyncMock()
     mock_edge_tts.Communicate.return_value = mock_communicate
     provider.edge_tts = mock_edge_tts
     
@@ -22,14 +21,16 @@ def test_edge_tts_synthesize(mock_asyncio_run):
     try:
         provider.synthesize("Hello world", output_path, voice="en-US-JennyNeural")
         
-        # Verify edge_tts was called correctly
+        # Verify edge_tts.Communicate was called correctly
         mock_edge_tts.Communicate.assert_called_once_with(
             "Hello world", 
             "en-US-JennyNeural", 
             rate="+0%", 
             pitch="+0Hz"
         )
-        mock_asyncio_run.assert_called_once()
+        
+        # Verify save was called on the communicate object
+        mock_communicate.save.assert_called_once_with(output_path)
     finally:
         if os.path.exists(output_path):
             os.remove(output_path)
