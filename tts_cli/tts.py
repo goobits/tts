@@ -10,9 +10,6 @@ from .__version__ import __version__
 
 PROVIDERS: Dict[str, str] = {
     "chatterbox": ".providers.chatterbox.ChatterboxProvider",
-    "orpheus": ".providers.orpheus.OrpheusProvider",
-    "naturalspeech": ".providers.naturalspeech.NaturalSpeechProvider",
-    "maskgct": ".providers.maskgct.MaskGCTProvider",
     "edge_tts": ".providers.edge_tts.EdgeTTSProvider",
 }
 
@@ -38,8 +35,10 @@ def load_provider(name: str) -> Type[TTSProvider]:
 @click.argument("text", required=False)
 @click.option("-m", "--model", help="TTS model to use")
 @click.option("-o", "--output", default="output.wav", help="Output file path")
+@click.option("--voice", help="Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
+@click.option("--clone", help="Audio file to clone voice from (for chatterbox)")
 @click.argument("options", nargs=-1)
-def main(text: str, model: str, output: str, options: tuple, list_models: bool, stream: bool):
+def main(text: str, model: str, output: str, options: tuple, list_models: bool, stream: bool, voice: str, clone: str):
     """Text-to-speech CLI with multiple providers."""
     
     # Handle list command
@@ -66,6 +65,14 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
     # Add stream flag to kwargs if set
     if stream:
         kwargs["stream"] = "true"
+    
+    # Add voice parameter if specified
+    if voice:
+        kwargs["voice"] = voice
+    
+    # Add clone parameter if specified (for chatterbox voice cloning)
+    if clone:
+        kwargs["voice"] = clone
     
     try:
         # Load and instantiate provider

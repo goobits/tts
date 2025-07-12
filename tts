@@ -103,7 +103,7 @@ def main():
         else:
             voice_param = f" voice={args.voice}" if args.voice else ""
         clone_param = f" voice={args.clone}" if args.clone else ""
-        cmd = f"bash -c 'cd /home/miko/projects/tts && source venv/bin/activate && python -m tts_cli.tts \"{text}\" -m {args.engine} -s{voice_param}{clone_param}'"
+        cmd = f"python3 -m tts_cli.tts \"{text}\" -m {args.engine} -s{voice_param}{clone_param}"
         os.system(cmd)
 
 if __name__ == "__main__":

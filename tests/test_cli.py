@@ -1,6 +1,6 @@
 import pytest
 from click.testing import CliRunner
-from tts_cli.tts import cli
+from tts_cli.tts import main as cli
 
 
 def test_cli_help():
@@ -21,7 +21,7 @@ def test_cli_unknown_model():
     runner = CliRunner()
     result = runner.invoke(cli, ['Hello world', '-m', 'unknown_model'])
     assert result.exit_code == 1
-    assert 'Unknown model: unknown_model' in result.output
+    assert 'Unknown provider: unknown_model' in result.output
 
 
 def test_cli_list_models():
@@ -30,4 +30,3 @@ def test_cli_list_models():
     assert result.exit_code == 0
     assert 'edge_tts' in result.output
     assert 'chatterbox' in result.output
-    assert 'orpheus' in result.output
