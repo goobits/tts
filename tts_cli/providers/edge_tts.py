@@ -63,37 +63,124 @@ class EdgeTTSProvider(TTSProvider):
     async def _stream_async(self, text: str, voice: str, rate: str, pitch: str):
         """Stream TTS audio directly to speakers without saving to file"""
         import subprocess
+        import os
         
         try:
+            import time
+            start_time = time.time()
             self.logger.debug(f"Starting Edge TTS streaming with voice: {voice}")
             communicate = self.edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
             
-            # Start ffplay process to play audio from stdin
+            # Check for audio environment first
+            audio_env = self._check_audio_environment()
+            if not audio_env['available']:
+                self.logger.warning(f"Audio streaming not available: {audio_env['reason']}")
+                # Fallback to temporary file method
+                return await self._stream_via_tempfile(text, voice, rate, pitch)
+            
+            # Start ffplay process with better error handling
             try:
-                ffplay_process = subprocess.Popen([
-                    'ffplay', '-nodisp', '-autoexit', '-i', 'pipe:0'
-                ], stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                # Use more robust ffplay options
+                ffplay_cmd = [
+                    'ffplay', 
+                    '-nodisp',           # No video display
+                    '-autoexit',         # Exit when done
+                    '-loglevel', 'quiet', # Reduce ffplay output
+                    '-i', 'pipe:0'       # Read from stdin
+                ]
+                
+                # Add audio device options if available
+                if audio_env['pulse_available']:
+                    ffplay_cmd.extend(['-f', 'pulse'])
+                
+                self.logger.debug(f"Starting ffplay with command: {' '.join(ffplay_cmd)}")
+                ffplay_process = subprocess.Popen(
+                    ffplay_cmd,
+                    stdin=subprocess.PIPE, 
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                    bufsize=0  # Unbuffered for real-time streaming
+                )
             except FileNotFoundError:
                 self.logger.error("FFplay not found for audio streaming")
                 raise RuntimeError("ffplay not found. Please install ffmpeg to use audio streaming.")
             
             try:
-                # Stream audio data directly to ffplay
-                self.logger.debug("Streaming audio chunks to ffplay")
+                # Stream audio data with improved error handling
+                self.logger.debug("Starting chunk-by-chunk audio streaming")
+                chunk_count = 0
+                bytes_written = 0
+                
+                # Optimized streaming: Start playback as soon as first chunks arrive
+                first_chunk_time = None
+                playback_started = False
+                
                 async for chunk in communicate.stream():
                     if chunk['type'] == 'audio':
-                        ffplay_process.stdin.write(chunk['data'])
+                        chunk_count += 1
+                        
+                        # Log when we get the first chunk (latency measurement)
+                        if chunk_count == 1:
+                            import time
+                            first_chunk_time = time.time()
+                            self.logger.debug("First audio chunk received - starting immediate playback")
+                        
+                        try:
+                            # Write chunk immediately to start playback ASAP
+                            ffplay_process.stdin.write(chunk['data'])
+                            ffplay_process.stdin.flush()  # Force immediate write for low latency
+                            bytes_written += len(chunk['data'])
+                            
+                            # Mark playback as started after first few chunks
+                            if chunk_count == 3 and not playback_started:
+                                playback_started = True
+                                self.logger.debug("Optimized streaming: Playback should have started")
+                            
+                            # Log progress every 10 chunks
+                            if chunk_count % 10 == 0:
+                                self.logger.debug(f"Streamed {chunk_count} chunks, {bytes_written} bytes")
+                                
+                        except BrokenPipeError:
+                            # Check if ffplay process ended early
+                            if ffplay_process.poll() is not None:
+                                stderr_output = ffplay_process.stderr.read().decode('utf-8', errors='ignore')
+                                self.logger.warning(f"FFplay ended early (exit code: {ffplay_process.returncode}): {stderr_output}")
+                                break
+                            else:
+                                raise
                 
                 # Close stdin and wait for ffplay to finish
-                ffplay_process.stdin.close()
-                ffplay_process.wait()
-                self.logger.debug("Audio streaming completed")
+                try:
+                    ffplay_process.stdin.close()
+                    exit_code = ffplay_process.wait(timeout=5)  # Add timeout
+                    
+                    # Calculate and log timing metrics
+                    total_time = time.time() - start_time
+                    if first_chunk_time:
+                        latency = first_chunk_time - start_time
+                        self.logger.info(f"Streaming optimization: First audio in {latency:.1f}s, Total: {total_time:.1f}s")
+                    
+                    self.logger.debug(f"Audio streaming completed. Chunks: {chunk_count}, Bytes: {bytes_written}, Exit code: {exit_code}")
+                except subprocess.TimeoutExpired:
+                    self.logger.warning("FFplay process timeout, terminating")
+                    ffplay_process.terminate()
+                    
             except Exception as e:
                 self.logger.error(f"Audio streaming failed: {e}")
-                ffplay_process.terminate()
+                # Ensure ffplay is terminated
+                if ffplay_process.poll() is None:
+                    ffplay_process.terminate()
+                    try:
+                        ffplay_process.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        ffplay_process.kill()
+                
                 if "internet" in str(e).lower() or "network" in str(e).lower():
                     raise RuntimeError("Network error during streaming. Check your internet connection.")
+                elif isinstance(e, BrokenPipeError):
+                    raise RuntimeError("Audio streaming failed: Audio device may not be available or configured properly.")
                 raise e
+                
         except Exception as e:
             if "internet" in str(e).lower() or "network" in str(e).lower() or "connection" in str(e).lower():
                 self.logger.error(f"Network error during Edge TTS streaming: {e}")
@@ -101,6 +188,87 @@ class EdgeTTSProvider(TTSProvider):
             else:
                 self.logger.error(f"Edge TTS streaming failed: {e}")
                 raise
+    
+    def _check_audio_environment(self):
+        """Check if audio streaming is available in current environment"""
+        import subprocess
+        import os
+        
+        result = {
+            'available': False,
+            'reason': 'Unknown',
+            'pulse_available': False,
+            'alsa_available': False
+        }
+        
+        # Check for PulseAudio
+        if 'PULSE_SERVER' in os.environ:
+            result['pulse_available'] = True
+            result['available'] = True
+            result['reason'] = 'PulseAudio available'
+            return result
+        
+        # Check for ALSA devices
+        try:
+            if os.path.exists('/proc/asound/cards') and os.path.getsize('/proc/asound/cards') > 0:
+                result['alsa_available'] = True
+                result['available'] = True
+                result['reason'] = 'ALSA devices available'
+                return result
+        except:
+            pass
+            
+        # Check if we can reach audio system
+        try:
+            # Test if we can run a simple audio command
+            subprocess.run(['aplay', '--version'], 
+                         stdout=subprocess.DEVNULL, 
+                         stderr=subprocess.DEVNULL, 
+                         timeout=2)
+            result['available'] = True
+            result['reason'] = 'Audio system responsive'
+            return result
+        except:
+            pass
+            
+        result['reason'] = 'No audio devices or audio system unavailable'
+        return result
+    
+    async def _stream_via_tempfile(self, text: str, voice: str, rate: str, pitch: str):
+        """Fallback streaming method using temporary file when direct streaming fails"""
+        import tempfile
+        import subprocess
+        
+        self.logger.info("Using temporary file fallback for audio streaming")
+        
+        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+            temp_file = tmp.name
+        
+        try:
+            # Generate audio to temporary file
+            await self._synthesize_async(text, temp_file, voice, rate, pitch, "mp3")
+            
+            # Play the temporary file
+            try:
+                subprocess.run([
+                    'ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', temp_file
+                ], check=True, timeout=30)
+                self.logger.debug("Temporary file streaming completed")
+            except FileNotFoundError:
+                self.logger.warning(f"FFplay not available, audio saved to: {temp_file}")
+                raise RuntimeError(f"Audio generated but cannot play automatically. File saved to: {temp_file}")
+            except subprocess.CalledProcessError as e:
+                self.logger.warning(f"FFplay failed to play temporary file: {e}")
+                raise RuntimeError(f"Audio generated but playback failed. File saved to: {temp_file}")
+                
+        finally:
+            # Clean up temporary file
+            try:
+                import os
+                if os.path.exists(temp_file):
+                    os.unlink(temp_file)
+            except:
+                pass
     
     def synthesize(self, text: str, output_path: str, **kwargs) -> None:
         self._lazy_load()

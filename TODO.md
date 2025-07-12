@@ -16,9 +16,12 @@
 
 ## Medium Priority
 
-- [ ] **Streaming optimization**
-  - Implement true streaming for Edge TTS to reduce latency from ~2.4s to ~0.3-0.5s
-  - Start playing audio chunks as they're generated instead of waiting for complete generation
+- [x] **Streaming optimization** ✅
+  - [x] Implement true streaming for Edge TTS to reduce latency from ~2.4s to ~0.3-0.5s
+  - [x] Start playing audio chunks as they're generated instead of waiting for complete generation
+  - [x] Added audio environment detection and fallback mechanisms
+  - [x] Improved error handling for broken pipe and audio device issues
+  - [x] Added latency measurement and logging for performance monitoring
 
 - [x] **Voice discovery** ✅
   - [x] Add `--list-voices` command to show available voices per provider (322 voices for edge_tts)
