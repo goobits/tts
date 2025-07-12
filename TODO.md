@@ -2,14 +2,17 @@
 
 ## High Priority
 
-- [ ] **Error handling improvements**
-  - Add proper exception handling for network failures
-  - Handle audio device issues gracefully
-  - Add provider-specific error handling
+- [x] **Error handling improvements** ✅
+  - [x] Add proper exception handling for network failures
+  - [x] Handle audio device issues gracefully  
+  - [x] Add provider-specific error handling
+  - [x] File permission checks before synthesis
 
-- [ ] **Logging system**
-  - Add structured logging for debugging and monitoring TTS operations
-  - Configure log levels and output destinations
+- [x] **Logging system** ✅
+  - [x] Add structured logging for debugging and monitoring TTS operations
+  - [x] Configure log levels and output destinations
+  - [x] Create ./logs/tts.log with INFO/WARNING/ERROR levels
+  - [x] Log synthesis attempts, errors, timing, and file operations
 
 ## Medium Priority
 
@@ -18,9 +21,10 @@
   - Start playing audio chunks as they're generated instead of waiting for complete generation
 
 - [x] **Voice discovery** ✅
-  - [x] Add `--list-voices` command to show available voices per provider
+  - [x] Add `--list-voices` command to show available voices per provider (322 voices for edge_tts)
   - [x] Add `--find-voice` to search voices by language/gender
   - [x] Validate voice names before synthesis to prevent failures
+  - [x] Set edge_tts as default model (no -m required)
   - [ ] Show voice samples/previews
 
 - [x] **Audio format options** ✅

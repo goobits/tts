@@ -1,10 +1,12 @@
 from ..base import TTSProvider
 from typing import Optional, Dict, Any
+import logging
 
 
 class ChatterboxProvider(TTSProvider):
     def __init__(self):
         self.tts = None
+        self.logger = logging.getLogger(__name__)
         
     def _lazy_load(self):
         if self.tts is None:
@@ -70,10 +72,18 @@ class ChatterboxProvider(TTSProvider):
                 try:
                     import torchaudio as ta
                     ta.save(wav_path, wav, self.tts.sr)
+                    self.logger.debug(f"Converting {wav_path} to {output_format} format")
                     # Convert using ffmpeg
                     subprocess.run([
                         'ffmpeg', '-i', wav_path, '-y', output_path
-                    ], check=True, capture_output=True)
+                    ], check=True, capture_output=True, text=True)
+                    self.logger.debug("Format conversion completed successfully")
+                except subprocess.CalledProcessError as e:
+                    self.logger.error(f"FFmpeg conversion failed: {e.stderr}")
+                    raise RuntimeError(f"Audio format conversion failed. Is ffmpeg installed? Error: {e.stderr}")
+                except FileNotFoundError:
+                    self.logger.error("FFmpeg not found for format conversion")
+                    raise RuntimeError("ffmpeg not found. Please install ffmpeg to use non-WAV formats.")
                 finally:
                     import os
                     if os.path.exists(wav_path):
@@ -86,29 +96,41 @@ class ChatterboxProvider(TTSProvider):
         import wave
         import numpy as np
         
-        # Convert tensor to numpy and ensure it's on CPU
-        audio_data = wav_tensor.cpu().numpy().squeeze()
-        
-        # Create an in-memory WAV file
-        buffer = io.BytesIO()
-        with wave.open(buffer, 'wb') as wav_file:
-            wav_file.setnchannels(1)  # Mono
-            wav_file.setsampwidth(2)  # 16-bit
-            wav_file.setframerate(self.tts.sr)  # Use model's sample rate
-            # Normalize and convert to 16-bit PCM
-            audio_normalized = np.clip(audio_data, -1.0, 1.0)
-            audio_16bit = (audio_normalized * 32767 * 0.95).astype(np.int16)
-            wav_file.writeframes(audio_16bit.tobytes())
-        
-        # Stream to ffplay
-        buffer.seek(0)
-        ffplay_process = subprocess.Popen([
-            'ffplay', '-nodisp', '-autoexit', '-i', 'pipe:0'
-        ], stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        
-        ffplay_process.stdin.write(buffer.getvalue())
-        ffplay_process.stdin.close()
-        ffplay_process.wait()
+        try:
+            self.logger.debug("Converting audio tensor for streaming")
+            # Convert tensor to numpy and ensure it's on CPU
+            audio_data = wav_tensor.cpu().numpy().squeeze()
+            
+            # Create an in-memory WAV file
+            buffer = io.BytesIO()
+            with wave.open(buffer, 'wb') as wav_file:
+                wav_file.setnchannels(1)  # Mono
+                wav_file.setsampwidth(2)  # 16-bit
+                wav_file.setframerate(self.tts.sr)  # Use model's sample rate
+                # Normalize and convert to 16-bit PCM
+                audio_normalized = np.clip(audio_data, -1.0, 1.0)
+                audio_16bit = (audio_normalized * 32767 * 0.95).astype(np.int16)
+                wav_file.writeframes(audio_16bit.tobytes())
+            
+            # Stream to ffplay
+            buffer.seek(0)
+            try:
+                ffplay_process = subprocess.Popen([
+                    'ffplay', '-nodisp', '-autoexit', '-i', 'pipe:0'
+                ], stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            except FileNotFoundError:
+                self.logger.error("FFplay not found for audio streaming")
+                raise RuntimeError("ffplay not found. Please install ffmpeg to use audio streaming.")
+            
+            self.logger.debug("Streaming audio to ffplay")
+            ffplay_process.stdin.write(buffer.getvalue())
+            ffplay_process.stdin.close()
+            ffplay_process.wait()
+            self.logger.debug("Audio streaming completed")
+            
+        except Exception as e:
+            self.logger.error(f"Audio streaming failed: {e}")
+            raise RuntimeError(f"Audio streaming failed: {e}")
     
     def get_info(self) -> Optional[Dict[str, Any]]:
         return {

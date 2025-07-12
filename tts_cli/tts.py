@@ -2,6 +2,8 @@
 import click
 import importlib
 import sys
+import logging
+import os
 from pathlib import Path
 from typing import Dict, Type
 from .base import TTSProvider
@@ -12,6 +14,30 @@ PROVIDERS: Dict[str, str] = {
     "chatterbox": ".providers.chatterbox.ChatterboxProvider",
     "edge_tts": ".providers.edge_tts.EdgeTTSProvider",
 }
+
+
+def setup_logging():
+    """Setup logging configuration for TTS CLI"""
+    # Create logs directory if it doesn't exist
+    logs_dir = Path("logs")
+    logs_dir.mkdir(exist_ok=True)
+    
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(logs_dir / "tts.log"),
+            logging.StreamHandler()  # Also log to console for errors
+        ]
+    )
+    
+    # Set console handler to only show warnings and errors
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.WARNING)
+    
+    # Get logger for this module
+    return logging.getLogger(__name__)
 
 
 def load_provider(name: str) -> Type[TTSProvider]:
@@ -43,6 +69,9 @@ def load_provider(name: str) -> Type[TTSProvider]:
 @click.argument("options", nargs=-1)
 def main(text: str, model: str, output: str, options: tuple, list_models: bool, stream: bool, voice: str, clone: str, list_voices: str, find_voice: str, output_format: str):
     """Text-to-speech CLI with multiple providers."""
+    
+    # Setup logging
+    logger = setup_logging()
     
     # Handle list command
     if list_models:
@@ -98,7 +127,22 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
     
     # Check required arguments
     if not text:
+        logger.error("No text provided for synthesis")
         click.echo("Error: You must provide text to synthesize", err=True)
+        sys.exit(1)
+    
+    # Check output file permissions
+    output_path = Path(output)
+    try:
+        # Check if output directory exists and is writable
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        # Test write permissions by creating a temporary file
+        test_file = output_path.parent / ".tts_write_test"
+        test_file.touch()
+        test_file.unlink()
+    except (PermissionError, OSError) as e:
+        logger.error(f"Cannot write to output path {output_path}: {e}")
+        click.echo(f"Error: Cannot write to output path {output_path}: {e}", err=True)
         sys.exit(1)
     
     # Parse key=value options
@@ -133,14 +177,19 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
             info = provider.get_info()
             if info and 'sample_voices' in info and info['sample_voices']:
                 if voice not in info['sample_voices']:
+                    logger.warning(f"Voice '{voice}' not found in available voices for {model}")
                     click.echo(f"Warning: Voice '{voice}' not found in available voices.", err=True)
                     click.echo(f"Use --list-voices {model} to see available voices.", err=True)
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Voice validation failed for {model}: {e}")
             # If validation fails, continue anyway (provider might support more voices)
             pass
     
     try:
         # Load and instantiate provider
+        logger.info(f"Starting TTS synthesis with {model} provider")
+        logger.debug(f"Text: '{text[:50]}...' | Voice: {voice} | Format: {output_format}")
+        
         provider_class = load_provider(model)
         provider = provider_class()
         
@@ -157,16 +206,23 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
         
         # Synthesize speech
         if stream:
+            logger.info(f"Starting audio stream with {model}")
             click.echo(f"Streaming with {model}...")
         else:
+            logger.info(f"Synthesizing audio to {output}")
             click.echo(f"Synthesizing with {model}...")
         
         provider.synthesize(text, output, **kwargs)
         
         if not stream:
+            file_size = Path(output).stat().st_size if Path(output).exists() else 0
+            logger.info(f"Synthesis completed. File: {output} ({file_size} bytes)")
             click.echo(f"Audio saved to: {output}")
+        else:
+            logger.info("Audio streaming completed")
         
     except Exception as e:
+        logger.error(f"Synthesis failed: {e}")
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
