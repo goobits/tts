@@ -39,6 +39,7 @@ class ChatterboxProvider(TTSProvider):
         cfg_weight = float(kwargs.get("cfg_weight", "0.5"))
         temperature = float(kwargs.get("temperature", "0.8"))
         min_p = float(kwargs.get("min_p", "0.05"))
+        output_format = kwargs.get("output_format", "wav")
         
         # Generate speech with optimized settings for speed
         if audio_prompt_path:
@@ -56,8 +57,27 @@ class ChatterboxProvider(TTSProvider):
             self._stream_to_speakers(wav)
         else:
             # Save to file
-            import torchaudio as ta
-            ta.save(output_path, wav, self.tts.sr)
+            if output_format == "wav":
+                import torchaudio as ta
+                ta.save(output_path, wav, self.tts.sr)
+            else:
+                # Convert to other formats using ffmpeg
+                import tempfile
+                import subprocess
+                with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+                    wav_path = tmp.name
+                
+                try:
+                    import torchaudio as ta
+                    ta.save(wav_path, wav, self.tts.sr)
+                    # Convert using ffmpeg
+                    subprocess.run([
+                        'ffmpeg', '-i', wav_path, '-y', output_path
+                    ], check=True, capture_output=True)
+                finally:
+                    import os
+                    if os.path.exists(wav_path):
+                        os.remove(wav_path)
     
     def _stream_to_speakers(self, wav_tensor):
         """Stream audio tensor directly to speakers using ffplay"""

@@ -31,14 +31,17 @@ def load_provider(name: str) -> Type[TTSProvider]:
 @click.command()
 @click.version_option(version=__version__, prog_name="tts-cli")
 @click.option("-l", "--list", "list_models", is_flag=True, help="List available models")
+@click.option("--list-voices", help="List available voices for a specific provider")
+@click.option("--find-voice", help="Search voices by language/gender (e.g., 'british female')")
 @click.option("-s", "--stream", is_flag=True, help="Stream directly to speakers (no file saved)")
 @click.argument("text", required=False)
 @click.option("-m", "--model", help="TTS model to use")
 @click.option("-o", "--output", default="output.wav", help="Output file path")
+@click.option("-f", "--format", "output_format", default="mp3", type=click.Choice(['mp3', 'wav', 'ogg', 'flac']), help="Audio output format")
 @click.option("--voice", help="Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
 @click.option("--clone", help="Audio file to clone voice from (for chatterbox)")
 @click.argument("options", nargs=-1)
-def main(text: str, model: str, output: str, options: tuple, list_models: bool, stream: bool, voice: str, clone: str):
+def main(text: str, model: str, output: str, options: tuple, list_models: bool, stream: bool, voice: str, clone: str, list_voices: str, find_voice: str, output_format: str):
     """Text-to-speech CLI with multiple providers."""
     
     # Handle list command
@@ -46,6 +49,51 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
         click.echo("Available models:")
         for name in PROVIDERS.keys():
             click.echo(f"  - {name}")
+        return
+    
+    # Handle list voices command
+    if list_voices:
+        try:
+            provider_class = load_provider(list_voices)
+            provider = provider_class()
+            info = provider.get_info()
+            if info and 'sample_voices' in info:
+                click.echo(f"Available voices for {list_voices}:")
+                for voice in info['sample_voices']:
+                    click.echo(f"  - {voice}")
+            else:
+                click.echo(f"No voice list available for {list_voices}")
+        except Exception as e:
+            click.echo(f"Error listing voices for {list_voices}: {e}", err=True)
+        return
+    
+    # Handle find voice command
+    if find_voice:
+        if not model:
+            click.echo("Error: --find-voice requires -m/--model to specify provider", err=True)
+            sys.exit(1)
+        try:
+            provider_class = load_provider(model)
+            provider = provider_class()
+            info = provider.get_info()
+            if info and 'sample_voices' in info:
+                search_terms = find_voice.lower().split()
+                matches = []
+                for voice in info['sample_voices']:
+                    voice_lower = voice.lower()
+                    if all(term in voice_lower for term in search_terms):
+                        matches.append(voice)
+                
+                if matches:
+                    click.echo(f"Matching voices for '{find_voice}':")
+                    for voice in matches:
+                        click.echo(f"  - {voice}")
+                else:
+                    click.echo(f"No voices found matching '{find_voice}'")
+            else:
+                click.echo(f"No voice search available for {model}")
+        except Exception as e:
+            click.echo(f"Error searching voices: {e}", err=True)
         return
     
     # Check required arguments
@@ -66,6 +114,9 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
     if stream:
         kwargs["stream"] = "true"
     
+    # Add output format to kwargs
+    kwargs["output_format"] = output_format
+    
     # Add voice parameter if specified
     if voice:
         kwargs["voice"] = voice
@@ -73,6 +124,20 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
     # Add clone parameter if specified (for chatterbox voice cloning)
     if clone:
         kwargs["voice"] = clone
+    
+    # Validate voice if specified
+    if voice and not clone:  # Don't validate for voice cloning (file paths)
+        try:
+            provider_class = load_provider(model)
+            provider = provider_class()
+            info = provider.get_info()
+            if info and 'sample_voices' in info and info['sample_voices']:
+                if voice not in info['sample_voices']:
+                    click.echo(f"Warning: Voice '{voice}' not found in available voices.", err=True)
+                    click.echo(f"Use --list-voices {model} to see available voices.", err=True)
+        except Exception:
+            # If validation fails, continue anyway (provider might support more voices)
+            pass
     
     try:
         # Load and instantiate provider

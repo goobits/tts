@@ -15,9 +15,28 @@ class EdgeTTSProvider(TTSProvider):
             except ImportError:
                 raise ImportError("edge-tts not installed. Please install with: pip install edge-tts")
     
-    async def _synthesize_async(self, text: str, output_path: str, voice: str, rate: str, pitch: str):
+    async def _synthesize_async(self, text: str, output_path: str, voice: str, rate: str, pitch: str, output_format: str = "mp3"):
         communicate = self.edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
-        await communicate.save(output_path)
+        
+        if output_format == "mp3":
+            await communicate.save(output_path)
+        else:
+            # For other formats, save as MP3 first then convert
+            import tempfile
+            import subprocess
+            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+                mp3_path = tmp.name
+            
+            try:
+                await communicate.save(mp3_path)
+                # Convert using ffmpeg
+                subprocess.run([
+                    'ffmpeg', '-i', mp3_path, '-y', output_path
+                ], check=True, capture_output=True)
+            finally:
+                import os
+                if os.path.exists(mp3_path):
+                    os.remove(mp3_path)
     
     async def _stream_async(self, text: str, voice: str, rate: str, pitch: str):
         """Stream TTS audio directly to speakers without saving to file"""
@@ -51,6 +70,7 @@ class EdgeTTSProvider(TTSProvider):
         rate = kwargs.get("rate", "+0%")
         pitch = kwargs.get("pitch", "+0Hz")
         stream = kwargs.get("stream", "false").lower() in ("true", "1", "yes")
+        output_format = kwargs.get("output_format", "mp3")
         
         # Format rate and pitch
         if not rate.endswith("%"):
@@ -62,7 +82,7 @@ class EdgeTTSProvider(TTSProvider):
         if stream:
             asyncio.run(self._stream_async(text, voice, rate, pitch))
         else:
-            asyncio.run(self._synthesize_async(text, output_path, voice, rate, pitch))
+            asyncio.run(self._synthesize_async(text, output_path, voice, rate, pitch, output_format))
     
     def get_info(self) -> Optional[Dict[str, Any]]:
         self._lazy_load()
