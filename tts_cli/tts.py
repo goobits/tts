@@ -15,6 +15,7 @@ from .base import TTSProvider
 from .exceptions import TTSError, ProviderNotFoundError, ProviderLoadError, DependencyError, NetworkError
 from .__version__ import __version__
 from .config import load_config, save_config, get_default_config, parse_voice_setting, set_setting, get_setting
+from .voice_manager import VoiceManager
 
 
 PROVIDERS: Dict[str, str] = {
@@ -889,6 +890,144 @@ def handle_install_command(args: tuple) -> None:
         sys.exit(1)
 
 
+def handle_load_command(args: tuple) -> None:
+    """Load voice files into memory for fast access"""
+    if len(args) == 0:
+        click.echo("Error: Specify voice files to load", err=True)
+        click.echo("Usage: tts load <voice_file> [voice_file2] ...")
+        click.echo("Example: tts load ~/my_voice.wav ~/narrator.wav")
+        sys.exit(1)
+    
+    voice_manager = VoiceManager()
+    
+    for voice_path in args:
+        voice_file = Path(voice_path).expanduser()
+        if not voice_file.exists():
+            click.echo(f"Error: Voice file not found: {voice_file}", err=True)
+            continue
+            
+        try:
+            click.echo(f"🔄 Loading {voice_file.name}...")
+            voice_manager.load_voice(str(voice_file))
+            click.echo(f"✅ {voice_file.name} loaded successfully")
+        except Exception as e:
+            click.echo(f"❌ Failed to load {voice_file.name}: {e}", err=True)
+
+
+def handle_status_command() -> None:
+    """Show system status and loaded voices"""
+    click.echo("🔍 TTS System Status")
+    click.echo()
+    
+    # Check providers
+    click.echo("Providers:")
+    for provider_name in PROVIDERS.keys():
+        try:
+            provider_class = load_provider(provider_name)
+            provider = provider_class()
+            info = provider.get_info()
+            
+            if provider_name == "edge_tts":
+                if info and 'sample_voices' in info:
+                    voice_count = len(info['sample_voices'])
+                    click.echo(f"  ✅ Edge TTS: Ready ({voice_count} voices available)")
+                else:
+                    click.echo(f"  ✅ Edge TTS: Ready")
+            elif provider_name == "chatterbox":
+                # Check GPU availability
+                gpu_status = ""
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        gpu_name = torch.cuda.get_device_name(0)
+                        gpu_status = f" (GPU: {gpu_name})"
+                    else:
+                        gpu_status = " (CPU only)"
+                except ImportError:
+                    gpu_status = " (PyTorch not installed)"
+                
+                click.echo(f"  ✅ Chatterbox: Ready{gpu_status}")
+                
+        except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
+            click.echo(f"  ❌ {provider_name.upper()}: {e}")
+        except Exception as e:
+            click.echo(f"  ❌ {provider_name.upper()}: Unexpected error: {e}")
+    
+    click.echo()
+    
+    # Check loaded voices
+    voice_manager = VoiceManager()
+    loaded_voices = voice_manager.get_loaded_voices()
+    
+    if loaded_voices:
+        click.echo("Loaded Voices (Chatterbox):")
+        memory_usage = 0
+        for voice_info in loaded_voices:
+            voice_name = Path(voice_info['path']).name
+            load_time = voice_info.get('load_time', 'unknown')
+            click.echo(f"  • {voice_name} (loaded {load_time})")
+            memory_usage += voice_info.get('memory_mb', 0)
+        
+        click.echo()
+        if memory_usage > 0:
+            if memory_usage >= 1024:
+                memory_str = f"{memory_usage/1024:.1f}GB"
+            else:
+                memory_str = f"{memory_usage}MB"
+            click.echo(f"Memory: {len(loaded_voices)} voices using ~{memory_str}")
+    else:
+        click.echo("Loaded Voices (Chatterbox): None")
+    
+    click.echo()
+    
+    # Show configuration
+    config = load_config()
+    click.echo("Configuration:")
+    click.echo(f"  • Default voice: {config.get('voice', 'en-IE-EmilyNeural')}")
+    click.echo(f"  • Default action: {config.get('default_action', 'stream')}")
+    if config.get('output_dir'):
+        click.echo(f"  • Output directory: {config.get('output_dir')}")
+
+
+def handle_unload_command(args: tuple) -> None:
+    """Unload voice files from memory"""
+    voice_manager = VoiceManager()
+    
+    # Handle --all flag
+    if "--all" in args or (len(args) == 1 and args[0] == "all"):
+        try:
+            unloaded_count = voice_manager.unload_all_voices()
+            if unloaded_count > 0:
+                click.echo(f"✅ Unloaded {unloaded_count} voices")
+            else:
+                click.echo("No voices were loaded")
+        except Exception as e:
+            click.echo(f"❌ Failed to unload voices: {e}", err=True)
+        return
+    
+    if len(args) == 0:
+        click.echo("Error: Specify voice files to unload or use --all", err=True)
+        click.echo("Usage: tts unload <voice_file> [voice_file2] ...")
+        click.echo("       tts unload --all")
+        click.echo("Example: tts unload my_voice.wav")
+        sys.exit(1)
+    
+    for voice_path in args:
+        # Skip --all flag if mixed with specific files
+        if voice_path == "--all":
+            continue
+            
+        voice_file = Path(voice_path).expanduser()
+        
+        try:
+            if voice_manager.unload_voice(str(voice_file)):
+                click.echo(f"✅ Unloaded {voice_file.name}")
+            else:
+                click.echo(f"⚠️  {voice_file.name} was not loaded")
+        except Exception as e:
+            click.echo(f"❌ Failed to unload {voice_file.name}: {e}", err=True)
+
+
 @click.command()
 @click.version_option(version=__version__, prog_name="tts")
 @click.option("-l", "--list", "list_models", is_flag=True, help="List available models")
@@ -944,6 +1083,21 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
     # Handle install subcommand
     if text and text.lower() == "install":
         handle_install_command(options)
+        return
+    
+    # Handle load subcommand
+    if text and text.lower() == "load":
+        handle_load_command(options)
+        return
+    
+    # Handle status subcommand
+    if text and text.lower() == "status":
+        handle_status_command()
+        return
+    
+    # Handle unload subcommand
+    if text and text.lower() == "unload":
+        handle_unload_command(options)
         return
     
     # Handle legacy list command (redirect to models subcommand)

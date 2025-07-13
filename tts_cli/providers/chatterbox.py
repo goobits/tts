@@ -1,8 +1,11 @@
 from ..base import TTSProvider
 from ..utils.audio import convert_with_cleanup
 from ..exceptions import DependencyError, AudioPlaybackError, ProviderError
+from ..voice_manager import VoiceManager
 from typing import Optional, Dict, Any
 import logging
+import tempfile
+import base64
 
 
 class ChatterboxProvider(TTSProvider):
@@ -40,8 +43,6 @@ class ChatterboxProvider(TTSProvider):
             return False
     
     def synthesize(self, text: str, output_path: str, **kwargs) -> None:
-        self._lazy_load()
-        
         # Extract options
         stream = kwargs.get("stream", "false").lower() in ("true", "1", "yes")
         audio_prompt_path = kwargs.get("voice")  # Optional voice cloning
@@ -50,6 +51,36 @@ class ChatterboxProvider(TTSProvider):
         temperature = float(kwargs.get("temperature", "0.8"))
         min_p = float(kwargs.get("min_p", "0.05"))
         output_format = kwargs.get("output_format", "wav")
+        
+        # Check if we can use loaded voice via server
+        if audio_prompt_path:
+            voice_manager = VoiceManager()
+            if voice_manager.is_voice_loaded(audio_prompt_path):
+                try:
+                    print("⚡ Using loaded voice")
+                    # Use server for synthesis
+                    audio_data = voice_manager.synthesize_with_loaded_voice(
+                        text, audio_prompt_path,
+                        exaggeration=exaggeration,
+                        cfg_weight=cfg_weight,
+                        temperature=temperature,
+                        min_p=min_p
+                    )
+                    
+                    if stream:
+                        # Stream the returned audio data
+                        self._stream_audio_data(audio_data)
+                    else:
+                        # Save audio data to file
+                        self._save_audio_data(audio_data, output_path, output_format)
+                    return
+                    
+                except Exception as e:
+                    self.logger.warning(f"Server synthesis failed, falling back to direct: {e}")
+                    # Fall through to direct synthesis
+        
+        # Fallback to direct synthesis (legacy behavior)
+        self._lazy_load()
         
         # Generate speech with optimized settings for speed
         if audio_prompt_path:
@@ -72,7 +103,6 @@ class ChatterboxProvider(TTSProvider):
                 ta.save(output_path, wav, self.tts.sr)
             else:
                 # Convert to other formats using ffmpeg
-                import tempfile
                 with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
                     wav_path = tmp.name
                 
@@ -133,6 +163,62 @@ class ChatterboxProvider(TTSProvider):
         except Exception as e:
             self.logger.error(f"Unexpected audio streaming error: {type(e).__name__}: {e}")
             raise AudioPlaybackError(f"Audio streaming failed unexpectedly: {type(e).__name__}: {e}")
+    
+    def _stream_audio_data(self, audio_data: bytes) -> None:
+        """Stream raw audio data to speakers using ffplay"""
+        import subprocess
+        import io
+        
+        try:
+            self.logger.debug("Streaming server audio data")
+            
+            # Stream to ffplay
+            try:
+                ffplay_process = subprocess.Popen([
+                    'ffplay', '-nodisp', '-autoexit', '-i', 'pipe:0'
+                ], stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            except FileNotFoundError:
+                self.logger.error("FFplay not found for audio streaming")
+                raise DependencyError("ffplay not found. Please install ffmpeg to use audio streaming.")
+            
+            self.logger.debug("Streaming audio to ffplay")
+            ffplay_process.stdin.write(audio_data)
+            ffplay_process.stdin.close()
+            ffplay_process.wait()
+            self.logger.debug("Audio streaming completed")
+            
+        except FileNotFoundError as e:
+            self.logger.error(f"FFplay not found for audio streaming: {e}")
+            raise DependencyError("ffplay not found. Please install ffmpeg to use audio streaming.")
+        except subprocess.SubprocessError as e:
+            self.logger.error(f"Audio streaming subprocess error: {e}")
+            raise AudioPlaybackError(f"Audio streaming process failed: {e}")
+        except OSError as e:
+            self.logger.error(f"System error during audio streaming: {e}")
+            raise AudioPlaybackError(f"Audio streaming system error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected audio streaming error: {type(e).__name__}: {e}")
+            raise AudioPlaybackError(f"Audio streaming failed unexpectedly: {type(e).__name__}: {e}")
+    
+    def _save_audio_data(self, audio_data: bytes, output_path: str, output_format: str) -> None:
+        """Save raw audio data to file with optional format conversion"""
+        try:
+            if output_format == "wav":
+                # Direct save for WAV
+                with open(output_path, 'wb') as f:
+                    f.write(audio_data)
+            else:
+                # Convert to other formats using ffmpeg
+                with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+                    tmp.write(audio_data)
+                    wav_path = tmp.name
+                
+                # Convert using utility function with cleanup
+                convert_with_cleanup(wav_path, output_path, output_format)
+                
+        except Exception as e:
+            self.logger.error(f"Failed to save audio data: {e}")
+            raise ProviderError(f"Failed to save audio: {e}")
     
     def get_info(self) -> Optional[Dict[str, Any]]:
         # Scan for available voice files in the voices directory
