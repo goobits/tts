@@ -231,11 +231,11 @@ def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str
         if stream:
             logger.info(f"Starting audio stream with {model}")
             click.echo(f"Streaming with {model}...")
+            provider.synthesize(text, "", **kwargs)  # Empty output path for streaming
         else:
             logger.info(f"Synthesizing audio to {output}")
             click.echo(f"Saving with {model}...")
-        
-        provider.synthesize(text, output, **kwargs)
+            provider.synthesize(text, output, **kwargs)
         
         if not stream:
             file_size = Path(output).stat().st_size if Path(output).exists() else 0
@@ -268,7 +268,7 @@ def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str
 @click.option("--list-voices", help="List available voices for a specific provider")
 @click.option("--find-voice", help="Search voices by language/gender (e.g., 'british female')")
 @click.option("--preview-voice", help="Play a sample of the specified voice")
-@click.option("-s", "--save", is_flag=True, help="Save to file instead of streaming to speakers")
+@click.option("-s", "--save", is_flag=True, help="Save to file instead of streaming to speakers (default: stream)")
 @click.argument("text", required=False)
 @click.option("-m", "--model", default="edge_tts", help="TTS model to use (default: edge_tts)")
 @click.option("-o", "--output", default="output.wav", help="Output file path")

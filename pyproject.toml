@@ -53,6 +53,7 @@ dev = [
 
 [project.scripts]
 tts-cli = "tts_cli.tts:cli"
+tts = "tts_cli.tts:cli"
 
 [project.urls]
 "Homepage" = "https://github.com/mudcube/tts-cli"
