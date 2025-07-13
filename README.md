@@ -135,4 +135,4 @@ tts config edit
 - **Voice cloning** without training
 - **Multiple accents** and languages
 
-Built with ❤️ using cutting-edge open-source TTS models.# tts
+Built with ❤️ using cutting-edge open-source TTS models.

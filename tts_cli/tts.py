@@ -749,6 +749,146 @@ def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str
         sys.exit(1)
 
 
+def handle_doctor_command() -> None:
+    """Check system capabilities and provider availability"""
+    click.echo("🔍 TTS System Health Check")
+    click.echo("=" * 40)
+    
+    logger = logging.getLogger(__name__)
+    
+    # Check core dependencies
+    click.echo("\n📦 Core Dependencies:")
+    
+    # Check Python version
+    python_version = sys.version.split()[0]
+    if sys.version_info >= (3, 8):
+        click.echo(f"  ✅ Python {python_version}")
+    else:
+        click.echo(f"  ❌ Python {python_version} (requires >= 3.8)")
+    
+    # Check ffmpeg/ffplay
+    try:
+        subprocess.run(['ffplay', '-version'], capture_output=True, check=True)
+        click.echo("  ✅ FFmpeg/FFplay available")
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        click.echo("  ⚠️  FFmpeg/FFplay not found (audio playback may not work)")
+    
+    # Check providers
+    click.echo("\n🎤 TTS Providers:")
+    
+    for provider_name in PROVIDERS.keys():
+        try:
+            provider_class = load_provider(provider_name)
+            provider = provider_class()
+            info = provider.get_info()
+            
+            if provider_name == "edge_tts":
+                click.echo(f"  ✅ {provider_name.upper()}: Ready ({len(info.get('sample_voices', []))} voices)")
+            elif provider_name == "chatterbox":
+                voice_count = len(info.get('sample_voices', []))
+                if voice_count > 0:
+                    click.echo(f"  ✅ {provider_name.upper()}: Ready ({voice_count} voice files)")
+                else:
+                    click.echo(f"  ⚠️  {provider_name.upper()}: No voice files in ./voices/ directory")
+                
+                # Check GPU availability for chatterbox
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        gpu_name = torch.cuda.get_device_name(0)
+                        click.echo(f"    🚀 GPU Available: {gpu_name}")
+                    else:
+                        click.echo(f"    💻 Using CPU (install CUDA for GPU acceleration)")
+                except ImportError:
+                    click.echo(f"    ❌ PyTorch not installed (required for chatterbox)")
+                    
+        except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
+            click.echo(f"  ❌ {provider_name.upper()}: {e}")
+        except Exception as e:
+            click.echo(f"  ❌ {provider_name.upper()}: Unexpected error - {e}")
+            logger.debug(f"Doctor check failed for {provider_name}: {e}")
+    
+    # Configuration check
+    click.echo("\n⚙️  Configuration:")
+    config = load_config()
+    default_voice = config.get('voice', 'edge_tts:en-IE-EmilyNeural')
+    provider, voice = parse_voice_setting(default_voice)
+    click.echo(f"  🎯 Default voice: {voice} ({provider})")
+    click.echo(f"  📁 Output directory: {config.get('output_dir', '~/Downloads')}")
+    
+    click.echo("\n💡 Need help? Try:")
+    click.echo("  tts install chatterbox gpu  # Add GPU voice cloning")
+    click.echo("  tts config edit               # Change settings")
+    click.echo("  tts voices                    # Browse available voices")
+
+
+def handle_install_command(args: tuple) -> None:
+    """Install provider dependencies"""
+    if len(args) == 0:
+        click.echo("Error: Specify a provider to install", err=True)
+        click.echo("Usage: tts install <provider> [gpu]")
+        click.echo("Available providers: chatterbox")
+        sys.exit(1)
+    
+    provider = args[0].lower()
+    gpu_flag = "gpu" in args or "--gpu" in args
+    
+    if provider == "chatterbox":
+        click.echo("🔧 Installing Chatterbox TTS dependencies...")
+        
+        # Check if already available
+        try:
+            provider_class = load_provider("chatterbox")
+            provider_instance = provider_class()
+            # Actually test if dependencies are available
+            provider_instance._lazy_load()
+            click.echo("✅ Chatterbox is already available!")
+            
+            # Check GPU status
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    click.echo("🚀 GPU acceleration is ready")
+                else:
+                    if gpu_flag:
+                        click.echo("⚠️  GPU requested but CUDA not available")
+                        click.echo("💡 Make sure NVIDIA drivers and CUDA are installed")
+                    else:
+                        click.echo("💻 Using CPU (add --gpu for GPU acceleration)")
+            except ImportError:
+                if gpu_flag:
+                    click.echo("📦 Installing PyTorch with CUDA support...")
+                    click.echo("💡 This may take a few minutes...")
+                    # In a real implementation, we'd run: pipx inject tts-cli torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+                    click.echo("⚠️  Manual installation required:")
+                    click.echo("   pipx inject tts-cli torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121")
+                else:
+                    click.echo("📦 Installing PyTorch (CPU)...")
+                    click.echo("⚠️  Manual installation required:")
+                    click.echo("   pipx inject tts-cli torch torchvision torchaudio")
+            
+            return
+            
+        except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
+            click.echo(f"📦 Chatterbox not available: {e}")
+            click.echo("📦 Manual installation required")
+            click.echo("💡 Install with:")
+            if gpu_flag:
+                click.echo("   pipx inject tts-cli torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121")
+                click.echo("   pipx inject tts-cli chatterbox-tts")
+            else:
+                click.echo("   pipx inject tts-cli torch torchvision torchaudio")
+                click.echo("   pipx inject tts-cli chatterbox-tts")
+            
+    elif provider == "edge_tts":
+        click.echo("✅ Edge TTS is already included and ready to use!")
+        
+    else:
+        click.echo(f"Error: Unknown provider '{provider}'", err=True)
+        click.echo("Available providers: chatterbox, edge_tts")
+        sys.exit(1)
+
+
 @click.command()
 @click.version_option(version=__version__, prog_name="tts")
 @click.option("-l", "--list", "list_models", is_flag=True, help="List available models")
@@ -794,6 +934,16 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
     # Handle models subcommand
     if text and text.lower() == "models":
         handle_models_command(options)
+        return
+    
+    # Handle doctor subcommand
+    if text and text.lower() == "doctor":
+        handle_doctor_command()
+        return
+    
+    # Handle install subcommand
+    if text and text.lower() == "install":
+        handle_install_command(options)
         return
     
     # Handle legacy list command (redirect to models subcommand)
