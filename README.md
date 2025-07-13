@@ -56,9 +56,14 @@ tts config edit               # Interactive configuration editor
 tts config reset              # Reset to defaults
 
 # Voice Discovery
-tts --list-voices edge_tts    # List available voices
-tts --find-voice "irish"      # Search for voices
-tts --preview-voice en-IE-EmilyNeural  # Preview a voice
+tts voices                    # List ALL voices from all providers
+tts voices edge_tts           # List voices for specific provider
+tts voices find "irish"       # Search for voices
+tts voices preview en-IE-EmilyNeural  # Preview a voice
+
+# Provider/Model Information
+tts models                    # List available providers
+tts models edge_tts           # Show provider info and capabilities
 ```
 
 ## 🎤 Voice Cloning

@@ -30,7 +30,13 @@ class ChatterboxProvider(TTSProvider):
         try:
             import torch
             return torch.cuda.is_available()
-        except:
+        except ImportError:
+            # PyTorch not installed
+            self.logger.debug("PyTorch not available, using CPU")
+            return False
+        except Exception as e:
+            # Unexpected error checking CUDA
+            self.logger.warning(f"Error checking CUDA availability: {e}")
             return False
     
     def synthesize(self, text: str, output_path: str, **kwargs) -> None:
@@ -115,14 +121,32 @@ class ChatterboxProvider(TTSProvider):
             ffplay_process.wait()
             self.logger.debug("Audio streaming completed")
             
+        except FileNotFoundError as e:
+            self.logger.error(f"FFplay not found for audio streaming: {e}")
+            raise DependencyError("ffplay not found. Please install ffmpeg to use audio streaming.")
+        except subprocess.SubprocessError as e:
+            self.logger.error(f"Audio streaming subprocess error: {e}")
+            raise AudioPlaybackError(f"Audio streaming process failed: {e}")
+        except OSError as e:
+            self.logger.error(f"System error during audio streaming: {e}")
+            raise AudioPlaybackError(f"Audio streaming system error: {e}")
         except Exception as e:
-            self.logger.error(f"Audio streaming failed: {e}")
-            raise AudioPlaybackError(f"Audio streaming failed: {e}")
+            self.logger.error(f"Unexpected audio streaming error: {type(e).__name__}: {e}")
+            raise AudioPlaybackError(f"Audio streaming failed unexpectedly: {type(e).__name__}: {e}")
     
     def get_info(self) -> Optional[Dict[str, Any]]:
+        # Scan for available voice files in the voices directory
+        sample_voices = []
+        from pathlib import Path
+        voices_dir = Path.cwd() / "voices"
+        if voices_dir.exists():
+            for voice_file in voices_dir.glob("*.wav"):
+                sample_voices.append(str(voice_file))
+        
         return {
             "name": "Chatterbox (Resemble AI)",
             "description": "State-of-the-art zero-shot TTS with voice cloning and emotion control",
+            "sample_voices": sample_voices,
             "options": {
                 "voice": "Path to reference audio file for voice cloning (optional)",
                 "exaggeration": "Emotion/intensity control (0.0-1.0, default: 0.5)",

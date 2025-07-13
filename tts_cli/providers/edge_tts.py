@@ -38,13 +38,20 @@ class EdgeTTSProvider(TTSProvider):
                 
                 # Convert using utility function with cleanup
                 convert_with_cleanup(mp3_path, output_path, output_format)
+        except ConnectionError as e:
+            self.logger.error(f"Network connection error during Edge TTS synthesis: {e}")
+            raise NetworkError(f"Edge TTS connection failed: {e}. Check your internet connection and try again.")
+        except OSError as e:
+            self.logger.error(f"File system error during Edge TTS synthesis: {e}")
+            raise ProviderError(f"Edge TTS file operation failed: {e}")
         except Exception as e:
-            if "internet" in str(e).lower() or "network" in str(e).lower() or "connection" in str(e).lower():
-                self.logger.error(f"Network error during Edge TTS synthesis: {e}")
-                raise NetworkError("Edge TTS requires internet connection. Check your network and try again.")
+            error_msg = str(e).lower()
+            if any(keyword in error_msg for keyword in ["internet", "network", "connection", "dns", "timeout"]):
+                self.logger.error(f"Network-related error during Edge TTS synthesis: {e}")
+                raise NetworkError(f"Edge TTS network error: {e}. Check your internet connection and try again.")
             else:
-                self.logger.error(f"Edge TTS synthesis failed: {e}")
-                raise ProviderError(f"Edge TTS synthesis failed: {e}")
+                self.logger.error(f"Edge TTS synthesis failed with unexpected error: {type(e).__name__}: {e}")
+                raise ProviderError(f"Edge TTS synthesis failed: {type(e).__name__}: {e}")
     
     async def _stream_async(self, text: str, voice: str, rate: str, pitch: str):
         """Stream TTS audio directly to speakers without saving to file"""
@@ -201,8 +208,9 @@ class EdgeTTSProvider(TTSProvider):
                 result['available'] = True
                 result['reason'] = 'ALSA devices available'
                 return result
-        except:
-            pass
+        except (ImportError, OSError, subprocess.SubprocessError) as e:
+            # ALSA not available or accessible
+            self.logger.debug(f"ALSA check failed: {e}")
             
         # Check if we can reach audio system
         try:
@@ -214,8 +222,9 @@ class EdgeTTSProvider(TTSProvider):
             result['available'] = True
             result['reason'] = 'Audio system responsive'
             return result
-        except:
-            pass
+        except (FileNotFoundError, subprocess.SubprocessError, subprocess.TimeoutExpired) as e:
+            # Audio system not available or responsive
+            self.logger.debug(f"Audio system check failed: {e}")
             
         result['reason'] = 'No audio devices or audio system unavailable'
         return result
@@ -253,8 +262,12 @@ class EdgeTTSProvider(TTSProvider):
                 import os
                 if os.path.exists(temp_file):
                     os.unlink(temp_file)
-            except:
-                pass
+            except OSError as e:
+                # Log but don't fail if we can't clean up temp file
+                self.logger.debug(f"Could not clean up temporary file {temp_file}: {e}")
+            except Exception as e:
+                # Unexpected error during cleanup
+                self.logger.warning(f"Unexpected error cleaning up temporary file {temp_file}: {e}")
     
     def synthesize(self, text: str, output_path: str, **kwargs) -> None:
         self._lazy_load()
@@ -290,7 +303,13 @@ class EdgeTTSProvider(TTSProvider):
             
             voice_list = asyncio.run(get_voices())
             voices = [v["ShortName"] for v in voice_list]
-        except:
+        except (ImportError, RuntimeError, OSError) as e:
+            # Network issues, asyncio problems, or edge-tts import failures
+            self.logger.warning(f"Could not fetch voice list from Edge TTS: {e}")
+            voices = ["en-US-JennyNeural", "en-US-GuyNeural", "en-GB-SoniaNeural"]
+        except Exception as e:
+            # Unexpected errors
+            self.logger.error(f"Unexpected error fetching Edge TTS voices: {e}")
             voices = ["en-US-JennyNeural", "en-US-GuyNeural", "en-GB-SoniaNeural"]
         
         return {

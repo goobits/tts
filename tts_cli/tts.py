@@ -4,8 +4,13 @@ import importlib
 import sys
 import logging
 import os
+import curses
+import tempfile
+import subprocess
+import threading
+import time
 from pathlib import Path
-from typing import Dict, Type
+from typing import Dict, Type, List, Tuple
 from .base import TTSProvider
 from .exceptions import TTSError, ProviderNotFoundError, ProviderLoadError, DependencyError, NetworkError
 from .__version__ import __version__
@@ -61,53 +66,463 @@ def load_provider(name: str) -> Type[TTSProvider]:
         raise ProviderLoadError(f"Provider class not found for {name}: {e}")
 
 
-def handle_list_voices(provider_name: str) -> None:
-    """Handle --list-voices command"""
-    try:
-        provider_class = load_provider(provider_name)
-        provider = provider_class()
-        info = provider.get_info()
-        if info and 'sample_voices' in info:
-            click.echo(f"Available voices for {provider_name}:")
-            for voice in info['sample_voices']:
-                click.echo(f"  - {voice}")
-        else:
-            click.echo(f"No voice list available for {provider_name}")
-    except TTSError as e:
-        click.echo(f"Error listing voices for {provider_name}: {e}", err=True)
-    except Exception as e:
-        click.echo(f"Unexpected error listing voices for {provider_name}: {e}", err=True)
-
-
-def handle_find_voice(search_term: str, model: str) -> None:
-    """Handle --find-voice command"""
-    if not model:
-        click.echo("Error: --find-voice requires -m/--model to specify provider", err=True)
-        sys.exit(1)
-    try:
-        provider_class = load_provider(model)
-        provider = provider_class()
-        info = provider.get_info()
-        if info and 'sample_voices' in info:
-            search_terms = search_term.lower().split()
-            matches = []
-            for voice in info['sample_voices']:
-                voice_lower = voice.lower()
-                if all(term in voice_lower for term in search_terms):
-                    matches.append(voice)
+def interactive_voice_browser() -> None:
+    """Interactive voice browser with arrow key navigation"""
+    def main_browser(stdscr):
+        # Initialize authentic Dracula theme colors
+        curses.curs_set(0)  # Hide cursor
+        curses.start_color()
+        
+        # Authentic Dracula color scheme with semantic meaning
+        curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_MAGENTA)  # Selection highlight (pink bg)
+        curses.init_pair(2, curses.COLOR_MAGENTA, curses.COLOR_BLACK)  # Title/brand (purple)
+        curses.init_pair(3, curses.COLOR_CYAN, curses.COLOR_BLACK)     # Provider names (cyan)
+        curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLACK)   # Keyboard keys (yellow)
+        curses.init_pair(5, curses.COLOR_GREEN, curses.COLOR_BLACK)    # Success messages (green)
+        curses.init_pair(6, curses.COLOR_RED, curses.COLOR_BLACK)      # Error messages (red)
+        curses.init_pair(7, curses.COLOR_WHITE, curses.COLOR_BLACK)    # Normal text (white)
+        
+        # Collect all voices with provider info
+        all_voices: List[Tuple[str, str]] = []  # (provider, voice_name)
+        for provider_name in PROVIDERS.keys():
+            try:
+                provider_class = load_provider(provider_name)
+                provider = provider_class()
+                info = provider.get_info()
+                if info and 'sample_voices' in info:
+                    for voice in info['sample_voices']:
+                        all_voices.append((provider_name, voice))
+            except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
+                # Skip providers that can't be loaded (missing dependencies, etc.)
+                continue
+            except Exception as e:
+                # Log unexpected errors but continue with other providers
+                logging.getLogger(__name__).warning(f"Unexpected error loading provider {provider_name}: {e}")
+                continue
+        
+        if not all_voices:
+            stdscr.addstr(0, 0, "No voices available!")
+            stdscr.refresh()
+            stdscr.getch()
+            return
+        
+        current_pos = 0
+        scroll_offset = 0
+        last_height, last_width = 0, 0
+        last_scroll_offset = -1
+        need_full_redraw = True
+        is_playing = False
+        current_playback_process = None
+        
+        while True:
+            height, width = stdscr.getmaxyx()
             
-            if matches:
-                click.echo(f"Matching voices for '{search_term}':")
-                for voice in matches:
-                    click.echo(f"  - {voice}")
+            # Only clear screen if terminal size changed or scroll changed significantly
+            if (height != last_height or width != last_width or need_full_redraw or 
+                abs(scroll_offset - last_scroll_offset) > 1):
+                stdscr.clear()
+                need_full_redraw = False
+                last_height, last_width = height, width
+                last_scroll_offset = scroll_offset
             else:
-                click.echo(f"No voices found matching '{search_term}'")
-        else:
-            click.echo(f"No voice search available for {model}")
-    except TTSError as e:
-        click.echo(f"Error searching voices: {e}", err=True)
+                # Just clear the content area for minor updates
+                for i in range(3, height-1):
+                    stdscr.move(i, 0)
+                    stdscr.clrtoeol()
+            
+            # Title - Purple (brand/header)
+            title = ">>> TTS VOICE BROWSER v1.0 <<<"
+            stdscr.addstr(0, 0, title[:width-1], curses.color_pair(2) | curses.A_BOLD)
+            
+            # Voice info line - voice name and details
+            if current_pos < len(all_voices):
+                current_provider, current_voice = all_voices[current_pos]
+                # Extract language info from voice name (basic parsing)
+                voice_parts = current_voice.split('-')
+                if len(voice_parts) >= 3:
+                    lang_code = voice_parts[0]
+                    region_code = voice_parts[1] 
+                    voice_name = voice_parts[2].replace('Neural', '')
+                    
+                    # Basic language mapping
+                    lang_map = {
+                        'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
+                        'it': 'Italian', 'pt': 'Portuguese', 'ja': 'Japanese', 'ko': 'Korean',
+                        'zh': 'Chinese', 'ar': 'Arabic', 'hi': 'Hindi', 'ru': 'Russian'
+                    }
+                    region_map = {
+                        'US': 'American', 'GB': 'British', 'AU': 'Australian', 'CA': 'Canadian',
+                        'IE': 'Irish', 'IN': 'Indian', 'ZA': 'South African', 'FR': 'French',
+                        'DE': 'German', 'ES': 'Spanish', 'IT': 'Italian', 'BR': 'Brazilian'
+                    }
+                    
+                    language = lang_map.get(lang_code.lower(), lang_code.upper())
+                    region = region_map.get(region_code.upper(), region_code.upper())
+                    
+                    # Determine gender from voice name (basic heuristic)
+                    female_names = ['Emily', 'Jenny', 'Aria', 'Emma', 'Ana', 'Michelle', 'Sonia', 'Clara']
+                    gender = 'Female' if any(name in voice_name for name in female_names) else 'Male'
+                    
+                    voice_info = f"🎯 {current_voice} • {region} {language} {gender}"
+                else:
+                    voice_info = f"🎯 {current_voice}"
+                    
+                stdscr.addstr(1, 0, voice_info[:width-1], curses.color_pair(7))
+                
+                # Provider and position line with playing status
+                provider_line = f"{current_provider}: Voice {current_pos + 1} of {len(all_voices)}"
+                if is_playing:
+                    provider_line += " • 🎵 Playing"
+                stdscr.addstr(2, 0, provider_line[:width-1], curses.color_pair(7))
+            else:
+                stdscr.addstr(1, 0, "🎯 No voice selected", curses.color_pair(7))
+                stdscr.addstr(2, 0, "No voices available", curses.color_pair(7))
+            
+            # Controls - Mix of normal text and yellow keys (no "Controls:" prefix)
+            x_pos = 0
+            controls_parts = [
+                ("[↑↓]", curses.color_pair(4)),   # Yellow keys
+                (" Move ", curses.color_pair(7)), # Normal text
+                ("[ENTER]", curses.color_pair(4)), # Yellow keys
+                (" Preview ", curses.color_pair(7)), # Normal text
+                ("[S]", curses.color_pair(4)),    # Yellow keys
+                (" Save ", curses.color_pair(7)), # Normal text
+                ("[Q]", curses.color_pair(4)),    # Yellow keys
+                (" Exit", curses.color_pair(7))   # Normal text
+            ]
+            
+            for text, color in controls_parts:
+                if x_pos + len(text) < width:
+                    stdscr.addstr(3, x_pos, text, color)
+                    x_pos += len(text)
+            
+            # Subtle separator - normal color
+            stdscr.addstr(4, 0, "_" * min(width-1, 64), curses.color_pair(7))
+            
+            # Calculate visible range  
+            list_height = height - 6  # Reserve space for header (5 lines) + margin
+            if current_pos < scroll_offset:
+                scroll_offset = current_pos
+            elif current_pos >= scroll_offset + list_height:
+                scroll_offset = current_pos - list_height + 1
+            
+            # Display voices
+            current_provider = ""
+            display_row = 5  # Start after header
+            
+            for i in range(scroll_offset, min(len(all_voices), scroll_offset + list_height)):
+                if display_row >= height:
+                    break
+                    
+                provider, voice = all_voices[i]
+                
+                # Show provider header when it changes - Cyan
+                if provider != current_provider:
+                    if display_row < height:
+                        provider_header = f"🔹 {provider.upper()}:"
+                        stdscr.addstr(display_row, 0, provider_header[:width-1], 
+                                    curses.color_pair(3) | curses.A_BOLD)
+                        display_row += 1
+                    current_provider = provider
+                
+                if display_row >= height:
+                    break
+                
+                # Voice entry
+                if i == current_pos:
+                    # Highlighted voice - Black on Magenta (pink highlight)
+                    prefix = " > "
+                    attr = curses.color_pair(1) | curses.A_BOLD
+                else:
+                    # Normal voice - White text
+                    prefix = "   "
+                    attr = curses.color_pair(7)
+                
+                voice_line = f"{prefix}{voice}"
+                if len(voice_line) > width - 1:
+                    voice_line = voice_line[:width-4] + "..."
+                
+                stdscr.addstr(display_row, 0, voice_line, attr)
+                display_row += 1
+            
+            
+            stdscr.refresh()
+            
+            # Check if background playback finished
+            if current_playback_process and current_playback_process.poll() is not None:
+                is_playing = False
+                current_playback_process = None
+            
+            # Handle input
+            try:
+                key = stdscr.getch()
+                
+                if key == curses.KEY_UP and current_pos > 0:
+                    current_pos -= 1
+                elif key == curses.KEY_DOWN and current_pos < len(all_voices) - 1:
+                    current_pos += 1
+                elif key == curses.KEY_PPAGE:  # Page Up
+                    current_pos = max(0, current_pos - list_height)
+                elif key == curses.KEY_NPAGE:  # Page Down
+                    current_pos = min(len(all_voices) - 1, current_pos + list_height)
+                elif key == curses.KEY_HOME:
+                    current_pos = 0
+                elif key == curses.KEY_END:
+                    current_pos = len(all_voices) - 1
+                elif key in (ord('\n'), ord('\r'), curses.KEY_ENTER):
+                    # Stop any current playback before starting new one
+                    if current_playback_process and current_playback_process.poll() is None:
+                        current_playback_process.terminate()
+                        current_playback_process = None
+                    
+                    # Preview voice with background playback
+                    provider, voice = all_voices[current_pos]
+                    
+                    # Set playing status
+                    is_playing = True
+                    
+                    try:
+                        # Generate preview in background thread
+                        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+                            temp_file = tmp.name
+                        
+                        def generate_and_play():
+                            try:
+                                # Generate audio
+                                provider_class = load_provider(provider)
+                                provider_instance = provider_class()
+                                preview_text = "Hello! This is a preview of my voice."
+                                kwargs = {"voice": voice}
+                                provider_instance.synthesize(preview_text, temp_file, **kwargs)
+                                
+                                # Start playing in background
+                                try:
+                                    play_process = subprocess.Popen(['ffplay', '-nodisp', '-autoexit', temp_file], 
+                                                                  stderr=subprocess.DEVNULL,
+                                                                  stdout=subprocess.DEVNULL)
+                                    return play_process
+                                except (FileNotFoundError, subprocess.CalledProcessError):
+                                    return None
+                            except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
+                                # Provider-specific errors during synthesis
+                                logging.getLogger(__name__).error(f"Failed to generate preview with {provider}: {e}")
+                                return None
+                            except Exception as e:
+                                # Unexpected errors during audio generation
+                                logging.getLogger(__name__).error(f"Unexpected error generating preview for {provider}:{voice}: {e}")
+                                return None
+                        
+                        # Start generation and playback in background thread
+                        def background_worker():
+                            nonlocal current_playback_process
+                            current_playback_process = generate_and_play()
+                        
+                        worker_thread = threading.Thread(target=background_worker)
+                        worker_thread.daemon = True
+                        worker_thread.start()
+                            
+                    except OSError as e:
+                        # File system or process creation errors
+                        logging.getLogger(__name__).error(f"System error during voice preview setup: {e}")
+                        is_playing = False
+                    except Exception as e:
+                        # Catch-all for unexpected preview errors
+                        logging.getLogger(__name__).error(f"Unexpected error starting voice preview: {e}")
+                        is_playing = False
+                        
+                elif key in (ord('s'), ord('S')):
+                    # Set as default voice
+                    provider, voice = all_voices[current_pos]
+                    voice_setting = f"{provider}:{voice}"
+                    if set_setting("voice", voice_setting):
+                        stdscr.addstr(height-1, 0, f"Set default voice to {voice}", 
+                                    curses.color_pair(5) | curses.A_BOLD)
+                    else:
+                        stdscr.addstr(height-1, 0, "Failed to save voice setting", 
+                                    curses.color_pair(6))
+                    stdscr.refresh()
+                    curses.napms(1500)  # Show confirmation for 1.5 seconds
+                    
+                elif key in (ord('q'), ord('Q'), 27):  # q, Q, or Escape
+                    # Stop any background playback before exiting
+                    if current_playback_process and current_playback_process.poll() is None:
+                        current_playback_process.terminate()
+                    break
+                    
+            except KeyboardInterrupt:
+                break
+    
+    try:
+        curses.wrapper(main_browser)
     except Exception as e:
-        click.echo(f"Unexpected error searching voices: {e}", err=True)
+        click.echo(f"Interactive browser failed: {e}", err=True)
+        click.echo("Falling back to simple voice list...", err=True)
+        # Fallback to simple list
+        handle_voices_command(())
+
+
+def handle_voices_command(args: tuple) -> None:
+    """Handle voices subcommand"""
+    if len(args) == 0:
+        # tts voices - launch interactive browser
+        if sys.stdout.isatty():
+            # Terminal environment - use interactive browser
+            interactive_voice_browser()
+        else:
+            # Non-terminal (pipe/script) - use simple list
+            click.echo("Available voices from all providers:")
+            click.echo()
+            
+            for provider_name in PROVIDERS.keys():
+                try:
+                    provider_class = load_provider(provider_name)
+                    provider = provider_class()
+                    info = provider.get_info()
+                    if info and 'sample_voices' in info:
+                        click.echo(f"🔹 {provider_name.upper()}:")
+                        for voice in info['sample_voices']:
+                            click.echo(f"  - {voice}")
+                        click.echo()
+                    else:
+                        click.echo(f"🔹 {provider_name.upper()}: No voice list available")
+                        click.echo()
+                except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
+                    click.echo(f"🔹 {provider_name.upper()}: Provider unavailable ({type(e).__name__}: {e})")
+                    click.echo()
+                except Exception as e:
+                    click.echo(f"🔹 {provider_name.upper()}: Unexpected error ({type(e).__name__}: {e})")
+                    click.echo()
+                    logging.getLogger(__name__).warning(f"Unexpected error listing voices for {provider_name}: {e}")
+    
+    elif len(args) == 1:
+        # Check if it's a provider name
+        provider_name = args[0]
+        if provider_name in PROVIDERS:
+            # tts voices edge_tts - list voices for specific provider
+            try:
+                provider_class = load_provider(provider_name)
+                provider = provider_class()
+                info = provider.get_info()
+                if info and 'sample_voices' in info:
+                    click.echo(f"Available voices for {provider_name}:")
+                    for voice in info['sample_voices']:
+                        click.echo(f"  - {voice}")
+                else:
+                    click.echo(f"No voice list available for {provider_name}")
+            except TTSError as e:
+                click.echo(f"Error listing voices for {provider_name}: {e}", err=True)
+            except Exception as e:
+                click.echo(f"Unexpected error listing voices for {provider_name}: {e}", err=True)
+        else:
+            click.echo(f"Error: Unknown provider '{provider_name}'", err=True)
+            click.echo(f"Available providers: {', '.join(PROVIDERS.keys())}", err=True)
+            sys.exit(1)
+    
+    elif len(args) >= 2:
+        action = args[0]
+        if action == "find" and len(args) >= 2:
+            # tts voices find "irish" - search for voices
+            search_term = " ".join(args[1:])
+            click.echo(f"Searching for voices matching '{search_term}':")
+            click.echo()
+            
+            found_any = False
+            for provider_name in PROVIDERS.keys():
+                try:
+                    provider_class = load_provider(provider_name)
+                    provider = provider_class()
+                    info = provider.get_info()
+                    if info and 'sample_voices' in info:
+                        search_terms = search_term.lower().split()
+                        matches = []
+                        for voice in info['sample_voices']:
+                            voice_lower = voice.lower()
+                            if all(term in voice_lower for term in search_terms):
+                                matches.append(voice)
+                        
+                        if matches:
+                            click.echo(f"🔹 {provider_name.upper()}:")
+                            for voice in matches:
+                                click.echo(f"  - {voice}")
+                            click.echo()
+                            found_any = True
+                except Exception:
+                    continue
+            
+            if not found_any:
+                click.echo(f"No voices found matching '{search_term}'")
+        
+        elif action == "preview" and len(args) == 2:
+            # tts voices preview en-IE-Emily - preview a voice
+            voice_name = args[1]
+            # Try to find which provider has this voice
+            found_provider = None
+            for provider_name in PROVIDERS.keys():
+                try:
+                    provider_class = load_provider(provider_name)
+                    provider = provider_class()
+                    info = provider.get_info()
+                    if info and 'sample_voices' in info and voice_name in info['sample_voices']:
+                        found_provider = provider_name
+                        break
+                except Exception:
+                    continue
+            
+            if found_provider:
+                handle_preview_voice(voice_name, found_provider, logging.getLogger(__name__))
+            else:
+                click.echo(f"Error: Voice '{voice_name}' not found", err=True)
+                click.echo("Use 'tts voices find <term>' to search for voices", err=True)
+                sys.exit(1)
+        else:
+            click.echo("Error: Invalid voices command", err=True)
+            click.echo("Usage: tts voices [provider] | tts voices find <term> | tts voices preview <voice>", err=True)
+            sys.exit(1)
+    else:
+        click.echo("Error: Invalid voices command", err=True)
+        click.echo("Usage: tts voices [provider] | tts voices find <term> | tts voices preview <voice>", err=True)
+        sys.exit(1)
+
+
+def handle_models_command(args: tuple) -> None:
+    """Handle models subcommand"""
+    if len(args) == 0:
+        # tts models - list all available providers
+        click.echo("Available models/providers:")
+        for name in PROVIDERS.keys():
+            click.echo(f"  - {name}")
+    
+    elif len(args) == 1:
+        # tts models edge_tts - show info about specific provider
+        provider_name = args[0]
+        if provider_name not in PROVIDERS:
+            click.echo(f"Error: Unknown provider '{provider_name}'", err=True)
+            click.echo(f"Available providers: {', '.join(PROVIDERS.keys())}", err=True)
+            sys.exit(1)
+        
+        try:
+            provider_class = load_provider(provider_name)
+            provider = provider_class()
+            info = provider.get_info()
+            
+            click.echo(f"Provider info for {provider_name}:")
+            if info:
+                for key, value in info.items():
+                    if key == 'sample_voices':
+                        click.echo(f"  {key}: {len(value)} voices available")
+                    else:
+                        click.echo(f"  {key}: {value}")
+            else:
+                click.echo(f"  No detailed info available for {provider_name}")
+        except TTSError as e:
+            click.echo(f"Error loading provider {provider_name}: {e}", err=True)
+        except Exception as e:
+            click.echo(f"Unexpected error loading provider {provider_name}: {e}", err=True)
+    
+    else:
+        click.echo("Error: Invalid models command", err=True)
+        click.echo("Usage: tts models [provider]", err=True)
+        sys.exit(1)
 
 
 def handle_preview_voice(voice_name: str, model: str, logger: logging.Logger) -> None:
@@ -151,8 +566,12 @@ def handle_preview_voice(voice_name: str, model: str, logger: logging.Logger) ->
             # Clean up temporary file
             try:
                 Path(temp_file).unlink()
-            except:
-                pass
+            except OSError as e:
+                # Log but don't fail if we can't clean up temp file
+                logger.debug(f"Could not clean up temporary file {temp_file}: {e}")
+            except Exception as e:
+                # Unexpected error during cleanup
+                logger.warning(f"Unexpected error cleaning up temporary file {temp_file}: {e}")
         
     except DependencyError as e:
         logger.error(f"Voice preview failed: {e}")
@@ -300,38 +719,48 @@ def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str
             logger.info("Audio streaming completed")
         
     except DependencyError as e:
-        logger.error(f"Synthesis failed - dependency missing: {e}")
-        click.echo(f"Dependency missing: {e}", err=True)
+        logger.error(f"Synthesis failed - dependency missing for {model}: {e}")
+        click.echo(f"Dependency missing for {model}: {e}", err=True)
+        click.echo(f"Hint: Check the installation guide for {model} provider dependencies", err=True)
         sys.exit(1)
     except NetworkError as e:
-        logger.error(f"Synthesis failed - network error: {e}")
-        click.echo(f"Network error: {e}", err=True)
+        logger.error(f"Synthesis failed - network error with {model}: {e}")
+        click.echo(f"Network error with {model}: {e}", err=True)
+        click.echo("Hint: Check your internet connection for cloud-based providers", err=True)
         sys.exit(1)
     except TTSError as e:
-        logger.error(f"Synthesis failed: {e}")
-        click.echo(f"TTS error: {e}", err=True)
+        logger.error(f"Synthesis failed with {model}: {e}")
+        click.echo(f"TTS error with {model}: {e}", err=True)
+        sys.exit(1)
+    except FileNotFoundError as e:
+        logger.error(f"File not found during synthesis with {model}: {e}")
+        click.echo(f"File not found: {e}", err=True)
+        click.echo("Hint: Check file paths and ensure all required files exist", err=True)
+        sys.exit(1)
+    except PermissionError as e:
+        logger.error(f"Permission error during synthesis with {model}: {e}")
+        click.echo(f"Permission error: {e}", err=True)
+        click.echo("Hint: Check file permissions or try running with appropriate privileges", err=True)
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Synthesis failed: {e}")
-        click.echo(f"Unexpected error: {e}", err=True)
+        logger.error(f"Unexpected synthesis failure with {model}: {type(e).__name__}: {e}")
+        click.echo(f"Unexpected error with {model}: {type(e).__name__}: {e}", err=True)
+        click.echo("Hint: Try running with --help for usage information or check the logs", err=True)
         sys.exit(1)
 
 
 @click.command()
 @click.version_option(version=__version__, prog_name="tts")
 @click.option("-l", "--list", "list_models", is_flag=True, help="List available models")
-@click.option("--list-voices", help="List available voices for a specific provider")
-@click.option("--find-voice", help="Search voices by language/gender (e.g., 'british female')")
-@click.option("--preview-voice", help="Play a sample of the specified voice")
 @click.option("-s", "--save", is_flag=True, help="Save to file instead of streaming to speakers (default: stream)")
 @click.argument("text", required=False)
 @click.option("-m", "--model", help="TTS model to use")
 @click.option("-o", "--output", help="Output file path")
 @click.option("-f", "--format", "output_format", type=click.Choice(['mp3', 'wav', 'ogg', 'flac']), help="Audio output format")
-@click.option("--voice", help="Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
+@click.option("-v", "--voice", help="Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
 @click.option("--clone", help="Audio file to clone voice from (for chatterbox)")
 @click.argument("options", nargs=-1)
-def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, list_voices: str, find_voice: str, preview_voice: str, output_format: str):
+def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, output_format: str):
     """Text-to-speech CLI with multiple providers."""
     
     # Setup logging
@@ -340,7 +769,7 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
     # Load configuration first
     user_config = load_config()
     
-    # Handle config command (first positional argument)
+    # Handle subcommands (first positional argument)
     if text and text.lower() == "config":
         if len(options) == 0:
             handle_config_commands("show")
@@ -357,26 +786,19 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
             sys.exit(1)
         return
     
-    # Handle list command
+    # Handle voices subcommand
+    if text and text.lower() == "voices":
+        handle_voices_command(options)
+        return
+    
+    # Handle models subcommand
+    if text and text.lower() == "models":
+        handle_models_command(options)
+        return
+    
+    # Handle legacy list command (redirect to models subcommand)
     if list_models:
-        click.echo("Available models:")
-        for name in PROVIDERS.keys():
-            click.echo(f"  - {name}")
-        return
-    
-    # Handle list voices command
-    if list_voices:
-        handle_list_voices(list_voices)
-        return
-    
-    # Handle find voice command
-    if find_voice:
-        handle_find_voice(find_voice, model)
-        return
-    
-    # Handle preview voice command
-    if preview_voice:
-        handle_preview_voice(preview_voice, model, logger)
+        handle_models_command(())
         return
     
     # Apply configuration defaults where CLI args weren't provided

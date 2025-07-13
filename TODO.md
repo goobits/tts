@@ -1,44 +1,52 @@
-# TTS CLI TODO
+# TTS CLI - TODO List
 
-## High Priority
+## High Priority Provider Integrations
 
-- [x] **Error handling improvements** ✅
-  - [x] Add proper exception handling for network failures
-  - [x] Handle audio device issues gracefully  
-  - [x] Add provider-specific error handling
-  - [x] File permission checks before synthesis
+### External TTS Services
+- [ ] **ElevenLabs API** - Premium voice cloning and synthesis
+  - Add API key configuration
+  - Implement voice cloning workflows
+  - Add voice library browsing
 
-- [x] **Logging system** ✅
-  - [x] Add structured logging for debugging and monitoring TTS operations
-  - [x] Configure log levels and output destinations
-  - [x] Create ./logs/tts.log with INFO/WARNING/ERROR levels
-  - [x] Log synthesis attempts, errors, timing, and file operations
+- [ ] **Google Cloud Text-to-Speech API** - Enterprise-grade TTS
+  - Standard and WaveNet voices
+  - SSML support for advanced speech control
+  - Multi-language support
 
-## Medium Priority
+- [ ] **OpenAI TTS API** - Latest AI-powered speech synthesis
+  - tts-1 and tts-1-hd models
+  - Multiple voice options (alloy, echo, fable, nova, shimmer)
+  - High-quality neural voices
 
-- [x] **Streaming optimization** ✅
-  - [x] Implement true streaming for Edge TTS to reduce latency from ~2.4s to ~0.3-0.5s
-  - [x] Start playing audio chunks as they're generated instead of waiting for complete generation
-  - [x] Added audio environment detection and fallback mechanisms
-  - [x] Improved error handling for broken pipe and audio device issues
-  - [x] Added latency measurement and logging for performance monitoring
+## CLI Improvements
 
-- [x] **Voice discovery** ✅
-  - [x] Add `--list-voices` command to show available voices per provider (322 voices for edge_tts)
-  - [x] Add `--find-voice` to search voices by language/gender
-  - [x] Validate voice names before synthesis to prevent failures
-  - [x] Set edge_tts as default model (no -m required)
-  - [x] Show voice samples/previews with `--preview-voice` command
+### Subcommand Structure
+- [ ] Implement clean subcommand structure:
+  - `tts voices` - List all voices from all providers
+  - `tts voices edge_tts` - List voices for specific provider  
+  - `tts voices search "irish"` - Search for voices
+  - `tts voices preview en-IE-Emily` - Preview a voice
+  - `tts models` - List available models
 
-- [x] **Audio format options** ✅
-  - [x] Support multiple output formats (WAV, OGG, FLAC) beyond just MP3
-  - [x] Add quality/bitrate options
-  - [x] Allow format selection via CLI parameter
+### Configuration Enhancements
+- [ ] **API Key Management** - Secure storage and configuration
+  - Support for multiple API keys per provider
+  - Environment variable fallbacks
+  - Key validation and testing
 
-- [ ] **SSML support**
-  - Add Speech Synthesis Markup Language support for advanced voice control
-  - Support pauses: `<break time="2s"/>`
-  - Support emphasis: `<emphasis level="strong">text</emphasis>`
-  - Support prosody: `<prosody rate="slow" pitch="high">text</prosody>`
-  - Support pronunciation: `<phoneme>` tags
-  - Support voice switching mid-sentence
+- [ ] **Provider Auto-Selection** - Smart provider choosing
+  - Quality vs speed preferences
+  - Cost optimization
+  - Fallback chains for reliability
+
+## Infrastructure
+
+### Quality & Performance
+- [ ] **Provider Benchmarking** - Compare quality, speed, and cost
+- [ ] **Caching System** - Cache frequently used audio
+- [ ] **Batch Processing** - Process multiple texts efficiently
+
+### Developer Experience  
+- [ ] **Plugin System** - Easy provider addition
+- [ ] **Testing Suite** - Comprehensive provider testing
+- [ ] **Documentation** - Provider integration guides

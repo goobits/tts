@@ -5,7 +5,8 @@
       "Bash(pip install:*)",
       "Bash(nvidia-smi:*)",
       "Bash(rg:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(tts:*)"
     ],
     "deny": []
   }
