@@ -30,7 +30,24 @@ tts "Save this" --save
 
 ## 📦 Installation
 
-Already installed! The `tts` command is available system-wide.
+### Quick Install (Recommended)
+```bash
+# Install with pipx (modern Python package isolation)
+./setup-pipx.sh install
+
+# Check what's working
+tts doctor
+
+# Add GPU voice cloning (optional)
+tts install chatterbox gpu
+```
+
+### Alternative: Development Install
+```bash
+./setup-pipx.sh dev    # Editable install for development
+```
+
+The `tts` command will be available system-wide after installation.
 
 ## 🎯 Engines
 
@@ -64,6 +81,11 @@ tts voices preview en-IE-EmilyNeural  # Preview a voice
 # Provider/Model Information
 tts models                    # List available providers
 tts models edge_tts           # Show provider info and capabilities
+
+# System Management
+tts doctor                    # Check system health and capabilities
+tts install chatterbox gpu  # Install provider dependencies with GPU support
+tts install edge_tts          # Install/verify provider (already included)
 ```
 
 ## 🎤 Voice Cloning
@@ -113,4 +135,4 @@ tts config edit
 - **Voice cloning** without training
 - **Multiple accents** and languages
 
-Built with ❤️ using cutting-edge open-source TTS models.
+Built with ❤️ using cutting-edge open-source TTS models.# tts
