@@ -9,6 +9,7 @@ from typing import Dict, Type
 from .base import TTSProvider
 from .exceptions import TTSError, ProviderNotFoundError, ProviderLoadError, DependencyError, NetworkError
 from .__version__ import __version__
+from .config import load_config, save_config, get_default_config, parse_voice_setting, set_setting, get_setting
 
 
 PROVIDERS: Dict[str, str] = {
@@ -164,6 +165,60 @@ def handle_preview_voice(voice_name: str, model: str, logger: logging.Logger) ->
         click.echo(f"Unexpected error playing voice preview: {e}", err=True)
 
 
+def handle_config_commands(action: str, key: str = None, value: str = None) -> None:
+    """Handle --config subcommands"""
+    if action == "show":
+        config = load_config()
+        click.echo("Current configuration:")
+        for k, v in config.items():
+            click.echo(f"  {k}: {v}")
+    
+    elif action == "set":
+        if not key or not value:
+            click.echo("Error: --config set requires both key and value", err=True)
+            click.echo("Usage: tts --config set voice edge_tts:en-IE-EmilyNeural", err=True)
+            sys.exit(1)
+        
+        if set_setting(key, value):
+            click.echo(f"Set {key} = {value}")
+        else:
+            click.echo(f"Failed to save configuration", err=True)
+            sys.exit(1)
+    
+    elif action == "reset":
+        if save_config(get_default_config()):
+            click.echo("Configuration reset to defaults")
+        else:
+            click.echo("Failed to reset configuration", err=True)
+            sys.exit(1)
+    
+    elif action == "edit":
+        config = load_config()
+        click.echo("Interactive configuration editor:")
+        click.echo("Press Enter to keep current value, or type new value")
+        click.echo()
+        
+        new_config = {}
+        for key, current_value in config.items():
+            if key == "version":
+                new_config[key] = current_value
+                continue
+                
+            prompt = f"{key} ({current_value}): "
+            new_value = click.prompt(prompt, default=current_value, show_default=False)
+            new_config[key] = new_value
+        
+        if save_config(new_config):
+            click.echo("Configuration updated successfully")
+        else:
+            click.echo("Failed to save configuration", err=True)
+            sys.exit(1)
+    
+    else:
+        click.echo("Error: Unknown config action. Use: show, set, reset, or edit", err=True)
+        sys.exit(1)
+
+
 def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str, 
                      clone: str, output_format: str, options: tuple, logger: logging.Logger) -> None:
     """Handle main synthesis command"""
@@ -263,16 +318,16 @@ def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str
 
 
 @click.command()
-@click.version_option(version=__version__, prog_name="tts-cli")
+@click.version_option(version=__version__, prog_name="tts")
 @click.option("-l", "--list", "list_models", is_flag=True, help="List available models")
 @click.option("--list-voices", help="List available voices for a specific provider")
 @click.option("--find-voice", help="Search voices by language/gender (e.g., 'british female')")
 @click.option("--preview-voice", help="Play a sample of the specified voice")
 @click.option("-s", "--save", is_flag=True, help="Save to file instead of streaming to speakers (default: stream)")
 @click.argument("text", required=False)
-@click.option("-m", "--model", default="edge_tts", help="TTS model to use (default: edge_tts)")
-@click.option("-o", "--output", default="output.wav", help="Output file path")
-@click.option("-f", "--format", "output_format", default="mp3", type=click.Choice(['mp3', 'wav', 'ogg', 'flac']), help="Audio output format")
+@click.option("-m", "--model", help="TTS model to use")
+@click.option("-o", "--output", help="Output file path")
+@click.option("-f", "--format", "output_format", type=click.Choice(['mp3', 'wav', 'ogg', 'flac']), help="Audio output format")
 @click.option("--voice", help="Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
 @click.option("--clone", help="Audio file to clone voice from (for chatterbox)")
 @click.argument("options", nargs=-1)
@@ -281,6 +336,26 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
     
     # Setup logging
     logger = setup_logging()
+    
+    # Load configuration first
+    user_config = load_config()
+    
+    # Handle config command (first positional argument)
+    if text and text.lower() == "config":
+        if len(options) == 0:
+            handle_config_commands("show")
+        elif len(options) == 1:
+            handle_config_commands(options[0])
+        elif len(options) >= 3 and options[0] == "set":
+            # Join remaining parts in case value contains spaces
+            key = options[1]
+            value = " ".join(options[2:])
+            handle_config_commands("set", key, value)
+        else:
+            click.echo("Error: Invalid config command format", err=True)
+            click.echo("Usage: tts config [show|reset|edit] or tts config set <key> <value>", err=True)
+            sys.exit(1)
+        return
     
     # Handle list command
     if list_models:
@@ -303,6 +378,31 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
     if preview_voice:
         handle_preview_voice(preview_voice, model, logger)
         return
+    
+    # Apply configuration defaults where CLI args weren't provided
+    if not model:
+        config_voice = user_config.get('voice', 'edge_tts:en-IE-EmilyNeural')
+        provider, _ = parse_voice_setting(config_voice)
+        model = provider or 'edge_tts'
+    
+    if not voice:
+        config_voice = user_config.get('voice')
+        if config_voice:
+            _, voice = parse_voice_setting(config_voice)
+    
+    if not output:
+        if user_config.get('default_action') == 'save':
+            output_dir = Path(user_config.get('output_dir', '~/Downloads')).expanduser()
+            output = str(output_dir / "output.wav")
+        else:
+            output = "output.wav"
+    
+    if not output_format:
+        output_format = user_config.get('format', 'mp3')
+    
+    # Override save flag based on config default_action if not explicitly set
+    if not save and user_config.get('default_action') == 'save':
+        save = True
     
     # Check required arguments
     if not text:

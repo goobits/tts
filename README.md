@@ -4,29 +4,28 @@ A lightning-fast, intelligent TTS system that automatically chooses the best eng
 
 ## ✨ Features
 
-- 🌐 **Smart Auto-Selection** - Edge TTS when online, Chatterbox when offline
+- 🔧 **Smart Configuration** - Set your preferred voice, provider, and default behavior
 - 🎭 **Voice Cloning** - Clone any voice with a short audio sample
-- ⚡ **Real-time Streaming** - No file creation, direct audio playback
-- 🇬🇧 **High-Quality Voices** - British female default, multiple accents available
-- 🚀 **GPU Accelerated** - CUDA support for local generation
+- ⚡ **Real-time Streaming** - No file creation, direct audio playback by default
+- 🇮🇪 **Irish Voices** - High-quality Irish accents with en-IE-EmilyNeural
+- 🚀 **Auto-Detection** - Smart provider selection based on voice format
 - 🔧 **Simple CLI** - One command does everything
 
 ## 🚀 Quick Start
 
 ```bash
-# Basic usage (auto-selects best engine)
+# Basic usage (streams by default)
 tts "Hello, world!"
 
-# Use specific engine
-tts "British accent" -e edge_tts
-tts "High quality local" -e chatterbox
+# Use specific voice
+tts "Irish accent" --voice en-IE-EmilyNeural
+tts "American voice" --voice en-US-JennyNeural
 
-# Voice cloning
+# Voice cloning with Chatterbox
 tts "Clone my voice" --clone ~/my_voice.wav
 
-# Different accents
-tts "American voice" -e edge_tts -v en-US-JennyNeural
-tts "Australian voice" -e edge_tts -v en-AU-NatashaNeural
+# Save to file instead of streaming
+tts "Save this" --save
 ```
 
 ## 📦 Installation
@@ -43,12 +42,23 @@ Already installed! The `tts` command is available system-wide.
 ## 🛠️ Commands
 
 ```bash
-tts "text"                    # Auto-select engine
-tts "text" -e edge_tts        # Force Edge TTS  
-tts "text" -e chatterbox      # Force Chatterbox
-tts "text" --clone voice.wav  # Voice cloning
-tts --start-server            # Start TTS server
-tts --status                  # Check server status
+# Text-to-Speech
+tts "text"                    # Stream audio using configured voice
+tts "text" --save             # Save to file instead of streaming
+tts "text" --voice voice-name # Use specific voice
+tts "text" --clone voice.wav  # Voice cloning with Chatterbox
+
+# Configuration
+tts config                    # Show current settings
+tts config set voice en-IE-EmilyNeural        # Set default voice
+tts config set default_action save            # Change default to save files
+tts config edit               # Interactive configuration editor
+tts config reset              # Reset to defaults
+
+# Voice Discovery
+tts --list-voices edge_tts    # List available voices
+tts --find-voice "irish"      # Search for voices
+tts --preview-voice en-IE-EmilyNeural  # Preview a voice
 ```
 
 ## 🎤 Voice Cloning
@@ -63,15 +73,32 @@ arecord -f cd -t wav -d 30 ~/my_voice.wav
 tts "This is my cloned voice!" --clone ~/my_voice.wav
 ```
 
-## 🔧 Server Management
+## ⚙️ Configuration System
+
+The TTS CLI includes a powerful configuration system that remembers your preferences:
 
 ```bash
-# Start persistent server (faster Chatterbox)
-tts --start-server
+# Set your preferred voice (auto-detects provider)
+tts config set voice en-IE-EmilyNeural
 
-# Check if running
-tts --status
+# Or specify provider explicitly
+tts config set voice edge_tts:en-US-JennyNeural
+
+# Change default behavior
+tts config set default_action save    # Save files by default
+tts config set output_dir ~/Audio     # Change save location
+
+# View current settings
+tts config
+
+# Interactive editor
+tts config edit
 ```
+
+**Voice Auto-Detection:**
+- `en-IE-EmilyNeural` → automatically uses Edge TTS
+- `/path/to/voice.wav` → automatically uses Chatterbox for cloning
+- `edge_tts:voice-name` → explicit provider specification
 
 ## 🌟 Why This Setup Rocks
 
