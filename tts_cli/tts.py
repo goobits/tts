@@ -43,9 +43,11 @@ import importlib
 import sys
 import logging
 import os
+import json
+import time
 import subprocess  # Still needed for doctor command and other CLI operations
 from pathlib import Path
-from typing import Dict, Type, List, Tuple
+from typing import Dict, Type, List, Tuple, Optional
 from .base import TTSProvider
 from .exceptions import TTSError, ProviderNotFoundError, ProviderLoadError, DependencyError, NetworkError
 from .__version__ import __version__
@@ -86,6 +88,49 @@ def setup_logging():
     
     # Get logger for this module
     return logging.getLogger(__name__)
+
+
+def parse_input(text: str) -> Tuple[str, Dict]:
+    """Parse input as JSON or plain text. Returns (text, params_dict)"""
+    if text and text.strip().startswith('{'):
+        try:
+            data = json.loads(text)
+            if 'text' in data:
+                return data.pop('text'), data  # Extract text, return rest as params
+        except json.JSONDecodeError:
+            pass
+    return text, {}  # Plain text input
+
+
+def format_output(success: bool, provider: str = None, voice: str = None, action: str = None, 
+                 duration: float = None, output_path: str = None, error: str = None, 
+                 error_code: str = None, json_output: bool = False) -> str:
+    """Format output as JSON or human-readable text"""
+    if json_output:
+        if success:
+            result = {"success": True}
+            if provider:
+                result["provider"] = provider
+            if voice:
+                result["voice"] = voice
+            if action:
+                result["action"] = action
+            if duration is not None:
+                result["duration_seconds"] = duration
+            if output_path:
+                result["output_path"] = output_path
+        else:
+            result = {"success": False}
+            if error:
+                result["error"] = error
+            if error_code:
+                result["error_code"] = error_code
+        return json.dumps(result)
+    else:
+        if success:
+            return f"Streaming with {provider}..." if provider else "Success"
+        else:
+            return f"Error: {error}" if error else "Error occurred"
 
 
 def load_provider(name: str) -> Type[TTSProvider]:
@@ -465,7 +510,8 @@ def handle_config_commands(action: str, key: str = None, value: str = None) -> N
 
 
 def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str, 
-                     clone: str, output_format: str, options: tuple, logger: logging.Logger) -> None:
+                     clone: str, output_format: str, options: tuple, logger: logging.Logger, 
+                     json_output: bool = False) -> None:
     """Handle main synthesis command using the core TTS engine."""
     # Parse key=value options
     kwargs = {}
@@ -501,13 +547,15 @@ def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str
         # Use core TTS engine for synthesis
         tts_engine = get_tts_engine()
         
-        # Display user feedback
-        if stream:
-            click.echo(f"Streaming with {model}...")
-        else:
-            click.echo(f"Saving with {model}...")
+        # Display user feedback (only if not JSON output)
+        if not json_output:
+            if stream:
+                click.echo(f"Streaming with {model}...")
+            else:
+                click.echo(f"Saving with {model}...")
         
-        # Perform synthesis
+        # Perform synthesis with timing
+        start_time = time.time()
         result_path = tts_engine.synthesize_text(
             text=text,
             output_path=output if not stream else None,
@@ -517,18 +565,40 @@ def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str
             output_format=output_format,
             **kwargs
         )
+        duration = time.time() - start_time
         
-        # Display results
-        if result_path:
-            click.echo(f"Audio saved to: {result_path}")
+        # Format and display results
+        action = "save" if save else "stream"
+        output_msg = format_output(
+            success=True,
+            provider=model,
+            voice=final_voice,
+            action=action,
+            duration=duration,
+            output_path=result_path if result_path else None,
+            json_output=json_output
+        )
+        click.echo(output_msg)
         
     except TTSError as e:
         logger.error(f"Synthesis failed with {model}: {e}")
-        click.echo(f"TTS error with {model}: {e}", err=True)
+        error_msg = format_output(
+            success=False,
+            error=str(e),
+            error_code="TTS_ERROR",
+            json_output=json_output
+        )
+        click.echo(error_msg, err=True)
         sys.exit(1)
     except Exception as e:
         logger.error(f"Unexpected error during synthesis with {model}: {e}")
-        click.echo(f"Unexpected error: {e}", err=True)
+        error_msg = format_output(
+            success=False,
+            error=str(e),
+            error_code="UNEXPECTED_ERROR",
+            json_output=json_output
+        )
+        click.echo(error_msg, err=True)
         sys.exit(1)
 
 
@@ -820,8 +890,9 @@ def handle_unload_command(args: tuple) -> None:
 @click.option("-f", "--format", "output_format", type=click.Choice(['mp3', 'wav', 'ogg', 'flac']), help="Audio output format")
 @click.option("-v", "--voice", help="Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
 @click.option("--clone", help="Audio file to clone voice from (deprecated: use --voice instead)")
+@click.option("--json", "json_output", is_flag=True, help="Output results as JSON")
 @click.argument("options", nargs=-1)
-def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, output_format: str):
+def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, output_format: str, json_output: bool):
     """Text-to-speech CLI with multiple providers."""
     
     # Setup logging
@@ -961,6 +1032,15 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
             click.echo(ctx.get_help())
             sys.exit(0)
     
+    # Parse JSON input if provided and override parameters
+    text, json_params = parse_input(text)
+    if json_params:
+        # Override CLI parameters with JSON values
+        voice = json_params.get('voice', voice)
+        save = json_params.get('action') == 'save' if 'action' in json_params else save
+        output = json_params.get('output_path', output)
+        output_format = json_params.get('format', output_format)
+    
     # Check output file permissions only if saving to file
     if save:
         output_path = Path(output)
@@ -977,7 +1057,7 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
             sys.exit(1)
     
     # Handle main synthesis
-    handle_synthesize(text, model, output, save, voice, clone, output_format, options, logger)
+    handle_synthesize(text, model, output, save, voice, clone, output_format, options, logger, json_output)
 
 
 def cli():
