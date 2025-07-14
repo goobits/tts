@@ -70,40 +70,91 @@ def load_provider(name: str) -> Type[TTSProvider]:
         raise ProviderLoadError(f"Provider class not found for {name}: {e}")
 
 
+def analyze_voice(provider: str, voice_name: str) -> tuple:
+    """Analyze voice to extract quality, region, and gender info"""
+    # Quality analysis
+    if 'Chirp3-HD' in voice_name or 'Studio' in voice_name:
+        quality = 3  # ★★★
+    elif 'Neural2' in voice_name or 'Wavenet' in voice_name or 'Chirp' in voice_name:
+        quality = 3  # ★★★ 
+    elif 'Neural' in voice_name or provider in ['openai', 'elevenlabs']:
+        quality = 2  # ★★☆
+    else:
+        quality = 1  # ★☆☆
+    
+    # Region analysis
+    region = "General"
+    if voice_name.startswith('en-'):
+        parts = voice_name.split('-')
+        if len(parts) >= 2:
+            region_code = f"{parts[0]}-{parts[1]}"
+            region_map = {
+                'en-US': 'American',
+                'en-GB': 'British', 
+                'en-IE': 'Irish',
+                'en-AU': 'Australian',
+                'en-CA': 'Canadian',
+                'en-IN': 'Indian',
+                'en-ZA': 'S.African',
+                'en-NZ': 'N.Zealand',
+                'en-SG': 'Singapore',
+                'en-HK': 'Hong Kong'
+            }
+            region = region_map.get(region_code, region_code)
+    
+    # Gender analysis (basic heuristics)
+    gender = "U"  # Unknown
+    female_indicators = ['Emily', 'Jenny', 'Aria', 'Emma', 'Ana', 'Michelle', 'Sonia', 'Clara', 
+                        'Libby', 'Maisie', 'rachel', 'bella', 'Nova', 'Female', 'F', 'A', 'C', 'E', 'G', 'I']
+    male_indicators = ['Connor', 'Brian', 'Andrew', 'Christopher', 'Eric', 'Guy', 'Roger', 'Steffan',
+                      'Ryan', 'Thomas', 'adam', 'antoni', 'arnold', 'josh', 'Male', 'M', 'B', 'D', 'F', 'H', 'J']
+    
+    voice_upper = voice_name.upper()
+    if any(indicator.upper() in voice_upper for indicator in female_indicators):
+        gender = "F"
+    elif any(indicator.upper() in voice_upper for indicator in male_indicators):
+        gender = "M"
+    
+    return quality, region, gender
+
+
 def interactive_voice_browser() -> None:
-    """Interactive voice browser with arrow key navigation"""
+    """Enhanced interactive voice browser with search, filters, and preview"""
     def main_browser(stdscr):
-        # Initialize authentic Dracula theme colors
+        # Initialize curses and colors
         curses.curs_set(0)  # Hide cursor
         curses.start_color()
         
-        # Authentic Dracula color scheme with semantic meaning
-        curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_MAGENTA)  # Selection highlight (pink bg)
-        curses.init_pair(2, curses.COLOR_MAGENTA, curses.COLOR_BLACK)  # Title/brand (purple)
-        curses.init_pair(3, curses.COLOR_CYAN, curses.COLOR_BLACK)     # Provider names (cyan)
-        curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLACK)   # Keyboard keys (yellow)
-        curses.init_pair(5, curses.COLOR_GREEN, curses.COLOR_BLACK)    # Success messages (green)
-        curses.init_pair(6, curses.COLOR_RED, curses.COLOR_BLACK)      # Error messages (red)
-        curses.init_pair(7, curses.COLOR_WHITE, curses.COLOR_BLACK)    # Normal text (white)
+        # Color scheme
+        curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_MAGENTA)  # Selection highlight
+        curses.init_pair(2, curses.COLOR_MAGENTA, curses.COLOR_BLACK)  # Title/brand
+        curses.init_pair(3, curses.COLOR_CYAN, curses.COLOR_BLACK)     # Provider/section headers
+        curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLACK)   # Quality stars/keys
+        curses.init_pair(5, curses.COLOR_GREEN, curses.COLOR_BLACK)    # Success/checked items
+        curses.init_pair(6, curses.COLOR_RED, curses.COLOR_BLACK)      # Error/unchecked
+        curses.init_pair(7, curses.COLOR_WHITE, curses.COLOR_BLACK)    # Normal text
+        curses.init_pair(8, curses.COLOR_BLUE, curses.COLOR_BLACK)     # Secondary text
         
-        # Collect all voices with provider info
-        all_voices: List[Tuple[str, str]] = []  # (provider, voice_name)
+        # Voice data structure: (provider, voice_name, quality, region, gender)
+        all_voices = []
+        voice_cache = {}
+        
+        # Load all voices with metadata
         for provider_name in PROVIDERS.keys():
             try:
                 provider_class = load_provider(provider_name)
                 provider = provider_class()
                 info = provider.get_info()
                 if info:
-                    # Use all_voices if available, fallback to sample_voices
                     voices = info.get('all_voices') or info.get('sample_voices', [])
                     for voice in voices:
-                        all_voices.append((provider_name, voice))
-            except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
-                # Skip providers that can't be loaded (missing dependencies, etc.)
+                        quality, region, gender = analyze_voice(provider_name, voice)
+                        all_voices.append((provider_name, voice, quality, region, gender))
+                        voice_cache[f"{provider_name}:{voice}"] = (quality, region, gender)
+            except (ProviderNotFoundError, ProviderLoadError, DependencyError):
                 continue
             except Exception as e:
-                # Log unexpected errors but continue with other providers
-                logging.getLogger(__name__).warning(f"Unexpected error loading provider {provider_name}: {e}")
+                logging.getLogger(__name__).warning(f"Error loading provider {provider_name}: {e}")
                 continue
         
         if not all_voices:
@@ -112,250 +163,390 @@ def interactive_voice_browser() -> None:
             stdscr.getch()
             return
         
+        # Browser state
         current_pos = 0
         scroll_offset = 0
-        last_height, last_width = 0, 0
-        last_scroll_offset = -1
-        need_full_redraw = True
+        search_text = ""
+        search_active = False
+        
+        # Filter state
+        filters = {
+            'providers': {'edge_tts': True, 'google': True, 'openai': True, 'elevenlabs': True, 'chatterbox': True},
+            'quality': {3: True, 2: True, 1: False},  # High, Medium, Low
+            'regions': {'Irish': True, 'British': True, 'American': False, 'Australian': False, 'Canadian': False, 'General': True}
+        }
+        
+        # Playback state
         is_playing = False
         current_playback_process = None
+        playing_voice = None
+        favorites = set()
         
-        while True:
-            height, width = stdscr.getmaxyx()
-            
-            # Only clear screen if terminal size changed or scroll changed significantly
-            if (height != last_height or width != last_width or need_full_redraw or 
-                abs(scroll_offset - last_scroll_offset) > 1):
-                stdscr.clear()
-                need_full_redraw = False
-                last_height, last_width = height, width
-                last_scroll_offset = scroll_offset
-            else:
-                # Just clear the content area for minor updates
-                for i in range(3, height-1):
-                    stdscr.move(i, 0)
-                    stdscr.clrtoeol()
-            
-            # Title - Purple (brand/header)
-            title = ">>> TTS VOICE BROWSER v1.0 <<<"
-            stdscr.addstr(0, 0, title[:width-1], curses.color_pair(2) | curses.A_BOLD)
-            
-            # Voice info line - voice name and details
-            if current_pos < len(all_voices):
-                current_provider, current_voice = all_voices[current_pos]
-                # Extract language info from voice name (basic parsing)
-                voice_parts = current_voice.split('-')
-                if len(voice_parts) >= 3:
-                    lang_code = voice_parts[0]
-                    region_code = voice_parts[1] 
-                    voice_name = voice_parts[2].replace('Neural', '')
+        def filter_voices():
+            """Apply current filters to voice list"""
+            filtered = []
+            for provider, voice, quality, region, gender in all_voices:
+                # Provider filter
+                if not filters['providers'].get(provider, False):
+                    continue
                     
-                    # Basic language mapping
-                    lang_map = {
-                        'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
-                        'it': 'Italian', 'pt': 'Portuguese', 'ja': 'Japanese', 'ko': 'Korean',
-                        'zh': 'Chinese', 'ar': 'Arabic', 'hi': 'Hindi', 'ru': 'Russian'
-                    }
-                    region_map = {
-                        'US': 'American', 'GB': 'British', 'AU': 'Australian', 'CA': 'Canadian',
-                        'IE': 'Irish', 'IN': 'Indian', 'ZA': 'South African', 'FR': 'French',
-                        'DE': 'German', 'ES': 'Spanish', 'IT': 'Italian', 'BR': 'Brazilian'
-                    }
+                # Quality filter  
+                if not filters['quality'].get(quality, False):
+                    continue
                     
-                    language = lang_map.get(lang_code.lower(), lang_code.upper())
-                    region = region_map.get(region_code.upper(), region_code.upper())
+                # Region filter
+                if not filters['regions'].get(region, False):
+                    continue
                     
-                    # Determine gender from voice name (basic heuristic)
-                    female_names = ['Emily', 'Jenny', 'Aria', 'Emma', 'Ana', 'Michelle', 'Sonia', 'Clara']
-                    gender = 'Female' if any(name in voice_name for name in female_names) else 'Male'
-                    
-                    voice_info = f"🎯 {current_voice} • {region} {language} {gender}"
-                else:
-                    voice_info = f"🎯 {current_voice}"
-                    
-                stdscr.addstr(1, 0, voice_info[:width-1], curses.color_pair(7))
+                # Search filter
+                if search_text:
+                    search_lower = search_text.lower()
+                    if not (search_lower in voice.lower() or 
+                           search_lower in provider.lower() or
+                           search_lower in region.lower() or
+                           search_lower in gender.lower()):
+                        continue
                 
-                # Provider and position line with playing status
-                provider_line = f"{current_provider}: Voice {current_pos + 1} of {len(all_voices)}"
-                if is_playing:
-                    provider_line += " • 🎵 Playing"
-                stdscr.addstr(2, 0, provider_line[:width-1], curses.color_pair(7))
-            else:
-                stdscr.addstr(1, 0, "🎯 No voice selected", curses.color_pair(7))
-                stdscr.addstr(2, 0, "No voices available", curses.color_pair(7))
+                filtered.append((provider, voice, quality, region, gender))
             
-            # Controls - Mix of normal text and yellow keys (no "Controls:" prefix)
-            x_pos = 0
-            controls_parts = [
-                ("[↑↓]", curses.color_pair(4)),   # Yellow keys
-                (" Move ", curses.color_pair(7)), # Normal text
-                ("[ENTER]", curses.color_pair(4)), # Yellow keys
-                (" Preview ", curses.color_pair(7)), # Normal text
-                ("[S]", curses.color_pair(4)),    # Yellow keys
-                (" Save ", curses.color_pair(7)), # Normal text
-                ("[Q]", curses.color_pair(4)),    # Yellow keys
-                (" Exit", curses.color_pair(7))   # Normal text
-            ]
+            return filtered
+        
+        def draw_interface():
+            """Draw the three-panel interface"""
+            height, width = stdscr.getmaxyx()
+            stdscr.clear()
             
-            for text, color in controls_parts:
-                if x_pos + len(text) < width:
-                    stdscr.addstr(3, x_pos, text, color)
-                    x_pos += len(text)
+            # Calculate panel widths
+            filter_width = 20
+            preview_width = 18
+            voice_width = width - filter_width - preview_width - 3  # 3 for borders
             
-            # Subtle separator - normal color
-            stdscr.addstr(4, 0, "_" * min(width-1, 64), curses.color_pair(7))
+            # Header line
+            title = f"TTS VOICE BROWSER v2.0"
+            search_display = f"Search: [{search_text:<15}] 🔍"
+            filtered_voices = filter_voices()
+            status = f"Showing: {len(filtered_voices)}/{len(all_voices)}"
+            playing_status = f"Playing: ♪ {playing_voice}" if is_playing and playing_voice else ""
             
-            # Calculate visible range  
-            list_height = height - 6  # Reserve space for header (5 lines) + margin
+            header = f"{title:<30} {search_display:<25} {status:<20} {playing_status}"
+            stdscr.addstr(0, 0, header[:width-1], curses.color_pair(2) | curses.A_BOLD)
+            
+            # Draw borders
+            stdscr.addstr(1, 0, "├" + "─" * (filter_width-1) + "┬" + "─" * (voice_width-1) + "┬" + "─" * (preview_width-1) + "┤")
+            
+            # Panel headers
+            stdscr.addstr(1, 2, " FILTERS ", curses.color_pair(3) | curses.A_BOLD)
+            stdscr.addstr(1, filter_width + 2, " VOICES ", curses.color_pair(3) | curses.A_BOLD)
+            stdscr.addstr(1, filter_width + voice_width + 2, " PREVIEW ", curses.color_pair(3) | curses.A_BOLD)
+            
+            # Draw vertical borders for panels
+            for row in range(2, height-1):
+                if row < height-1:
+                    stdscr.addstr(row, filter_width, "│")
+                    stdscr.addstr(row, filter_width + voice_width, "│")
+            
+            # Bottom border
+            stdscr.addstr(height-1, 0, "└" + "─" * (filter_width-1) + "┴" + "─" * (voice_width-1) + "┴" + "─" * (preview_width-1) + "┘")
+            
+            # Draw panels
+            draw_filters_panel(2, 0, filter_width-1, height-3)
+            draw_voices_panel(2, filter_width+1, voice_width-1, height-3, filtered_voices)
+            draw_preview_panel(2, filter_width + voice_width + 1, preview_width-1, height-3, filtered_voices)
+            
+        def draw_filters_panel(start_row, start_col, width, height):
+            """Draw the filters panel"""
+            row = start_row
+            
+            # Provider filters
+            stdscr.addstr(row, start_col + 1, "Providers:", curses.color_pair(7) | curses.A_BOLD)
+            row += 1
+            for provider in ['edge_tts', 'google', 'openai', 'elevenlabs']:
+                if row >= start_row + height:
+                    break
+                check = "☑" if filters['providers'].get(provider, False) else "☐"
+                color = curses.color_pair(5) if filters['providers'].get(provider, False) else curses.color_pair(6)
+                display_name = provider.replace('_', ' ').title()
+                stdscr.addstr(row, start_col + 1, f"{check} {display_name}"[:width-1], color)
+                row += 1
+            
+            row += 1
+            # Quality filters
+            if row < start_row + height:
+                stdscr.addstr(row, start_col + 1, "Quality:", curses.color_pair(7) | curses.A_BOLD)
+                row += 1
+                
+                quality_labels = {3: "High (★★★)", 2: "Medium (★★☆)", 1: "Low (★☆☆)"}
+                for quality, label in quality_labels.items():
+                    if row >= start_row + height:
+                        break
+                    check = "☑" if filters['quality'].get(quality, False) else "☐"
+                    color = curses.color_pair(5) if filters['quality'].get(quality, False) else curses.color_pair(6)
+                    stdscr.addstr(row, start_col + 1, f"{check} {label}"[:width-1], color)
+                    row += 1
+            
+            row += 1
+            # Region filters
+            if row < start_row + height:
+                stdscr.addstr(row, start_col + 1, "Region:", curses.color_pair(7) | curses.A_BOLD)
+                row += 1
+                
+                for region in ['Irish', 'British', 'American', 'Australian', 'General']:
+                    if row >= start_row + height:
+                        break
+                    check = "☑" if filters['regions'].get(region, False) else "☐"
+                    color = curses.color_pair(5) if filters['regions'].get(region, False) else curses.color_pair(6)
+                    stdscr.addstr(row, start_col + 1, f"{check} {region}"[:width-1], color)
+                    row += 1
+        
+        def draw_voices_panel(start_row, start_col, width, height, filtered_voices):
+            """Draw the voices list panel"""
+            nonlocal current_pos, scroll_offset
+            
+            # Adjust scroll if needed
             if current_pos < scroll_offset:
                 scroll_offset = current_pos
-            elif current_pos >= scroll_offset + list_height:
-                scroll_offset = current_pos - list_height + 1
+            elif current_pos >= scroll_offset + height:
+                scroll_offset = current_pos - height + 1
             
-            # Display voices
-            current_provider = ""
-            display_row = 5  # Start after header
-            
-            for i in range(scroll_offset, min(len(all_voices), scroll_offset + list_height)):
-                if display_row >= height:
+            # Draw voices
+            for i in range(height):
+                voice_idx = scroll_offset + i
+                row = start_row + i
+                
+                if voice_idx >= len(filtered_voices):
                     break
                     
-                provider, voice = all_voices[i]
+                provider, voice, quality, region, gender = filtered_voices[voice_idx]
                 
-                # Show provider header when it changes - Cyan
-                if provider != current_provider:
-                    if display_row < height:
-                        provider_header = f"🔹 {provider.upper()}:"
-                        stdscr.addstr(display_row, 0, provider_header[:width-1], 
-                                    curses.color_pair(3) | curses.A_BOLD)
-                        display_row += 1
-                    current_provider = provider
+                # Format voice entry
+                quality_stars = "★" * quality + "☆" * (3 - quality)
+                prefix = "▶ " if voice_idx == current_pos else "  "
+                voice_display = f"{voice_idx == current_pos and '▶ ' or '  '}{voice}"[:25]
                 
-                if display_row >= height:
-                    break
+                # Truncate voice name if too long
+                if len(voice_display) > width - 15:
+                    voice_display = voice_display[:width - 18] + "..."
                 
-                # Voice entry
-                if i == current_pos:
-                    # Highlighted voice - Black on Magenta (pink highlight)
-                    prefix = " > "
-                    attr = curses.color_pair(1) | curses.A_BOLD
+                info = f"{quality_stars} {gender} {region[:5]}"
+                full_line = f"{voice_display:<{width-12}} {info}"[:width-1]
+                
+                # Color based on selection and quality
+                if voice_idx == current_pos:
+                    color = curses.color_pair(1) | curses.A_BOLD  # Selection highlight
                 else:
-                    # Normal voice - White text
-                    prefix = "   "
-                    attr = curses.color_pair(7)
+                    color = curses.color_pair(4) if quality == 3 else curses.color_pair(7)
                 
-                voice_line = f"{prefix}{voice}"
-                if len(voice_line) > width - 1:
-                    voice_line = voice_line[:width-4] + "..."
+                stdscr.addstr(row, start_col + 1, full_line, color)
+            
+            # Navigation help at bottom
+            if height > 5:
+                nav_help = "↑↓ Navigate  Space Play  Enter Select"[:width-1]
+                stdscr.addstr(start_row + height - 1, start_col + 1, nav_help, curses.color_pair(8))
+        
+        def draw_preview_panel(start_row, start_col, width, height, filtered_voices):
+            """Draw the preview/details panel"""
+            row = start_row
+            
+            stdscr.addstr(row, start_col + 1, "Voice Details:", curses.color_pair(7) | curses.A_BOLD)
+            row += 1
+            
+            if current_pos < len(filtered_voices):
+                provider, voice, quality, region, gender = filtered_voices[current_pos]
                 
-                stdscr.addstr(display_row, 0, voice_line, attr)
-                display_row += 1
+                # Voice details
+                details = [
+                    f"• {region} English" if region != "General" else f"• {provider.title()}",
+                    f"• {gender == 'F' and 'Female' or gender == 'M' and 'Male' or 'Unknown'}",
+                    f"• {'High' if quality == 3 else 'Medium' if quality == 2 else 'Low'} Quality",
+                    f"• {provider.replace('_', ' ').title()}",
+                ]
+                
+                for detail in details:
+                    if row >= start_row + height - 2:
+                        break
+                    stdscr.addstr(row, start_col + 1, detail[:width-1], curses.color_pair(7))
+                    row += 1
             
+            row += 2
+            # Controls
+            if row < start_row + height:
+                stdscr.addstr(row, start_col + 1, "Controls:", curses.color_pair(7) | curses.A_BOLD)
+                row += 1
+                
+                controls = ["Space = Play", "Enter = Select", "F = Favorite", "/ = Search", "Q = Quit"]
+                for control in controls:
+                    if row >= start_row + height:
+                        break
+                    stdscr.addstr(row, start_col + 1, control[:width-1], curses.color_pair(8))
+                    row += 1
             
-            stdscr.refresh()
-            
-            # Check if background playback finished
-            if current_playback_process and current_playback_process.poll() is not None:
-                is_playing = False
-                current_playback_process = None
-            
-            # Handle input
+            # Favorites count
+            if row < start_row + height - 1:
+                row = start_row + height - 2
+                stdscr.addstr(row, start_col + 1, f"Favorites: {len(favorites)}", curses.color_pair(5))
+        
+        # Main browser loop
+        while True:
             try:
+                # Get current filtered voices
+                filtered_voices = filter_voices()
+                
+                # Adjust current position if needed
+                if current_pos >= len(filtered_voices) and len(filtered_voices) > 0:
+                    current_pos = len(filtered_voices) - 1
+                elif current_pos < 0:
+                    current_pos = 0
+                
+                # Draw interface
+                draw_interface()
+                stdscr.refresh()
+                
+                # Check if background playback finished
+                if current_playback_process and current_playback_process.poll() is not None:
+                    is_playing = False
+                    playing_voice = None
+                    current_playback_process = None
+                
+                # Handle input
                 key = stdscr.getch()
                 
                 if key == curses.KEY_UP and current_pos > 0:
                     current_pos -= 1
-                elif key == curses.KEY_DOWN and current_pos < len(all_voices) - 1:
+                elif key == curses.KEY_DOWN and current_pos < len(filtered_voices) - 1:
                     current_pos += 1
                 elif key == curses.KEY_PPAGE:  # Page Up
-                    current_pos = max(0, current_pos - list_height)
+                    current_pos = max(0, current_pos - 10)
                 elif key == curses.KEY_NPAGE:  # Page Down
-                    current_pos = min(len(all_voices) - 1, current_pos + list_height)
+                    current_pos = min(len(filtered_voices) - 1, current_pos + 10)
                 elif key == curses.KEY_HOME:
                     current_pos = 0
                 elif key == curses.KEY_END:
-                    current_pos = len(all_voices) - 1
+                    current_pos = len(filtered_voices) - 1
+                
+                elif key == ord('/'):
+                    # Toggle search mode
+                    search_active = True
+                    curses.curs_set(1)  # Show cursor
+                    search_text = ""
+                    
+                elif search_active:
+                    if key == ord('\n') or key == ord('\r') or key == 27:  # Enter or Escape
+                        search_active = False
+                        curses.curs_set(0)  # Hide cursor
+                    elif key == curses.KEY_BACKSPACE or key == 127:
+                        search_text = search_text[:-1]
+                    elif 32 <= key <= 126:  # Printable characters
+                        search_text += chr(key)
+                
                 elif key in (ord('\n'), ord('\r'), curses.KEY_ENTER):
-                    # Stop any current playback before starting new one
-                    if current_playback_process and current_playback_process.poll() is None:
-                        current_playback_process.terminate()
-                        current_playback_process = None
-                    
-                    # Preview voice with background playback
-                    provider, voice = all_voices[current_pos]
-                    
-                    # Set playing status
-                    is_playing = True
-                    
-                    try:
-                        # Generate preview in background thread
-                        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
-                            temp_file = tmp.name
+                    # Set as default voice
+                    if filtered_voices and current_pos < len(filtered_voices):
+                        provider, voice, quality, region, gender = filtered_voices[current_pos]
+                        voice_setting = f"{provider}:{voice}"
+                        if set_setting("voice", voice_setting):
+                            # Show confirmation briefly
+                            stdscr.addstr(0, 0, f"✅ Set default voice to {voice}"[:width-1], 
+                                        curses.color_pair(5) | curses.A_BOLD)
+                            stdscr.refresh()
+                            curses.napms(1500)
+                
+                elif key == ord(' '):
+                    # Play voice preview
+                    if filtered_voices and current_pos < len(filtered_voices):
+                        # Stop current playback
+                        if current_playback_process and current_playback_process.poll() is None:
+                            current_playback_process.terminate()
+                            current_playback_process = None
                         
-                        def generate_and_play():
+                        provider, voice, quality, region, gender = filtered_voices[current_pos]
+                        playing_voice = voice
+                        is_playing = True
+                        
+                        # Start preview in background thread
+                        def background_preview():
+                            nonlocal current_playback_process, is_playing, playing_voice
                             try:
-                                # Generate audio
+                                with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+                                    temp_file = tmp.name
+                                
                                 provider_class = load_provider(provider)
                                 provider_instance = provider_class()
                                 preview_text = "Hello! This is a preview of my voice."
                                 kwargs = {"voice": voice}
                                 provider_instance.synthesize(preview_text, temp_file, **kwargs)
                                 
-                                # Start playing in background
+                                # Play audio
+                                play_process = subprocess.Popen(['ffplay', '-nodisp', '-autoexit', temp_file], 
+                                                              stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+                                current_playback_process = play_process
+                                play_process.wait()
+                                
+                                # Cleanup
+                                import os
                                 try:
-                                    play_process = subprocess.Popen(['ffplay', '-nodisp', '-autoexit', temp_file], 
-                                                                  stderr=subprocess.DEVNULL,
-                                                                  stdout=subprocess.DEVNULL)
-                                    return play_process
-                                except (FileNotFoundError, subprocess.CalledProcessError):
-                                    return None
-                            except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
-                                # Provider-specific errors during synthesis
-                                logging.getLogger(__name__).error(f"Failed to generate preview with {provider}: {e}")
-                                return None
+                                    os.unlink(temp_file)
+                                except:
+                                    pass
+                                    
+                                if current_playback_process == play_process:
+                                    is_playing = False
+                                    playing_voice = None
+                                    current_playback_process = None
+                                    
                             except Exception as e:
-                                # Unexpected errors during audio generation
-                                logging.getLogger(__name__).error(f"Unexpected error generating preview for {provider}:{voice}: {e}")
-                                return None
+                                logging.getLogger(__name__).error(f"Preview failed: {e}")
+                                is_playing = False
+                                playing_voice = None
+                                current_playback_process = None
                         
-                        # Start generation and playback in background thread
-                        def background_worker():
-                            nonlocal current_playback_process
-                            current_playback_process = generate_and_play()
-                        
-                        worker_thread = threading.Thread(target=background_worker)
-                        worker_thread.daemon = True
-                        worker_thread.start()
-                            
-                    except OSError as e:
-                        # File system or process creation errors
-                        logging.getLogger(__name__).error(f"System error during voice preview setup: {e}")
-                        is_playing = False
-                    except Exception as e:
-                        # Catch-all for unexpected preview errors
-                        logging.getLogger(__name__).error(f"Unexpected error starting voice preview: {e}")
-                        is_playing = False
-                        
-                elif key in (ord('s'), ord('S')):
-                    # Set as default voice
-                    provider, voice = all_voices[current_pos]
-                    voice_setting = f"{provider}:{voice}"
-                    if set_setting("voice", voice_setting):
-                        stdscr.addstr(height-1, 0, f"Set default voice to {voice}", 
-                                    curses.color_pair(5) | curses.A_BOLD)
-                    else:
-                        stdscr.addstr(height-1, 0, "Failed to save voice setting", 
-                                    curses.color_pair(6))
-                    stdscr.refresh()
-                    curses.napms(1500)  # Show confirmation for 1.5 seconds
-                    
+                        import threading
+                        worker = threading.Thread(target=background_preview)
+                        worker.daemon = True
+                        worker.start()
+                
+                elif key in (ord('f'), ord('F')):
+                    # Toggle favorite
+                    if filtered_voices and current_pos < len(filtered_voices):
+                        provider, voice, quality, region, gender = filtered_voices[current_pos]
+                        voice_key = f"{provider}:{voice}"
+                        if voice_key in favorites:
+                            favorites.remove(voice_key)
+                        else:
+                            favorites.add(voice_key)
+                
                 elif key in (ord('q'), ord('Q'), 27):  # q, Q, or Escape
                     # Stop any background playback before exiting
                     if current_playback_process and current_playback_process.poll() is None:
                         current_playback_process.terminate()
                     break
-                    
+                
+                # Filter toggle keys (F1-F4 style functionality with numbers)
+                elif key >= ord('1') and key <= ord('4'):
+                    filter_num = key - ord('1')
+                    if filter_num == 0:  # Toggle providers
+                        # Cycle through provider combinations
+                        pass  # Simplified for now
+                    elif filter_num == 1:  # Toggle quality
+                        # Cycle through quality filters
+                        if all(filters['quality'].values()):
+                            filters['quality'] = {3: True, 2: False, 1: False}  # High only
+                        elif filters['quality'][3] and not filters['quality'][2]:
+                            filters['quality'] = {3: True, 2: True, 1: False}  # High + Medium
+                        else:
+                            filters['quality'] = {3: True, 2: True, 1: True}  # All
+                    elif filter_num == 2:  # Toggle regions
+                        # Cycle through English regions
+                        if filters['regions']['Irish'] and filters['regions']['British']:
+                            filters['regions'] = {r: r in ['Irish'] for r in filters['regions']}
+                        elif filters['regions']['Irish']:
+                            filters['regions'] = {r: r in ['British'] for r in filters['regions']}
+                        else:
+                            filters['regions'] = {r: r in ['Irish', 'British', 'General'] for r in filters['regions']}
+                
             except KeyboardInterrupt:
+                break
+            except Exception as e:
+                logging.getLogger(__name__).error(f"Browser error: {e}")
                 break
     
     try:
@@ -365,8 +556,6 @@ def interactive_voice_browser() -> None:
         click.echo("Falling back to simple voice list...", err=True)
         # Fallback to simple list
         handle_voices_command(())
-
-
 def handle_voices_command(args: tuple) -> None:
     """Handle voices subcommand"""
     # Parse language filter argument
