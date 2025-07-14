@@ -1,6 +1,6 @@
-# 🗣️ TTS CLI - Smart Text-to-Speech
+# 🗣️ Goobits TTS CLI
 
-Lightning-fast TTS with voice cloning and smart provider selection.
+A command-line text-to-speech tool that supports multiple TTS providers with automatic voice selection and voice cloning capabilities. Stream audio directly to speakers or save to files with support for various formats. Features an interactive voice browser, smart provider detection, and comprehensive configuration management for seamless deployment across different environments.
 
 ## 📦 Installation
 
@@ -68,11 +68,14 @@ tts doctor                           # Check system health
 tts install chatterbox gpu           # Install provider with GPU support
 ```
 
-## 🎯 Engines
+## 🎯 Supported Engines
 
-| Engine | Speed | Quality | Offline | Voice Cloning |
-|--------|-------|---------|---------|---------------|
-| **Edge TTS** | ⚡ Instant | 🌟 Excellent | ❌ No | ❌ No |
-| **Chatterbox** | 🔥 Fast | 🏆 Best-in-class | ✅ Yes | ✅ Yes |
+| Engine | Speed | Quality | Offline | Voice Cloning | API Required |
+|--------|-------|---------|---------|---------------|--------------|
+| **Edge TTS** | ⚡ Instant | 🌟 Excellent | ❌ No | ❌ No | ❌ Free |
+| **Chatterbox** | 🔥 Fast | 🏆 Best-in-class | ✅ Yes | ✅ Yes | ❌ Free |
+| **OpenAI TTS** | ⚡ Fast | 🌟 Excellent | ❌ No | ❌ No | ✅ Paid |
+| **Google Cloud TTS** | ⚡ Fast | 🌟 Excellent | ❌ No | ❌ No | ✅ Paid |
+| **ElevenLabs** | 🔥 Fast | 🏆 Premium | ❌ No | ✅ Yes | ✅ Paid |
 
-Built with cutting-edge open-source TTS models. Free forever, no API costs.
+Choose from free offline options or premium cloud services based on your needs.
