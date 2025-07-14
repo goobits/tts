@@ -1,53 +1,72 @@
 # 🗣️ TTS CLI - Smart Text-to-Speech
 
-A lightning-fast, intelligent TTS system that automatically chooses the best engine based on your connectivity.
-
-## ✨ Features
-
-- 🔧 **Smart Configuration** - Set your preferred voice, provider, and default behavior
-- 🎭 **Voice Cloning** - Clone any voice with a short audio sample
-- ⚡ **Real-time Streaming** - No file creation, direct audio playback by default
-- 🇮🇪 **Irish Voices** - High-quality Irish accents with en-IE-EmilyNeural
-- 🚀 **Auto-Detection** - Smart provider selection based on voice format
-- 🔧 **Simple CLI** - One command does everything
-
-## 🚀 Quick Start
-
-```bash
-# Basic usage (streams by default)
-tts "Hello, world!"
-
-# Use specific voice
-tts "Irish accent" --voice en-IE-EmilyNeural
-tts "American voice" --voice en-US-JennyNeural
-
-# Voice cloning with Chatterbox
-tts "Clone my voice" --clone ~/my_voice.wav
-
-# Save to file instead of streaming
-tts "Save this" --save
-```
+Lightning-fast TTS with voice cloning and smart provider selection.
 
 ## 📦 Installation
 
-### Quick Install (Recommended)
 ```bash
-# Install with pipx (modern Python package isolation)
-./setup-pipx.sh install
-
-# Check what's working
-tts doctor
-
-# Add GPU voice cloning (optional)
-tts install chatterbox gpu
+./setup-pipx.sh install    # Install with pipx
+tts doctor                 # Check system health
+tts install chatterbox gpu # Add voice cloning (optional)
 ```
 
-### Alternative: Development Install
+## 🎯 Basic Usage
+
 ```bash
-./setup-pipx.sh dev    # Editable install for development
+tts "Hello world"                    # Stream with default voice
+tts "Hello world" --save             # Save to file instead
+tts "Hello world" --voice en-IE-EmilyNeural  # Use specific voice
+tts "Hello world" --voice voice.wav  # Voice cloning
 ```
 
-The `tts` command will be available system-wide after installation.
+## ⚙️ Configuration
+
+```bash
+tts config                           # Show current settings
+tts config set voice en-IE-EmilyNeural  # Set default voice
+tts config set default_action save   # Save files by default
+tts config edit                      # Interactive editor
+```
+
+## 🎤 Voice Discovery
+
+```bash
+tts voices                           # List all available voices
+tts voices edge_tts                  # List voices for specific provider
+tts voices find "irish"              # Search voices
+tts models                           # List providers and capabilities
+```
+
+## 🚀 Voice Loading (Performance)
+
+```bash
+tts load voice.wav voice2.wav        # Load voices into memory
+tts status                           # Show loaded voices and system status
+tts unload voice.wav                 # Remove specific voice from memory
+tts unload all                       # Remove all voices
+```
+
+**Performance:** First call 13s (loading), subsequent calls <1s (cached).
+
+## 🎭 Voice Cloning Workflow
+
+```bash
+# 1. Record your voice
+arecord -f cd -t wav -d 30 ~/my_voice.wav
+
+# 2. Load for fast access
+tts load ~/my_voice.wav
+
+# 3. Use instantly
+tts "This sounds like me!" --voice ~/my_voice.wav
+```
+
+## 🔧 System Management
+
+```bash
+tts doctor                           # Check system health
+tts install chatterbox gpu           # Install provider with GPU support
+```
 
 ## 🎯 Engines
 
@@ -56,83 +75,4 @@ The `tts` command will be available system-wide after installation.
 | **Edge TTS** | ⚡ Instant | 🌟 Excellent | ❌ No | ❌ No |
 | **Chatterbox** | 🔥 Fast | 🏆 Best-in-class | ✅ Yes | ✅ Yes |
 
-## 🛠️ Commands
-
-```bash
-# Text-to-Speech
-tts "text"                    # Stream audio using configured voice
-tts "text" --save             # Save to file instead of streaming
-tts "text" --voice voice-name # Use specific voice
-tts "text" --clone voice.wav  # Voice cloning with Chatterbox
-
-# Configuration
-tts config                    # Show current settings
-tts config set voice en-IE-EmilyNeural        # Set default voice
-tts config set default_action save            # Change default to save files
-tts config edit               # Interactive configuration editor
-tts config reset              # Reset to defaults
-
-# Voice Discovery
-tts voices                    # List ALL voices from all providers
-tts voices edge_tts           # List voices for specific provider
-tts voices find "irish"       # Search for voices
-tts voices preview en-IE-EmilyNeural  # Preview a voice
-
-# Provider/Model Information
-tts models                    # List available providers
-tts models edge_tts           # Show provider info and capabilities
-
-# System Management
-tts doctor                    # Check system health and capabilities
-tts install chatterbox gpu  # Install provider dependencies with GPU support
-tts install edge_tts          # Install/verify provider (already included)
-```
-
-## 🎤 Voice Cloning
-
-1. Record your voice:
-```bash
-arecord -f cd -t wav -d 30 ~/my_voice.wav
-```
-
-2. Use it:
-```bash
-tts "This is my cloned voice!" --clone ~/my_voice.wav
-```
-
-## ⚙️ Configuration System
-
-The TTS CLI includes a powerful configuration system that remembers your preferences:
-
-```bash
-# Set your preferred voice (auto-detects provider)
-tts config set voice en-IE-EmilyNeural
-
-# Or specify provider explicitly
-tts config set voice edge_tts:en-US-JennyNeural
-
-# Change default behavior
-tts config set default_action save    # Save files by default
-tts config set output_dir ~/Audio     # Change save location
-
-# View current settings
-tts config
-
-# Interactive editor
-tts config edit
-```
-
-**Voice Auto-Detection:**
-- `en-IE-EmilyNeural` → automatically uses Edge TTS
-- `/path/to/voice.wav` → automatically uses Chatterbox for cloning
-- `edge_tts:voice-name` → explicit provider specification
-
-## 🌟 Why This Setup Rocks
-
-- **Beats ElevenLabs** in blind tests (Chatterbox)
-- **Free forever** - no API costs
-- **Smart fallbacks** - always works online/offline  
-- **Voice cloning** without training
-- **Multiple accents** and languages
-
-Built with ❤️ using cutting-edge open-source TTS models.
+Built with cutting-edge open-source TTS models. Free forever, no API costs.

@@ -28,13 +28,34 @@ classifiers = [
 
 dependencies = [
     "click>=8.0.0",
+    "edge-tts>=7.0.0",  # Free provider, included by default
 ]
 
 [project.optional-dependencies]
-edge_tts = ["edge-tts>=7.0.0"]
+# Individual cloud providers
+openai = ["openai>=1.0.0"]
+google = ["google-cloud-texttospeech>=2.0.0"]
+elevenlabs = ["elevenlabs>=1.0.0"]
+
+# Local providers (heavy dependencies)
 chatterbox = ["chatterbox-tts>=0.1.2", "torch>=2.6.0", "torchaudio>=2.6.0", "soundfile>=0.13.0"]
+
+# Provider groups
+cloud = [
+    "openai>=1.0.0",
+    "google-cloud-texttospeech>=2.0.0", 
+    "elevenlabs>=1.0.0"
+]
+local = [
+    "chatterbox-tts>=0.1.2", 
+    "torch>=2.6.0",
+    "torchaudio>=2.6.0",
+    "soundfile>=0.13.0"
+]
 all = [
-    "edge-tts>=7.0.0",
+    "openai>=1.0.0",
+    "google-cloud-texttospeech>=2.0.0", 
+    "elevenlabs>=1.0.0",
     "chatterbox-tts>=0.1.2", 
     "torch>=2.6.0",
     "torchaudio>=2.6.0",

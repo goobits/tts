@@ -25,7 +25,7 @@ class ChatterboxProvider(TTSProvider):
                 print("Chatterbox model loaded successfully.")
                 
             except ImportError:
-                raise DependencyError("chatterbox dependencies not installed. Please install with: pip install chatterbox-tts")
+                raise DependencyError("chatterbox dependencies not installed. Please install with: pip install tts-cli[chatterbox]")
             except Exception as e:
                 raise ProviderError(f"Failed to load Chatterbox model: {e}")
     

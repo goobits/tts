@@ -1,52 +1,43 @@
 # TTS CLI - TODO List
 
-## High Priority Provider Integrations
+## ✅ Recently Completed
+- ✅ **Voice Loading System** - Load voices into memory for 13s → <1s performance
+- ✅ **Subcommand Structure** - Clean `tts voices`, `tts models`, `tts config` commands
+- ✅ **Configuration System** - Persistent settings with smart voice detection
+- ✅ **Pipx Installation** - Modern package isolation and dependency management
+- ✅ **System Health Checks** - `tts doctor` command for diagnostics
 
-### External TTS Services
-- [ ] **ElevenLabs API** - Premium voice cloning and synthesis
-  - Add API key configuration
-  - Implement voice cloning workflows
-  - Add voice library browsing
+## Future Integrations
 
-- [ ] **Google Cloud Text-to-Speech API** - Enterprise-grade TTS
-  - Standard and WaveNet voices
-  - SSML support for advanced speech control
-  - Multi-language support
+### Additional TTS Services
+- [ ] **Azure Cognitive Services** - Microsoft TTS with neural voices
+- [ ] **AWS Polly** - Amazon's text-to-speech service
+- [ ] **Coqui TTS** - Open-source neural TTS models
 
-- [ ] **OpenAI TTS API** - Latest AI-powered speech synthesis
-  - tts-1 and tts-1-hd models
-  - Multiple voice options (alloy, echo, fable, nova, shimmer)
-  - High-quality neural voices
+## 🚀 Active Development
 
-## CLI Improvements
+### API Provider Integration (In Progress)
+- [ ] **OpenAI TTS API** - 6 voices (nova, alloy, echo, fable, shimmer, onyx)
+- [ ] **Google Cloud TTS API** - 380+ voices with full SSML support  
+- [ ] **ElevenLabs API** - Premium voice cloning and custom voices
 
-### Subcommand Structure
-- [ ] Implement clean subcommand structure:
-  - `tts voices` - List all voices from all providers
-  - `tts voices edge_tts` - List voices for specific provider  
-  - `tts voices search "irish"` - Search for voices
-  - `tts voices preview en-IE-Emily` - Preview a voice
-  - `tts models` - List available models
-
-### Configuration Enhancements
-- [ ] **API Key Management** - Secure storage and configuration
-  - Support for multiple API keys per provider
-  - Environment variable fallbacks
-  - Key validation and testing
-
-- [ ] **Provider Auto-Selection** - Smart provider choosing
-  - Quality vs speed preferences
-  - Cost optimization
-  - Fallback chains for reliability
-
-## Infrastructure
-
-### Quality & Performance
-- [ ] **Provider Benchmarking** - Compare quality, speed, and cost
-- [ ] **Caching System** - Cache frequently used audio
+### Infrastructure Enhancements
+- [ ] **Voice Embedding Optimization** - Faster voice loading for local models
 - [ ] **Batch Processing** - Process multiple texts efficiently
 
-### Developer Experience  
-- [ ] **Plugin System** - Easy provider addition
+### API & Security
+- [ ] **API Key Management** - Secure storage for external services
+  - Environment variable fallbacks
+  - Key validation and testing
+  - Per-provider key configuration
+
+### Developer Experience
+- [ ] **Plugin System** - Easy provider addition framework
 - [ ] **Testing Suite** - Comprehensive provider testing
-- [ ] **Documentation** - Provider integration guides
+- [ ] **Provider Benchmarking** - Quality, speed, and cost comparison
+
+## Advanced Features
+- [ ] **SSML Support** - For Google Cloud TTS and Edge TTS (auto-detection)
+- [ ] **Voice Mixing** - Blend multiple voices
+- [ ] **Real-time Streaming** - Live audio generation
+- [ ] **Voice Training** - Custom voice model creation with Chatterbox

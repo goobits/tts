@@ -14,13 +14,16 @@ from typing import Dict, Type, List, Tuple
 from .base import TTSProvider
 from .exceptions import TTSError, ProviderNotFoundError, ProviderLoadError, DependencyError, NetworkError
 from .__version__ import __version__
-from .config import load_config, save_config, get_default_config, parse_voice_setting, set_setting, get_setting
+from .config import load_config, save_config, get_default_config, parse_voice_setting, set_setting, get_setting, set_api_key, validate_api_key
 from .voice_manager import VoiceManager
 
 
 PROVIDERS: Dict[str, str] = {
     "chatterbox": ".providers.chatterbox.ChatterboxProvider",
     "edge_tts": ".providers.edge_tts.EdgeTTSProvider",
+    "openai": ".providers.openai_tts.OpenAITTSProvider",
+    "google": ".providers.google_tts.GoogleTTSProvider",
+    "elevenlabs": ".providers.elevenlabs.ElevenLabsProvider",
 }
 
 
@@ -595,15 +598,41 @@ def handle_config_commands(action: str, key: str = None, value: str = None) -> N
     
     elif action == "set":
         if not key or not value:
-            click.echo("Error: --config set requires both key and value", err=True)
-            click.echo("Usage: tts --config set voice edge_tts:en-IE-EmilyNeural", err=True)
+            click.echo("Error: config set requires both key and value", err=True)
+            click.echo("Usage: tts config voice en-IE-EmilyNeural", err=True)
+            click.echo("       tts config openai_api_key sk-...", err=True)
             sys.exit(1)
         
-        if set_setting(key, value):
-            click.echo(f"Set {key} = {value}")
+        # Special handling for API keys
+        if key.endswith("_api_key"):
+            provider = key.replace("_api_key", "")
+            if provider in ["openai", "google", "elevenlabs"]:
+                if validate_api_key(provider, value):
+                    if set_api_key(provider, value):
+                        click.echo(f"✅ Set {provider} API key")
+                    else:
+                        click.echo(f"❌ Failed to save {provider} API key", err=True)
+                        sys.exit(1)
+                else:
+                    click.echo(f"❌ Invalid {provider} API key format", err=True)
+                    if provider == "openai":
+                        click.echo("   OpenAI keys start with 'sk-' and are ~50 characters", err=True)
+                    elif provider == "google":
+                        click.echo("   Google keys start with 'AIza' (39 chars) or 'ya29.' (OAuth)", err=True)
+                    elif provider == "elevenlabs":
+                        click.echo("   ElevenLabs keys are 32-character hex strings", err=True)
+                    sys.exit(1)
+            else:
+                click.echo(f"❌ Unknown provider '{provider}' for API key", err=True)
+                click.echo("   Supported providers: openai, google, elevenlabs", err=True)
+                sys.exit(1)
         else:
-            click.echo(f"Failed to save configuration", err=True)
-            sys.exit(1)
+            # Regular config setting
+            if set_setting(key, value):
+                click.echo(f"✅ Set {key} = {value}")
+            else:
+                click.echo(f"❌ Failed to save configuration", err=True)
+                sys.exit(1)
     
     elif action == "reset":
         if save_config(get_default_config()):
@@ -1037,7 +1066,7 @@ def handle_unload_command(args: tuple) -> None:
 @click.option("-o", "--output", help="Output file path")
 @click.option("-f", "--format", "output_format", type=click.Choice(['mp3', 'wav', 'ogg', 'flac']), help="Audio output format")
 @click.option("-v", "--voice", help="Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
-@click.option("--clone", help="Audio file to clone voice from (for chatterbox)")
+@click.option("--clone", help="Audio file to clone voice from (deprecated: use --voice instead)")
 @click.argument("options", nargs=-1)
 def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, output_format: str):
     """Text-to-speech CLI with multiple providers."""
@@ -1053,15 +1082,26 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
         if len(options) == 0:
             handle_config_commands("show")
         elif len(options) == 1:
-            handle_config_commands(options[0])
+            action = options[0]
+            if action in ["show", "reset", "edit"]:
+                handle_config_commands(action)
+            else:
+                click.echo("Error: Invalid config command", err=True)
+                click.echo("Usage: tts config [show|reset|edit] or tts config <key> <value>", err=True)
+                sys.exit(1)
+        elif len(options) == 2:
+            # New syntax: tts config key value
+            key = options[0]
+            value = options[1]
+            handle_config_commands("set", key, value)
         elif len(options) >= 3 and options[0] == "set":
-            # Join remaining parts in case value contains spaces
+            # Legacy syntax: tts config set key value
             key = options[1]
             value = " ".join(options[2:])
             handle_config_commands("set", key, value)
         else:
             click.echo("Error: Invalid config command format", err=True)
-            click.echo("Usage: tts config [show|reset|edit] or tts config set <key> <value>", err=True)
+            click.echo("Usage: tts config [show|reset|edit] or tts config <key> <value>", err=True)
             sys.exit(1)
         return
     
@@ -1111,7 +1151,14 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
         provider, _ = parse_voice_setting(config_voice)
         model = provider or 'edge_tts'
     
-    if not voice:
+    # Handle voice and provider detection
+    if voice:
+        # Voice specified on command line - parse for provider
+        detected_provider, parsed_voice = parse_voice_setting(voice)
+        if detected_provider:
+            model = detected_provider  # Always use detected provider
+        voice = parsed_voice
+    elif not voice:
         config_voice = user_config.get('voice')
         if config_voice:
             _, voice = parse_voice_setting(config_voice)
