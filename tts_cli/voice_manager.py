@@ -26,7 +26,7 @@ class VoiceManager:
         
         # Start server
         try:
-            script_path = Path(__file__).parent.parent / "chatterbox_server_daemon.py"
+            script_path = Path(__file__).parent.parent / "scripts" / "chatterbox_daemon.py"
             if not script_path.exists():
                 raise TTSError(f"Chatterbox server script not found: {script_path}")
             
