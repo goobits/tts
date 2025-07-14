@@ -1,7 +1,7 @@
 """ElevenLabs TTS provider implementation with voice cloning support."""
 
 from ..base import TTSProvider
-from ..exceptions import DependencyError, ProviderError, NetworkError
+from ..exceptions import DependencyError, ProviderError, NetworkError, AudioPlaybackError
 from ..config import get_api_key, is_ssml, strip_ssml_tags
 from typing import Optional, Dict, Any, List
 import logging
@@ -9,6 +9,7 @@ import tempfile
 import subprocess
 import requests
 import json
+import time
 
 
 class ElevenLabsProvider(TTSProvider):
@@ -140,50 +141,48 @@ class ElevenLabsProvider(TTSProvider):
             raise ProviderError(f"Voice '{voice_name}' not found. Use tts voices elevenlabs to see available voices.")
         
         try:
-            # Prepare request payload
-            payload = {
-                "text": text,
-                "model_id": "eleven_monolingual_v1",  # or "eleven_multilingual_v2"
-                "voice_settings": {
-                    "stability": stability,
-                    "similarity_boost": similarity_boost,
-                    "style": style
-                }
-            }
-            
-            self.logger.info(f"Generating speech with ElevenLabs voice '{voice_name}' (ID: {voice_id})")
-            
-            # Make synthesis request
-            response = self._make_request(
-                "POST", 
-                f"/text-to-speech/{voice_id}",
-                json=payload
-            )
-            
-            if response.status_code != 200:
-                error_msg = f"ElevenLabs API error {response.status_code}"
-                try:
-                    error_detail = response.json().get("detail", {})
-                    if isinstance(error_detail, dict):
-                        error_msg += f": {error_detail.get('message', 'Unknown error')}"
-                    else:
-                        error_msg += f": {error_detail}"
-                except:
-                    error_msg += f": {response.text}"
-                raise ProviderError(error_msg)
-            
-            # Save audio content to temporary file
-            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp_file:
-                tmp_path = tmp_file.name
-                tmp_file.write(response.content)
-            
             if stream:
-                # Stream the audio
-                self._stream_audio_file(tmp_path)
-                # Clean up temp file
-                import os
-                os.unlink(tmp_path)
+                # Use streaming method for real-time playback
+                self._stream_realtime(text, voice_id, voice_name, stability, similarity_boost, style)
             else:
+                # Use regular synthesis for file output
+                # Prepare request payload
+                payload = {
+                    "text": text,
+                    "model_id": "eleven_monolingual_v1",  # or "eleven_multilingual_v2"
+                    "voice_settings": {
+                        "stability": stability,
+                        "similarity_boost": similarity_boost,
+                        "style": style
+                    }
+                }
+                
+                self.logger.info(f"Generating speech with ElevenLabs voice '{voice_name}' (ID: {voice_id})")
+                
+                # Make synthesis request
+                response = self._make_request(
+                    "POST", 
+                    f"/text-to-speech/{voice_id}",
+                    json=payload
+                )
+                
+                if response.status_code != 200:
+                    error_msg = f"ElevenLabs API error {response.status_code}"
+                    try:
+                        error_detail = response.json().get("detail", {})
+                        if isinstance(error_detail, dict):
+                            error_msg += f": {error_detail.get('message', 'Unknown error')}"
+                        else:
+                            error_msg += f": {error_detail}"
+                    except:
+                        error_msg += f": {response.text}"
+                    raise ProviderError(error_msg)
+                
+                # Save audio content to temporary file
+                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp_file:
+                    tmp_path = tmp_file.name
+                    tmp_file.write(response.content)
+                
                 # Convert to desired format if needed
                 if output_format == "mp3":
                     # Direct save
@@ -197,16 +196,265 @@ class ElevenLabsProvider(TTSProvider):
                     os.unlink(tmp_path)
                     
         except requests.RequestException as e:
-            if response.status_code == 401:
+            if 'response' in locals() and response.status_code == 401:
                 raise ProviderError("ElevenLabs API authentication failed. Check your API key.")
-            elif response.status_code == 429:
+            elif 'response' in locals() and response.status_code == 429:
                 raise ProviderError("ElevenLabs API rate limit exceeded. Try again later.")
-            elif response.status_code >= 500:
+            elif 'response' in locals() and response.status_code >= 500:
                 raise NetworkError(f"ElevenLabs server error: {response.status_code}")
             else:
                 raise ProviderError(f"ElevenLabs API error: {e}")
         except Exception as e:
             raise ProviderError(f"ElevenLabs TTS synthesis failed: {e}")
+    
+    def _stream_realtime(self, text: str, voice_id: str, voice_name: str, 
+                        stability: float, similarity_boost: float, style: float) -> None:
+        """Stream TTS audio in real-time with minimal latency."""
+        import os
+        
+        try:
+            start_time = time.time()
+            self.logger.debug(f"Starting ElevenLabs TTS streaming with voice: {voice_name}")
+            
+            # Check for audio environment first
+            audio_env = self._check_audio_environment()
+            if not audio_env['available']:
+                self.logger.warning(f"Audio streaming not available: {audio_env['reason']}")
+                # Fallback to temporary file method
+                return self._stream_via_tempfile(text, voice_id, voice_name, stability, similarity_boost, style)
+            
+            # Start ffplay process for streaming
+            try:
+                ffplay_cmd = [
+                    'ffplay', 
+                    '-nodisp',           # No video display
+                    '-autoexit',         # Exit when done
+                    '-loglevel', 'quiet', # Reduce ffplay output
+                    '-f', 'mp3',         # Specify MP3 format
+                    '-i', 'pipe:0'       # Read from stdin
+                ]
+                
+                self.logger.debug(f"Starting ffplay with command: {' '.join(ffplay_cmd)}")
+                ffplay_process = subprocess.Popen(
+                    ffplay_cmd,
+                    stdin=subprocess.PIPE, 
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                    bufsize=0  # Unbuffered for real-time streaming
+                )
+            except FileNotFoundError:
+                self.logger.error("FFplay not found for audio streaming")
+                raise DependencyError("ffplay not found. Please install ffmpeg to use audio streaming.")
+            
+            try:
+                # Prepare request for streaming
+                api_key = get_api_key("elevenlabs")
+                if not api_key:
+                    raise ProviderError(
+                        "ElevenLabs API key not found. Set with: tts config elevenlabs_api_key YOUR_KEY"
+                    )
+                
+                headers = {
+                    "xi-api-key": api_key,
+                    "Content-Type": "application/json"
+                }
+                
+                payload = {
+                    "text": text,
+                    "model_id": "eleven_monolingual_v1",
+                    "voice_settings": {
+                        "stability": stability,
+                        "similarity_boost": similarity_boost,
+                        "style": style
+                    }
+                }
+                
+                url = f"{self.base_url}/text-to-speech/{voice_id}/stream"
+                
+                # Make streaming request
+                self.logger.debug("Starting ElevenLabs streaming request")
+                response = requests.post(url, headers=headers, json=payload, stream=True)
+                
+                if response.status_code != 200:
+                    error_msg = f"ElevenLabs API error {response.status_code}"
+                    try:
+                        error_detail = response.json().get("detail", {})
+                        if isinstance(error_detail, dict):
+                            error_msg += f": {error_detail.get('message', 'Unknown error')}"
+                        else:
+                            error_msg += f": {error_detail}"
+                    except:
+                        error_msg += f": {response.text[:200]}"
+                    raise ProviderError(error_msg)
+                
+                # Stream audio data chunks
+                self.logger.debug("Starting chunk-by-chunk audio streaming")
+                chunk_count = 0
+                bytes_written = 0
+                first_chunk_time = None
+                
+                # ElevenLabs streams in chunks
+                for chunk in response.iter_content(chunk_size=1024):
+                    if chunk:
+                        chunk_count += 1
+                        
+                        # Log when we get the first chunk (latency measurement)
+                        if chunk_count == 1:
+                            first_chunk_time = time.time()
+                            self.logger.debug("First audio chunk received - starting immediate playback")
+                        
+                        try:
+                            # Write chunk immediately to start playback ASAP
+                            ffplay_process.stdin.write(chunk)
+                            ffplay_process.stdin.flush()
+                            bytes_written += len(chunk)
+                            
+                            # Log progress every 10 chunks
+                            if chunk_count % 10 == 0:
+                                self.logger.debug(f"Streamed {chunk_count} chunks, {bytes_written} bytes")
+                                
+                        except BrokenPipeError:
+                            # Check if ffplay process ended early
+                            if ffplay_process.poll() is not None:
+                                stderr_output = ffplay_process.stderr.read().decode('utf-8', errors='ignore')
+                                self.logger.warning(f"FFplay ended early (exit code: {ffplay_process.returncode}): {stderr_output}")
+                                break
+                            else:
+                                raise
+                
+                # Close stdin and wait for ffplay to finish
+                try:
+                    ffplay_process.stdin.close()
+                    exit_code = ffplay_process.wait(timeout=5)
+                    
+                    # Calculate and log timing metrics
+                    total_time = time.time() - start_time
+                    if first_chunk_time:
+                        latency = first_chunk_time - start_time
+                        self.logger.info(f"ElevenLabs streaming optimization: First audio in {latency:.1f}s, Total: {total_time:.1f}s")
+                    
+                    self.logger.debug(f"Audio streaming completed. Chunks: {chunk_count}, Bytes: {bytes_written}, Exit code: {exit_code}")
+                except subprocess.TimeoutExpired:
+                    self.logger.warning("FFplay process timeout, terminating")
+                    ffplay_process.terminate()
+                    
+            except Exception as e:
+                self.logger.error(f"Audio streaming failed: {e}")
+                # Ensure ffplay is terminated
+                if ffplay_process.poll() is None:
+                    ffplay_process.terminate()
+                    try:
+                        ffplay_process.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        ffplay_process.kill()
+                
+                if isinstance(e, BrokenPipeError):
+                    raise AudioPlaybackError("Audio streaming failed: Audio device may not be available or configured properly.")
+                raise ProviderError(f"Audio streaming failed: {e}")
+                
+        except Exception as e:
+            if "authentication" in str(e).lower() or "api_key" in str(e).lower():
+                self.logger.error(f"Authentication error during ElevenLabs streaming: {e}")
+                raise ProviderError(f"ElevenLabs API authentication failed: {e}")
+            elif "network" in str(e).lower() or "connection" in str(e).lower():
+                self.logger.error(f"Network error during ElevenLabs streaming: {e}")
+                raise NetworkError("ElevenLabs TTS requires internet connection. Check your network and try again.")
+            else:
+                self.logger.error(f"ElevenLabs TTS streaming failed: {e}")
+                raise ProviderError(f"ElevenLabs TTS streaming failed: {e}")
+    
+    def _check_audio_environment(self):
+        """Check if audio streaming is available in current environment."""
+        import os
+        
+        result = {
+            'available': False,
+            'reason': 'Unknown',
+            'pulse_available': False,
+            'alsa_available': False
+        }
+        
+        # Check for PulseAudio
+        if 'PULSE_SERVER' in os.environ:
+            result['pulse_available'] = True
+            result['available'] = True
+            result['reason'] = 'PulseAudio available'
+            return result
+        
+        # Check for ALSA devices
+        try:
+            if os.path.exists('/proc/asound/cards') and os.path.getsize('/proc/asound/cards') > 0:
+                result['alsa_available'] = True
+                result['available'] = True
+                result['reason'] = 'ALSA devices available'
+                return result
+        except (ImportError, OSError, subprocess.SubprocessError) as e:
+            self.logger.debug(f"ALSA check failed: {e}")
+            
+        # Check if we can reach audio system
+        try:
+            subprocess.run(['aplay', '--version'], 
+                         stdout=subprocess.DEVNULL, 
+                         stderr=subprocess.DEVNULL, 
+                         timeout=2)
+            result['available'] = True
+            result['reason'] = 'Audio system responsive'
+            return result
+        except (FileNotFoundError, subprocess.SubprocessError, subprocess.TimeoutExpired) as e:
+            self.logger.debug(f"Audio system check failed: {e}")
+            
+        result['reason'] = 'No audio devices or audio system unavailable'
+        return result
+    
+    def _stream_via_tempfile(self, text: str, voice_id: str, voice_name: str,
+                            stability: float, similarity_boost: float, style: float):
+        """Fallback streaming method using temporary file when direct streaming fails."""
+        self.logger.info("Using temporary file fallback for audio streaming")
+        
+        payload = {
+            "text": text,
+            "model_id": "eleven_monolingual_v1",
+            "voice_settings": {
+                "stability": stability,
+                "similarity_boost": similarity_boost,
+                "style": style
+            }
+        }
+        
+        response = self._make_request(
+            "POST", 
+            f"/text-to-speech/{voice_id}",
+            json=payload
+        )
+        
+        if response.status_code != 200:
+            error_msg = f"ElevenLabs API error {response.status_code}: {response.text[:200]}"
+            raise ProviderError(error_msg)
+        
+        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp_file:
+            temp_file = tmp_file.name
+            tmp_file.write(response.content)
+        
+        try:
+            # Play the temporary file
+            subprocess.run([
+                'ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', temp_file
+            ], check=True, timeout=30)
+            self.logger.debug("Temporary file streaming completed")
+        except FileNotFoundError:
+            self.logger.warning(f"FFplay not available, audio saved to: {temp_file}")
+            raise DependencyError(f"Audio generated but cannot play automatically. File saved to: {temp_file}")
+        except subprocess.CalledProcessError as e:
+            self.logger.warning(f"FFplay failed to play temporary file: {e}")
+            raise AudioPlaybackError(f"Audio generated but playback failed. File saved to: {temp_file}")
+        finally:
+            # Clean up temporary file
+            try:
+                import os
+                if os.path.exists(temp_file):
+                    os.unlink(temp_file)
+            except OSError as e:
+                self.logger.debug(f"Could not clean up temporary file {temp_file}: {e}")
     
     def _stream_audio_file(self, audio_path: str) -> None:
         """Stream audio file to speakers using ffplay."""
