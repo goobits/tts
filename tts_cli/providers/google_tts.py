@@ -36,9 +36,56 @@ class GoogleTTSProvider(TTSProvider):
         self.logger = logging.getLogger(__name__)
         self._voices_cache = None
         self.base_url = "https://texttospeech.googleapis.com/v1"
+        self._client = None
+        self._auth_method = None
+    
+    def _get_client(self):
+        """Get Google Cloud TTS client, supporting both API key and service account auth."""
+        if self._client is None:
+            api_key = get_api_key("google")
+            if not api_key:
+                raise ProviderError(
+                    "Google Cloud API key not found. Set with: tts config google_api_key YOUR_KEY"
+                )
+            
+            # Determine authentication method
+            if api_key.startswith("AIza"):
+                # API key authentication - use REST API
+                self._auth_method = "api_key"
+                self._client = None  # Will use requests directly
+            elif api_key.startswith("{"):
+                # Service account JSON string
+                try:
+                    from google.cloud import texttospeech
+                    import json
+                    credentials_info = json.loads(api_key)
+                    self._client = texttospeech.TextToSpeechClient.from_service_account_info(credentials_info)
+                    self._auth_method = "service_account"
+                except ImportError:
+                    raise DependencyError("Google Cloud TTS library not installed. Install with: pip install tts-cli[google]")
+                except json.JSONDecodeError as e:
+                    raise ProviderError(f"Invalid service account JSON: {e}")
+            elif len(api_key) > 100:
+                # Assume it's a service account JSON string without braces
+                try:
+                    from google.cloud import texttospeech
+                    import json
+                    credentials_info = json.loads("{" + api_key + "}")
+                    self._client = texttospeech.TextToSpeechClient.from_service_account_info(credentials_info)
+                    self._auth_method = "service_account"
+                except ImportError:
+                    raise DependencyError("Google Cloud TTS library not installed. Install with: pip install tts-cli[google]")
+                except json.JSONDecodeError as e:
+                    raise ProviderError(f"Invalid service account JSON: {e}")
+            else:
+                # Unknown format, assume API key
+                self._auth_method = "api_key"
+                self._client = None
+        
+        return self._client
     
     def _make_request(self, method: str, endpoint: str, **kwargs) -> requests.Response:
-        """Make authenticated request to Google Cloud TTS API."""
+        """Make authenticated request to Google Cloud TTS REST API (for API key auth)."""
         api_key = get_api_key("google")
         if not api_key:
             raise ProviderError(
@@ -57,7 +104,19 @@ class GoogleTTSProvider(TTSProvider):
     def get_info(self) -> Dict[str, Any]:
         """Get provider information and capabilities."""
         api_key = get_api_key("google")
-        api_status = "✅ Configured" if api_key else "❌ No API key"
+        
+        if not api_key:
+            api_status = "❌ No API key"
+            auth_method = "None"
+        elif api_key.startswith("AIza"):
+            api_status = "✅ Configured (API Key)"
+            auth_method = "API Key"
+        elif api_key.startswith("{") or len(api_key) > 100:
+            api_status = "✅ Configured (Service Account)"
+            auth_method = "Service Account"
+        else:
+            api_status = "✅ Configured (API Key)"
+            auth_method = "API Key"
         
         # Try to get voice count
         all_voices = self._get_all_voices()
@@ -67,6 +126,7 @@ class GoogleTTSProvider(TTSProvider):
             "name": "Google Cloud TTS",
             "description": f"Enterprise-grade TTS with {voice_count} voices and full SSML support",
             "api_status": api_status,
+            "auth_method": auth_method,
             "sample_voices": list(self.SAMPLE_VOICES.keys()),
             "all_voices": all_voices,
             "voice_descriptions": self.SAMPLE_VOICES,
@@ -92,18 +152,30 @@ class GoogleTTSProvider(TTSProvider):
             return self._voices_cache
         
         try:
-            response = self._make_request("GET", "/voices")
+            client = self._get_client()
             
-            if response.status_code == 200:
-                data = response.json()
+            if self._auth_method == "service_account" and client:
+                # Use Google Cloud client library
+                response = client.list_voices()
                 voices = []
-                for voice in data.get("voices", []):
-                    voices.append(voice["name"])
+                for voice in response.voices:
+                    voices.append(voice.name)
                 self._voices_cache = voices
-                self.logger.info(f"Fetched {len(voices)} Google voices")
+                self.logger.info(f"Fetched {len(voices)} Google voices via service account")
             else:
-                self.logger.warning(f"Failed to fetch voices: HTTP {response.status_code}")
-                self._voices_cache = []
+                # Use REST API with API key
+                response = self._make_request("GET", "/voices")
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    voices = []
+                    for voice in data.get("voices", []):
+                        voices.append(voice["name"])
+                    self._voices_cache = voices
+                    self.logger.info(f"Fetched {len(voices)} Google voices via API key")
+                else:
+                    self.logger.warning(f"Failed to fetch voices: HTTP {response.status_code}")
+                    self._voices_cache = []
         except Exception as e:
             self.logger.warning(f"Failed to fetch Google voices: {e}")
             self._voices_cache = []
@@ -111,7 +183,7 @@ class GoogleTTSProvider(TTSProvider):
         return self._voices_cache
     
     def synthesize(self, text: str, output_path: str, **kwargs) -> None:
-        """Synthesize speech using Google Cloud TTS REST API."""
+        """Synthesize speech using Google Cloud TTS API with both auth methods."""
         # Extract options
         voice = kwargs.get("voice", "en-US-Neural2-A")  # Default voice
         stream = kwargs.get("stream", "false").lower() in ("true", "1", "yes")
@@ -137,48 +209,82 @@ class GoogleTTSProvider(TTSProvider):
             language_code = "en-US"
             self.logger.warning(f"Could not parse language from voice '{voice_name}', using en-US")
         
-        # Prepare request payload
-        payload = {
-            "input": {
-                "ssml" if use_ssml else "text": text
-            },
-            "voice": {
-                "languageCode": language_code,
-                "name": voice_name
-            },
-            "audioConfig": {
-                "audioEncoding": "LINEAR16",  # WAV format
-                "speakingRate": speaking_rate,
-                "pitch": pitch
-            }
-        }
-        
         self.logger.info(f"Generating speech with Google voice '{voice_name}'")
         if use_ssml:
             self.logger.info("Using SSML input")
         
         try:
-            # Make synthesis request
-            response = self._make_request(
-                "POST", 
-                "/text:synthesize",
-                json=payload,
-                headers={"Content-Type": "application/json"}
-            )
+            client = self._get_client()
             
-            if response.status_code != 200:
-                error_msg = f"Google Cloud TTS API error {response.status_code}"
-                try:
-                    error_detail = response.json()
-                    if "error" in error_detail:
-                        error_msg += f": {error_detail['error'].get('message', 'Unknown error')}"
-                except:
-                    error_msg += f": {response.text}"
-                raise ProviderError(error_msg)
-            
-            # Get audio content from response
-            response_data = response.json()
-            audio_content = base64.b64decode(response_data["audioContent"])
+            if self._auth_method == "service_account" and client:
+                # Use Google Cloud client library for service account
+                from google.cloud import texttospeech
+                
+                # Prepare synthesis input
+                if use_ssml:
+                    synthesis_input = texttospeech.SynthesisInput(ssml=text)
+                else:
+                    synthesis_input = texttospeech.SynthesisInput(text=text)
+                
+                voice_selection = texttospeech.VoiceSelectionParams(
+                    language_code=language_code,
+                    name=voice_name
+                )
+                
+                audio_config = texttospeech.AudioConfig(
+                    audio_encoding=texttospeech.AudioEncoding.LINEAR16,  # WAV format
+                    speaking_rate=speaking_rate,
+                    pitch=pitch
+                )
+                
+                # Perform synthesis
+                response = client.synthesize_speech(
+                    input=synthesis_input,
+                    voice=voice_selection,
+                    audio_config=audio_config
+                )
+                
+                audio_content = response.audio_content
+                self.logger.info("Synthesis completed via service account")
+                
+            else:
+                # Use REST API with API key
+                payload = {
+                    "input": {
+                        "ssml" if use_ssml else "text": text
+                    },
+                    "voice": {
+                        "languageCode": language_code,
+                        "name": voice_name
+                    },
+                    "audioConfig": {
+                        "audioEncoding": "LINEAR16",  # WAV format
+                        "speakingRate": speaking_rate,
+                        "pitch": pitch
+                    }
+                }
+                
+                response = self._make_request(
+                    "POST", 
+                    "/text:synthesize",
+                    json=payload,
+                    headers={"Content-Type": "application/json"}
+                )
+                
+                if response.status_code != 200:
+                    error_msg = f"Google Cloud TTS API error {response.status_code}"
+                    try:
+                        error_detail = response.json()
+                        if "error" in error_detail:
+                            error_msg += f": {error_detail['error'].get('message', 'Unknown error')}"
+                    except:
+                        error_msg += f": {response.text}"
+                    raise ProviderError(error_msg)
+                
+                # Get audio content from response
+                response_data = response.json()
+                audio_content = base64.b64decode(response_data["audioContent"])
+                self.logger.info("Synthesis completed via API key")
             
             # Save audio content to temporary file
             with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_file:
