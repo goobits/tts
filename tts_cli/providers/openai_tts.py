@@ -1,8 +1,12 @@
 """OpenAI TTS provider implementation."""
 
 from ..base import TTSProvider
-from ..exceptions import DependencyError, ProviderError, NetworkError, AudioPlaybackError
-from ..config import get_api_key, is_ssml, strip_ssml_tags
+from ..exceptions import (
+    DependencyError, ProviderError, NetworkError, AudioPlaybackError,
+    AuthenticationError
+)
+from ..config import get_api_key, is_ssml, strip_ssml_tags, Config
+from ..utils.audio import check_audio_environment, stream_audio_file, convert_audio
 from typing import Optional, Dict, Any
 import logging
 import tempfile
@@ -39,7 +43,7 @@ class OpenAITTSProvider(TTSProvider):
             
             api_key = get_api_key("openai")
             if not api_key:
-                raise ProviderError(
+                raise AuthenticationError(
                     "OpenAI API key not found. Set with: tts config openai_api_key YOUR_KEY"
                 )
             
@@ -95,7 +99,7 @@ class OpenAITTSProvider(TTSProvider):
                     shutil.move(tmp_path, output_path)
                 else:
                     # Convert using ffmpeg
-                    self._convert_audio(tmp_path, output_path, output_format)
+                    convert_audio(tmp_path, output_path, output_format)
                     # Clean up temp file
                     import os
                     os.unlink(tmp_path)
@@ -103,9 +107,10 @@ class OpenAITTSProvider(TTSProvider):
         except ImportError:
             raise DependencyError("OpenAI library not installed. Install with: pip install tts-cli[openai]")
         except Exception as e:
-            if "authentication" in str(e).lower() or "api_key" in str(e).lower():
-                raise ProviderError(f"OpenAI API authentication failed: {e}")
-            elif "network" in str(e).lower() or "connection" in str(e).lower():
+            error_str = str(e).lower()
+            if "authentication" in error_str or "api_key" in error_str:
+                raise AuthenticationError(f"OpenAI API authentication failed: {e}")
+            elif "network" in error_str or "connection" in error_str:
                 raise NetworkError(f"OpenAI API network error: {e}")
             else:
                 raise ProviderError(f"OpenAI TTS synthesis failed: {e}")
@@ -121,7 +126,7 @@ class OpenAITTSProvider(TTSProvider):
             client = self._get_client()
             
             # Check for audio environment first
-            audio_env = self._check_audio_environment()
+            audio_env = check_audio_environment()
             if not audio_env['available']:
                 self.logger.warning(f"Audio streaming not available: {audio_env['reason']}")
                 # Fallback to temporary file method
@@ -166,7 +171,7 @@ class OpenAITTSProvider(TTSProvider):
                 first_chunk_time = None
                 
                 # OpenAI returns an iterator of bytes
-                for chunk in response.iter_bytes(chunk_size=1024):
+                for chunk in response.iter_bytes(chunk_size=Config.HTTP_STREAMING_CHUNK_SIZE):
                     chunk_count += 1
                     
                     # Log when we get the first chunk (latency measurement)
@@ -180,8 +185,8 @@ class OpenAITTSProvider(TTSProvider):
                         ffplay_process.stdin.flush()
                         bytes_written += len(chunk)
                         
-                        # Log progress every 10 chunks
-                        if chunk_count % 10 == 0:
+                        # Log progress every N chunks
+                        if chunk_count % Config.STREAMING_PROGRESS_INTERVAL == 0:
                             self.logger.debug(f"Streamed {chunk_count} chunks, {bytes_written} bytes")
                             
                     except BrokenPipeError:
@@ -196,7 +201,7 @@ class OpenAITTSProvider(TTSProvider):
                 # Close stdin and wait for ffplay to finish
                 try:
                     ffplay_process.stdin.close()
-                    exit_code = ffplay_process.wait(timeout=5)
+                    exit_code = ffplay_process.wait(timeout=Config.FFPLAY_TIMEOUT)
                     
                     # Calculate and log timing metrics
                     total_time = time.time() - start_time
@@ -215,7 +220,7 @@ class OpenAITTSProvider(TTSProvider):
                 if ffplay_process.poll() is None:
                     ffplay_process.terminate()
                     try:
-                        ffplay_process.wait(timeout=2)
+                        ffplay_process.wait(timeout=Config.FFPLAY_TERMINATION_TIMEOUT)
                     except subprocess.TimeoutExpired:
                         ffplay_process.kill()
                 
@@ -224,58 +229,17 @@ class OpenAITTSProvider(TTSProvider):
                 raise ProviderError(f"Audio streaming failed: {e}")
                 
         except Exception as e:
-            if "authentication" in str(e).lower() or "api_key" in str(e).lower():
+            error_str = str(e).lower()
+            if "authentication" in error_str or "api_key" in error_str:
                 self.logger.error(f"Authentication error during OpenAI streaming: {e}")
-                raise ProviderError(f"OpenAI API authentication failed: {e}")
-            elif "network" in str(e).lower() or "connection" in str(e).lower():
+                raise AuthenticationError(f"OpenAI API authentication failed: {e}")
+            elif "network" in error_str or "connection" in error_str:
                 self.logger.error(f"Network error during OpenAI streaming: {e}")
                 raise NetworkError("OpenAI TTS requires internet connection. Check your network and try again.")
             else:
                 self.logger.error(f"OpenAI TTS streaming failed: {e}")
                 raise ProviderError(f"OpenAI TTS streaming failed: {e}")
     
-    def _check_audio_environment(self):
-        """Check if audio streaming is available in current environment (copied from Edge TTS)."""
-        import os
-        
-        result = {
-            'available': False,
-            'reason': 'Unknown',
-            'pulse_available': False,
-            'alsa_available': False
-        }
-        
-        # Check for PulseAudio
-        if 'PULSE_SERVER' in os.environ:
-            result['pulse_available'] = True
-            result['available'] = True
-            result['reason'] = 'PulseAudio available'
-            return result
-        
-        # Check for ALSA devices
-        try:
-            if os.path.exists('/proc/asound/cards') and os.path.getsize('/proc/asound/cards') > 0:
-                result['alsa_available'] = True
-                result['available'] = True
-                result['reason'] = 'ALSA devices available'
-                return result
-        except (ImportError, OSError, subprocess.SubprocessError) as e:
-            self.logger.debug(f"ALSA check failed: {e}")
-            
-        # Check if we can reach audio system
-        try:
-            subprocess.run(['aplay', '--version'], 
-                         stdout=subprocess.DEVNULL, 
-                         stderr=subprocess.DEVNULL, 
-                         timeout=2)
-            result['available'] = True
-            result['reason'] = 'Audio system responsive'
-            return result
-        except (FileNotFoundError, subprocess.SubprocessError, subprocess.TimeoutExpired) as e:
-            self.logger.debug(f"Audio system check failed: {e}")
-            
-        result['reason'] = 'No audio devices or audio system unavailable'
-        return result
     
     def _stream_via_tempfile(self, text: str, voice: str):
         """Fallback streaming method using temporary file when direct streaming fails."""
@@ -295,9 +259,7 @@ class OpenAITTSProvider(TTSProvider):
         
         try:
             # Play the temporary file
-            subprocess.run([
-                'ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', temp_file
-            ], check=True, timeout=30)
+            stream_audio_file(temp_file)
             self.logger.debug("Temporary file streaming completed")
         except FileNotFoundError:
             self.logger.warning(f"FFplay not available, audio saved to: {temp_file}")
@@ -314,27 +276,7 @@ class OpenAITTSProvider(TTSProvider):
             except OSError as e:
                 self.logger.debug(f"Could not clean up temporary file {temp_file}: {e}")
     
-    def _stream_audio_file(self, audio_path: str) -> None:
-        """Stream audio file to speakers using ffplay."""
-        try:
-            subprocess.run([
-                'ffplay', '-nodisp', '-autoexit', audio_path
-            ], stderr=subprocess.DEVNULL, check=True)
-        except FileNotFoundError:
-            raise DependencyError("ffplay not found. Please install ffmpeg for audio playback.")
-        except subprocess.CalledProcessError as e:
-            raise ProviderError(f"Audio playback failed: {e}")
     
-    def _convert_audio(self, input_path: str, output_path: str, output_format: str) -> None:
-        """Convert audio file to different format using ffmpeg."""
-        try:
-            subprocess.run([
-                'ffmpeg', '-i', input_path, '-y', output_path
-            ], stderr=subprocess.DEVNULL, check=True)
-        except FileNotFoundError:
-            raise DependencyError("ffmpeg not found. Please install ffmpeg for format conversion.")
-        except subprocess.CalledProcessError as e:
-            raise ProviderError(f"Audio conversion failed: {e}")
     
     def get_info(self) -> Optional[Dict[str, Any]]:
         """Get provider information including available voices."""
@@ -347,6 +289,7 @@ class OpenAITTSProvider(TTSProvider):
             "description": "High-quality neural text-to-speech with 6 voices",
             "api_status": api_status,
             "sample_voices": list(self.VOICES.keys()),
+            "all_voices": list(self.VOICES.keys()),  # Add all_voices for browser compatibility
             "voice_descriptions": self.VOICES,
             "options": {
                 "voice": f"Voice to use ({', '.join(self.VOICES.keys())})",

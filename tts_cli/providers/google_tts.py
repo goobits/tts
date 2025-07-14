@@ -1,8 +1,12 @@
 """Google Cloud TTS provider implementation."""
 
 from ..base import TTSProvider
-from ..exceptions import DependencyError, ProviderError, NetworkError
+from ..exceptions import (
+    DependencyError, ProviderError, NetworkError, AuthenticationError, 
+    QuotaError, map_http_error
+)
 from ..config import get_api_key, is_ssml, strip_ssml_tags
+from ..utils.audio import stream_audio_file, convert_audio
 from typing import Optional, Dict, Any, List
 import logging
 import tempfile
@@ -44,7 +48,7 @@ class GoogleTTSProvider(TTSProvider):
         if self._client is None:
             api_key = get_api_key("google")
             if not api_key:
-                raise ProviderError(
+                raise AuthenticationError(
                     "Google Cloud API key not found. Set with: tts config google_api_key YOUR_KEY"
                 )
             
@@ -88,7 +92,7 @@ class GoogleTTSProvider(TTSProvider):
         """Make authenticated request to Google Cloud TTS REST API (for API key auth)."""
         api_key = get_api_key("google")
         if not api_key:
-            raise ProviderError(
+            raise AuthenticationError(
                 "Google Cloud API key not found. Set with: tts config google_api_key YOUR_KEY"
             )
         
@@ -120,11 +124,15 @@ class GoogleTTSProvider(TTSProvider):
         
         # Try to get voice count
         all_voices = self._get_all_voices()
-        voice_count = len(all_voices) if all_voices else 0
+        voice_count = len(all_voices) if all_voices else 380
+        
+        # If no API key or failed to fetch, use sample voices
+        if not all_voices:
+            all_voices = list(self.SAMPLE_VOICES.keys())
         
         return {
             "name": "Google Cloud TTS",
-            "description": f"Enterprise-grade TTS with {voice_count} voices and full SSML support",
+            "description": f"Enterprise-grade TTS with {voice_count}+ voices and full SSML support",
             "api_status": api_status,
             "auth_method": auth_method,
             "sample_voices": list(self.SAMPLE_VOICES.keys()),
@@ -272,14 +280,18 @@ class GoogleTTSProvider(TTSProvider):
                 )
                 
                 if response.status_code != 200:
-                    error_msg = f"Google Cloud TTS API error {response.status_code}"
+                    # Use standardized HTTP error mapping
                     try:
                         error_detail = response.json()
                         if "error" in error_detail:
-                            error_msg += f": {error_detail['error'].get('message', 'Unknown error')}"
-                    except:
-                        error_msg += f": {response.text}"
-                    raise ProviderError(error_msg)
+                            detail_text = error_detail['error'].get('message', 'Unknown error')
+                        else:
+                            detail_text = 'Unknown error'
+                    except (ValueError, KeyError, AttributeError):
+                        # JSON parsing failed or missing expected keys
+                        detail_text = response.text
+                    
+                    raise map_http_error(response.status_code, detail_text, "Google Cloud TTS")
                 
                 # Get audio content from response
                 response_data = response.json()
@@ -293,14 +305,14 @@ class GoogleTTSProvider(TTSProvider):
             
             if stream:
                 # Stream the audio
-                self._stream_audio_file(tmp_path)
+                stream_audio_file(tmp_path)
                 # Clean up temp file
                 import os
                 os.unlink(tmp_path)
             else:
                 # Convert and save to final output path
                 if output_format.lower() != "wav":
-                    self._convert_audio(tmp_path, output_path, output_format)
+                    convert_audio(tmp_path, output_path, output_format)
                     # Clean up temp file
                     import os
                     os.unlink(tmp_path)
@@ -310,42 +322,20 @@ class GoogleTTSProvider(TTSProvider):
                     shutil.move(tmp_path, output_path)
                     
         except requests.RequestException as e:
-            if "authentication" in str(e).lower() or "api_key" in str(e).lower() or "credentials" in str(e).lower():
-                raise ProviderError(f"Google Cloud authentication failed: {e}")
-            elif "quota" in str(e).lower() or "billing" in str(e).lower():
-                raise ProviderError(f"Google Cloud quota/billing issue: {e}")
+            error_str = str(e).lower()
+            if "authentication" in error_str or "api_key" in error_str or "credentials" in error_str:
+                raise AuthenticationError(f"Google Cloud authentication failed: {e}")
+            elif "quota" in error_str or "billing" in error_str:
+                raise QuotaError(f"Google Cloud quota/billing issue: {e}")
             else:
                 raise NetworkError(f"Google Cloud TTS request failed: {e}")
         except Exception as e:
-            if "authentication" in str(e).lower() or "api_key" in str(e).lower() or "credentials" in str(e).lower():
-                raise ProviderError(f"Google Cloud authentication failed: {e}")
-            elif "quota" in str(e).lower() or "billing" in str(e).lower():
-                raise ProviderError(f"Google Cloud quota/billing issue: {e}")
+            error_str = str(e).lower()
+            if "authentication" in error_str or "api_key" in error_str or "credentials" in error_str:
+                raise AuthenticationError(f"Google Cloud authentication failed: {e}")
+            elif "quota" in error_str or "billing" in error_str:
+                raise QuotaError(f"Google Cloud quota/billing issue: {e}")
             else:
                 raise ProviderError(f"Google TTS synthesis failed: {e}")
     
-    def _stream_audio_file(self, audio_file: str) -> None:
-        """Stream audio file to speakers using ffplay."""
-        try:
-            subprocess.run([
-                'ffplay', '-nodisp', '-autoexit', audio_file
-            ], check=True, stderr=subprocess.DEVNULL)
-        except FileNotFoundError:
-            self.logger.error("ffplay not found. Install ffmpeg to stream audio.")
-            raise ProviderError("ffplay not found. Install ffmpeg to stream audio.")
-        except subprocess.CalledProcessError as e:
-            self.logger.error(f"Audio playback failed: {e}")
-            raise ProviderError(f"Audio playback failed: {e}")
     
-    def _convert_audio(self, input_path: str, output_path: str, output_format: str) -> None:
-        """Convert audio file to specified format using ffmpeg."""
-        try:
-            subprocess.run([
-                'ffmpeg', '-i', input_path, '-y', output_path
-            ], check=True, stderr=subprocess.DEVNULL)
-        except FileNotFoundError:
-            self.logger.error("ffmpeg not found. Install ffmpeg to convert audio formats.")
-            raise ProviderError("ffmpeg not found. Install ffmpeg to convert audio formats.")
-        except subprocess.CalledProcessError as e:
-            self.logger.error(f"Audio conversion failed: {e}")
-            raise ProviderError(f"Audio conversion failed: {e}")

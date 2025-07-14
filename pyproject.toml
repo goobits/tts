@@ -29,6 +29,7 @@ classifiers = [
 dependencies = [
     "click>=8.0.0",
     "edge-tts>=7.0.0",  # Free provider, included by default
+    "requests>=2.25.0",  # Required for Google and ElevenLabs providers
 ]
 
 [project.optional-dependencies]

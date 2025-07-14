@@ -1,8 +1,12 @@
 """ElevenLabs TTS provider implementation with voice cloning support."""
 
 from ..base import TTSProvider
-from ..exceptions import DependencyError, ProviderError, NetworkError, AudioPlaybackError
-from ..config import get_api_key, is_ssml, strip_ssml_tags
+from ..exceptions import (
+    DependencyError, ProviderError, NetworkError, AudioPlaybackError, 
+    AuthenticationError, RateLimitError, ServerError, VoiceNotFoundError, map_http_error
+)
+from ..config import get_api_key, is_ssml, strip_ssml_tags, Config
+from ..utils.audio import check_audio_environment, stream_audio_file, convert_audio
 from typing import Optional, Dict, Any, List
 import logging
 import tempfile
@@ -37,7 +41,7 @@ class ElevenLabsProvider(TTSProvider):
         """Make authenticated request to ElevenLabs API."""
         api_key = get_api_key("elevenlabs")
         if not api_key:
-            raise ProviderError(
+            raise AuthenticationError(
                 "ElevenLabs API key not found. Set with: tts config elevenlabs_api_key YOUR_KEY"
             )
         
@@ -89,7 +93,7 @@ class ElevenLabsProvider(TTSProvider):
     def _get_voice_id(self, voice_name: str) -> Optional[str]:
         """Get voice ID from voice name."""
         # Check if it's already a voice ID (32 char hex string)
-        if len(voice_name) == 32 and all(c in '0123456789abcdef' for c in voice_name.lower()):
+        if len(voice_name) == Config.ELEVENLABS_VOICE_ID_LENGTH and all(c in '0123456789abcdef' for c in voice_name.lower()):
             return voice_name
         
         # Search in available voices
@@ -119,9 +123,9 @@ class ElevenLabsProvider(TTSProvider):
         voice = kwargs.get("voice", "rachel")  # Default voice
         stream = kwargs.get("stream", "false").lower() in ("true", "1", "yes")
         output_format = kwargs.get("output_format", "wav")
-        stability = float(kwargs.get("stability", "0.5"))
-        similarity_boost = float(kwargs.get("similarity_boost", "0.5"))
-        style = float(kwargs.get("style", "0.0"))
+        stability = float(kwargs.get("stability", str(Config.ELEVENLABS_DEFAULT_STABILITY)))
+        similarity_boost = float(kwargs.get("similarity_boost", str(Config.ELEVENLABS_DEFAULT_SIMILARITY_BOOST)))
+        style = float(kwargs.get("style", str(Config.ELEVENLABS_DEFAULT_STYLE)))
         
         # Handle SSML (ElevenLabs doesn't support SSML, so strip tags)
         if is_ssml(text):
@@ -138,7 +142,7 @@ class ElevenLabsProvider(TTSProvider):
         # Get voice ID
         voice_id = self._get_voice_id(voice_name)
         if not voice_id:
-            raise ProviderError(f"Voice '{voice_name}' not found. Use tts voices elevenlabs to see available voices.")
+            raise VoiceNotFoundError(f"Voice '{voice_name}' not found. Use tts voices elevenlabs to see available voices.")
         
         try:
             if stream:
@@ -167,16 +171,18 @@ class ElevenLabsProvider(TTSProvider):
                 )
                 
                 if response.status_code != 200:
-                    error_msg = f"ElevenLabs API error {response.status_code}"
+                    # Use standardized HTTP error mapping
                     try:
                         error_detail = response.json().get("detail", {})
                         if isinstance(error_detail, dict):
-                            error_msg += f": {error_detail.get('message', 'Unknown error')}"
+                            detail_text = error_detail.get('message', 'Unknown error')
                         else:
-                            error_msg += f": {error_detail}"
-                    except:
-                        error_msg += f": {response.text}"
-                    raise ProviderError(error_msg)
+                            detail_text = str(error_detail)
+                    except (ValueError, KeyError, AttributeError):
+                        # JSON parsing failed or missing expected keys
+                        detail_text = response.text
+                    
+                    raise map_http_error(response.status_code, detail_text, "ElevenLabs")
                 
                 # Save audio content to temporary file
                 with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp_file:
@@ -190,20 +196,17 @@ class ElevenLabsProvider(TTSProvider):
                     shutil.move(tmp_path, output_path)
                 else:
                     # Convert using ffmpeg
-                    self._convert_audio(tmp_path, output_path, output_format)
+                    convert_audio(tmp_path, output_path, output_format)
                     # Clean up temp file
                     import os
                     os.unlink(tmp_path)
                     
         except requests.RequestException as e:
-            if 'response' in locals() and response.status_code == 401:
-                raise ProviderError("ElevenLabs API authentication failed. Check your API key.")
-            elif 'response' in locals() and response.status_code == 429:
-                raise ProviderError("ElevenLabs API rate limit exceeded. Try again later.")
-            elif 'response' in locals() and response.status_code >= 500:
-                raise NetworkError(f"ElevenLabs server error: {response.status_code}")
+            if 'response' in locals():
+                # Use standardized HTTP error mapping for request exceptions too
+                raise map_http_error(response.status_code, str(e), "ElevenLabs")
             else:
-                raise ProviderError(f"ElevenLabs API error: {e}")
+                raise NetworkError(f"ElevenLabs network error: {e}")
         except Exception as e:
             raise ProviderError(f"ElevenLabs TTS synthesis failed: {e}")
     
@@ -217,7 +220,7 @@ class ElevenLabsProvider(TTSProvider):
             self.logger.debug(f"Starting ElevenLabs TTS streaming with voice: {voice_name}")
             
             # Check for audio environment first
-            audio_env = self._check_audio_environment()
+            audio_env = check_audio_environment()
             if not audio_env['available']:
                 self.logger.warning(f"Audio streaming not available: {audio_env['reason']}")
                 # Fallback to temporary file method
@@ -283,7 +286,8 @@ class ElevenLabsProvider(TTSProvider):
                             error_msg += f": {error_detail.get('message', 'Unknown error')}"
                         else:
                             error_msg += f": {error_detail}"
-                    except:
+                    except (ValueError, KeyError, AttributeError):
+                        # JSON parsing failed or missing expected keys
                         error_msg += f": {response.text[:200]}"
                     raise ProviderError(error_msg)
                 
@@ -294,7 +298,7 @@ class ElevenLabsProvider(TTSProvider):
                 first_chunk_time = None
                 
                 # ElevenLabs streams in chunks
-                for chunk in response.iter_content(chunk_size=1024):
+                for chunk in response.iter_content(chunk_size=Config.HTTP_STREAMING_CHUNK_SIZE):
                     if chunk:
                         chunk_count += 1
                         
@@ -309,8 +313,8 @@ class ElevenLabsProvider(TTSProvider):
                             ffplay_process.stdin.flush()
                             bytes_written += len(chunk)
                             
-                            # Log progress every 10 chunks
-                            if chunk_count % 10 == 0:
+                            # Log progress every N chunks
+                            if chunk_count % Config.STREAMING_PROGRESS_INTERVAL == 0:
                                 self.logger.debug(f"Streamed {chunk_count} chunks, {bytes_written} bytes")
                                 
                         except BrokenPipeError:
@@ -325,7 +329,7 @@ class ElevenLabsProvider(TTSProvider):
                 # Close stdin and wait for ffplay to finish
                 try:
                     ffplay_process.stdin.close()
-                    exit_code = ffplay_process.wait(timeout=5)
+                    exit_code = ffplay_process.wait(timeout=Config.FFPLAY_TIMEOUT)
                     
                     # Calculate and log timing metrics
                     total_time = time.time() - start_time
@@ -344,7 +348,7 @@ class ElevenLabsProvider(TTSProvider):
                 if ffplay_process.poll() is None:
                     ffplay_process.terminate()
                     try:
-                        ffplay_process.wait(timeout=2)
+                        ffplay_process.wait(timeout=Config.FFPLAY_TERMINATION_TIMEOUT)
                     except subprocess.TimeoutExpired:
                         ffplay_process.kill()
                 
@@ -363,48 +367,6 @@ class ElevenLabsProvider(TTSProvider):
                 self.logger.error(f"ElevenLabs TTS streaming failed: {e}")
                 raise ProviderError(f"ElevenLabs TTS streaming failed: {e}")
     
-    def _check_audio_environment(self):
-        """Check if audio streaming is available in current environment."""
-        import os
-        
-        result = {
-            'available': False,
-            'reason': 'Unknown',
-            'pulse_available': False,
-            'alsa_available': False
-        }
-        
-        # Check for PulseAudio
-        if 'PULSE_SERVER' in os.environ:
-            result['pulse_available'] = True
-            result['available'] = True
-            result['reason'] = 'PulseAudio available'
-            return result
-        
-        # Check for ALSA devices
-        try:
-            if os.path.exists('/proc/asound/cards') and os.path.getsize('/proc/asound/cards') > 0:
-                result['alsa_available'] = True
-                result['available'] = True
-                result['reason'] = 'ALSA devices available'
-                return result
-        except (ImportError, OSError, subprocess.SubprocessError) as e:
-            self.logger.debug(f"ALSA check failed: {e}")
-            
-        # Check if we can reach audio system
-        try:
-            subprocess.run(['aplay', '--version'], 
-                         stdout=subprocess.DEVNULL, 
-                         stderr=subprocess.DEVNULL, 
-                         timeout=2)
-            result['available'] = True
-            result['reason'] = 'Audio system responsive'
-            return result
-        except (FileNotFoundError, subprocess.SubprocessError, subprocess.TimeoutExpired) as e:
-            self.logger.debug(f"Audio system check failed: {e}")
-            
-        result['reason'] = 'No audio devices or audio system unavailable'
-        return result
     
     def _stream_via_tempfile(self, text: str, voice_id: str, voice_name: str,
                             stability: float, similarity_boost: float, style: float):
@@ -437,9 +399,7 @@ class ElevenLabsProvider(TTSProvider):
         
         try:
             # Play the temporary file
-            subprocess.run([
-                'ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', temp_file
-            ], check=True, timeout=30)
+            stream_audio_file(temp_file)
             self.logger.debug("Temporary file streaming completed")
         except FileNotFoundError:
             self.logger.warning(f"FFplay not available, audio saved to: {temp_file}")
@@ -456,27 +416,7 @@ class ElevenLabsProvider(TTSProvider):
             except OSError as e:
                 self.logger.debug(f"Could not clean up temporary file {temp_file}: {e}")
     
-    def _stream_audio_file(self, audio_path: str) -> None:
-        """Stream audio file to speakers using ffplay."""
-        try:
-            subprocess.run([
-                'ffplay', '-nodisp', '-autoexit', audio_path
-            ], stderr=subprocess.DEVNULL, check=True)
-        except FileNotFoundError:
-            raise DependencyError("ffplay not found. Please install ffmpeg for audio playback.")
-        except subprocess.CalledProcessError as e:
-            raise ProviderError(f"Audio playback failed: {e}")
     
-    def _convert_audio(self, input_path: str, output_path: str, output_format: str) -> None:
-        """Convert audio file to different format using ffmpeg."""
-        try:
-            subprocess.run([
-                'ffmpeg', '-i', input_path, '-y', output_path
-            ], stderr=subprocess.DEVNULL, check=True)
-        except FileNotFoundError:
-            raise DependencyError("ffmpeg not found. Please install ffmpeg for format conversion.")
-        except subprocess.CalledProcessError as e:
-            raise ProviderError(f"Audio conversion failed: {e}")
     
     def get_info(self) -> Optional[Dict[str, Any]]:
         """Get provider information including available voices."""
@@ -493,9 +433,13 @@ class ElevenLabsProvider(TTSProvider):
             voice_list = [f"{v['name']} ({v.get('category', 'unknown')})" for v in all_voices[:15]]
             if len(all_voices) > 15:
                 voice_list.append(f"... and {len(all_voices) - 15} more voices")
+            
+            # Get actual voice names for the browser
+            voice_names = [v['name'] for v in all_voices]
                 
         except Exception:
             voice_list = [f"{name}: {desc}" for name, desc in self.DEFAULT_VOICES.items()]
+            voice_names = list(self.DEFAULT_VOICES.keys())
             custom_voices = []
             premade_voices = []
         
@@ -504,7 +448,8 @@ class ElevenLabsProvider(TTSProvider):
             "description": f"Premium voice cloning with {len(all_voices) if 'all_voices' in locals() else '10+'} voices",
             "api_status": api_status,
             "sample_voices": list(self.DEFAULT_VOICES.keys()),
-            "all_voices": voice_list,
+            "all_voices": voice_names if 'voice_names' in locals() else list(self.DEFAULT_VOICES.keys()),
+            "all_voices_display": voice_list if 'voice_list' in locals() else [f"{name}: {desc}" for name, desc in self.DEFAULT_VOICES.items()],
             "voice_descriptions": self.DEFAULT_VOICES,
             "custom_voices": len(custom_voices) if custom_voices else "Unknown",
             "options": {
