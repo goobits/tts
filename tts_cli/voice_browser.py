@@ -24,7 +24,7 @@ from typing import List, Tuple, Set, Dict, Any, Optional
 
 import click
 
-from .config import set_setting, Config
+from .config import set_setting, get_config_value
 from .exceptions import ProviderNotFoundError, ProviderLoadError, DependencyError
 
 

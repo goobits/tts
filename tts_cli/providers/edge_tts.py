@@ -1,6 +1,6 @@
 from ..base import TTSProvider
 from ..utils.audio import convert_with_cleanup, check_audio_environment
-from ..config import Config
+from ..config import get_config_value
 from ..exceptions import DependencyError, NetworkError, AudioPlaybackError, ProviderError
 from typing import Optional, Dict, Any
 import asyncio
@@ -13,7 +13,7 @@ class EdgeTTSProvider(TTSProvider):
     def __init__(self):
         self.edge_tts = None
         self.logger = logging.getLogger(__name__)
-        self._executor = ThreadPoolExecutor(max_workers=Config.THREAD_POOL_MAX_WORKERS, thread_name_prefix="edge_tts")
+        self._executor = ThreadPoolExecutor(max_workers=get_config_value('thread_pool_max_workers'), thread_name_prefix="edge_tts")
         
     def _lazy_load(self):
         if self.edge_tts is None:
@@ -140,12 +140,12 @@ class EdgeTTSProvider(TTSProvider):
                             bytes_written += len(chunk['data'])
                             
                             # Mark playback as started after first few chunks
-                            if chunk_count == Config.STREAMING_PLAYBACK_START_THRESHOLD and not playback_started:
+                            if chunk_count == get_config_value('streaming_playback_start_threshold') and not playback_started:
                                 playback_started = True
                                 self.logger.debug("Optimized streaming: Playback should have started")
                             
                             # Log progress every N chunks
-                            if chunk_count % Config.STREAMING_PROGRESS_INTERVAL == 0:
+                            if chunk_count % get_config_value('streaming_progress_interval') == 0:
                                 self.logger.debug(f"Streamed {chunk_count} chunks, {bytes_written} bytes")
                                 
                         except BrokenPipeError:
@@ -160,7 +160,7 @@ class EdgeTTSProvider(TTSProvider):
                 # Close stdin and wait for ffplay to finish
                 try:
                     ffplay_process.stdin.close()
-                    exit_code = ffplay_process.wait(timeout=Config.FFPLAY_TIMEOUT)  # Add timeout
+                    exit_code = ffplay_process.wait(timeout=get_config_value('ffplay_timeout'))  # Add timeout
                     
                     # Calculate and log timing metrics
                     total_time = time.time() - start_time
@@ -179,7 +179,7 @@ class EdgeTTSProvider(TTSProvider):
                 if ffplay_process.poll() is None:
                     ffplay_process.terminate()
                     try:
-                        ffplay_process.wait(timeout=Config.FFPLAY_TERMINATION_TIMEOUT)
+                        ffplay_process.wait(timeout=get_config_value('ffplay_termination_timeout'))
                     except subprocess.TimeoutExpired:
                         ffplay_process.kill()
                 
@@ -216,7 +216,7 @@ class EdgeTTSProvider(TTSProvider):
             try:
                 subprocess.run([
                     'ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', temp_file
-                ], check=True, timeout=Config.FFMPEG_CONVERSION_TIMEOUT)
+                ], check=True, timeout=get_config_value('ffmpeg_conversion_timeout'))
                 self.logger.debug("Temporary file streaming completed")
             except FileNotFoundError:
                 self.logger.warning(f"FFplay not available, audio saved to: {temp_file}")

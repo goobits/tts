@@ -1,7 +1,7 @@
 """Custom exceptions for TTS CLI with standardized error hierarchy."""
 
 from typing import Optional
-from .config import Config
+from .config import get_config_value
 
 
 class TTSError(Exception):
@@ -127,16 +127,16 @@ def map_http_error(status_code: int, response_text: str = "", provider: str = ""
     """
     provider_prefix = f"{provider}: " if provider else ""
     
-    if status_code == Config.HTTP_UNAUTHORIZED:
+    if status_code == get_config_value('http_unauthorized'):
         return AuthenticationError(f"{provider_prefix}API authentication failed. Check your API key.")
-    elif status_code == Config.HTTP_FORBIDDEN:
+    elif status_code == get_config_value('http_forbidden'):
         return AuthenticationError(f"{provider_prefix}API access forbidden. Check your permissions.")
-    elif status_code == Config.HTTP_RATE_LIMIT:
+    elif status_code == get_config_value('http_rate_limit'):
         return RateLimitError(f"{provider_prefix}API rate limit exceeded. Please wait and try again.")
-    elif status_code in Config.HTTP_PAYMENT_ERRORS:  # Payment required, billing conflicts
+    elif status_code in get_config_value('http_payment_errors'):  # Payment required, billing conflicts
         return QuotaError(f"{provider_prefix}API quota or billing issue. Check your account status.")
-    elif Config.HTTP_SERVER_ERROR_RANGE[0] <= status_code < Config.HTTP_SERVER_ERROR_RANGE[1]:
+    elif get_config_value('http_server_error_range_start') <= status_code < get_config_value('http_server_error_range_end'):
         return ServerError(f"{provider_prefix}Provider server error (HTTP {status_code}). Try again later.")
     else:
-        error_detail = f": {response_text[:Config.ERROR_MESSAGE_MAX_LENGTH]}" if response_text else ""
+        error_detail = f": {response_text[:get_config_value('error_message_max_length')]}" if response_text else ""
         return ProviderError(f"{provider_prefix}API error {status_code}{error_detail}")

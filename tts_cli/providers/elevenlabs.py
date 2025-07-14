@@ -5,7 +5,7 @@ from ..exceptions import (
     DependencyError, ProviderError, NetworkError, AudioPlaybackError, 
     AuthenticationError, RateLimitError, ServerError, VoiceNotFoundError, map_http_error
 )
-from ..config import get_api_key, is_ssml, strip_ssml_tags, Config
+from ..config import get_api_key, is_ssml, strip_ssml_tags, get_config_value
 from ..utils.audio import check_audio_environment, stream_audio_file, convert_audio
 from typing import Optional, Dict, Any, List
 import logging
@@ -93,7 +93,7 @@ class ElevenLabsProvider(TTSProvider):
     def _get_voice_id(self, voice_name: str) -> Optional[str]:
         """Get voice ID from voice name."""
         # Check if it's already a voice ID (32 char hex string)
-        if len(voice_name) == Config.ELEVENLABS_VOICE_ID_LENGTH and all(c in '0123456789abcdef' for c in voice_name.lower()):
+        if len(voice_name) == get_config_value('elevenlabs_voice_id_length') and all(c in '0123456789abcdef' for c in voice_name.lower()):
             return voice_name
         
         # Search in available voices
@@ -123,9 +123,9 @@ class ElevenLabsProvider(TTSProvider):
         voice = kwargs.get("voice", "rachel")  # Default voice
         stream = kwargs.get("stream", "false").lower() in ("true", "1", "yes")
         output_format = kwargs.get("output_format", "wav")
-        stability = float(kwargs.get("stability", str(Config.ELEVENLABS_DEFAULT_STABILITY)))
-        similarity_boost = float(kwargs.get("similarity_boost", str(Config.ELEVENLABS_DEFAULT_SIMILARITY_BOOST)))
-        style = float(kwargs.get("style", str(Config.ELEVENLABS_DEFAULT_STYLE)))
+        stability = float(kwargs.get("stability", str(get_config_value('elevenlabs_default_stability'))))
+        similarity_boost = float(kwargs.get("similarity_boost", str(get_config_value('elevenlabs_default_similarity_boost'))))
+        style = float(kwargs.get("style", str(get_config_value('elevenlabs_default_style'))))
         
         # Handle SSML (ElevenLabs doesn't support SSML, so strip tags)
         if is_ssml(text):
@@ -298,7 +298,7 @@ class ElevenLabsProvider(TTSProvider):
                 first_chunk_time = None
                 
                 # ElevenLabs streams in chunks
-                for chunk in response.iter_content(chunk_size=Config.HTTP_STREAMING_CHUNK_SIZE):
+                for chunk in response.iter_content(chunk_size=get_config_value('http_streaming_chunk_size')):
                     if chunk:
                         chunk_count += 1
                         
@@ -314,7 +314,7 @@ class ElevenLabsProvider(TTSProvider):
                             bytes_written += len(chunk)
                             
                             # Log progress every N chunks
-                            if chunk_count % Config.STREAMING_PROGRESS_INTERVAL == 0:
+                            if chunk_count % get_config_value('streaming_progress_interval') == 0:
                                 self.logger.debug(f"Streamed {chunk_count} chunks, {bytes_written} bytes")
                                 
                         except BrokenPipeError:
@@ -329,7 +329,7 @@ class ElevenLabsProvider(TTSProvider):
                 # Close stdin and wait for ffplay to finish
                 try:
                     ffplay_process.stdin.close()
-                    exit_code = ffplay_process.wait(timeout=Config.FFPLAY_TIMEOUT)
+                    exit_code = ffplay_process.wait(timeout=get_config_value('ffplay_timeout'))
                     
                     # Calculate and log timing metrics
                     total_time = time.time() - start_time
@@ -348,7 +348,7 @@ class ElevenLabsProvider(TTSProvider):
                 if ffplay_process.poll() is None:
                     ffplay_process.terminate()
                     try:
-                        ffplay_process.wait(timeout=Config.FFPLAY_TERMINATION_TIMEOUT)
+                        ffplay_process.wait(timeout=get_config_value('ffplay_termination_timeout'))
                     except subprocess.TimeoutExpired:
                         ffplay_process.kill()
                 

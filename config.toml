@@ -1,29 +1,13 @@
-# TTS CLI Configuration File
-# This file allows you to customize TTS CLI settings without modifying source code.
-# Place this file in your XDG config directory (~/.config/tts/config.toml)
-# or in the same directory as the TTS CLI executable.
-
-[general]
-# Application version and basic settings
-version = "1.0"
-default_action = "stream"  # Options: "stream", "save"
-log_level = "info"         # Options: "debug", "info", "warning", "error"
-output_dir = "~/Downloads"
-
-[voice]
-# Default voice settings
-default_voice = "edge_tts:en-IE-EmilyNeural"
-default_rate = "+0%"
-default_pitch = "+0Hz"
+# TTS CLI Configuration
+# This file uses a flat structure for simplicity.
+# Environment variable overrides: TTS_<KEY_NAME>=<value>
 
 [network]
-# Network and communication settings
 chatterbox_server_port = 12345
 socket_recv_buffer_size = 4096
 http_streaming_chunk_size = 1024
 
 [timeouts]
-# Timeout values in seconds
 server_startup_timeout = 30
 server_poll_interval = 1
 socket_connection_timeout = 1
@@ -36,53 +20,47 @@ ffplay_termination_timeout = 2
 ffmpeg_conversion_timeout = 30
 
 [ui]
-# User interface settings
 double_click_time = 0.8
 filter_panel_width = 20
 preview_panel_width = 18
-status_display_time = 1000  # milliseconds
-click_feedback_time = 500   # milliseconds
-success_message_time = 1500 # milliseconds
+status_display_time = 1000
+click_feedback_time = 500
+success_message_time = 1500
 page_scroll_amount = 10
 printable_char_range_start = 32
 printable_char_range_end = 126
 
 [audio]
-# Audio processing settings
 audio_16bit_scale = 32767
 audio_amplitude_limit = 0.95
-audio_channels = 1      # mono
-audio_sample_width = 2  # 16-bit
+audio_channels = 1
+audio_sample_width = 2
 audio_cards_min_size = 0
 
-[providers]
-# Provider-specific default settings
-
-[providers.elevenlabs]
+[elevenlabs]
 default_stability = 0.5
 default_similarity_boost = 0.5
 default_style = 0.0
 voice_id_length = 32
 api_key_length = 32
 
-[providers.google_tts]
+[google]
 default_speaking_rate = 1.0
 default_pitch = 0.0
 api_key_length = 39
 oauth_token_min_length = 50
 service_account_json_min_length = 100
 
-[providers.openai]
+[openai]
 api_key_min_length = 40
 
-[providers.chatterbox]
+[chatterbox]
 default_exaggeration = 0.5
 default_cfg_weight = 0.5
 default_temperature = 0.8
 default_min_p = 0.05
 
 [http]
-# HTTP status codes and error handling
 unauthorized = 401
 forbidden = 403
 rate_limit = 429
@@ -92,41 +70,15 @@ server_error_range_end = 600
 error_message_max_length = 100
 
 [streaming]
-# Audio streaming settings
 progress_interval = 10
 playback_start_threshold = 3
 
 [voices]
-# Voice and sample management
 provider_sample_voices_count = 5
 voice_list_max_display = 15
 voice_name_display_length = 25
 voice_name_truncation_offset = 18
 
 [system]
-# System resource settings
 thread_pool_max_workers = 1
 memory_gb_conversion_factor = 1024
-
-[api_keys]
-# API key configuration (can also be set via environment variables)
-# Uncomment and set your API keys here, or use environment variables
-# elevenlabs_api_key = "your_elevenlabs_key_here"
-# openai_api_key = "sk-your_openai_key_here" 
-# google_api_key = "your_google_api_key_here"
-
-# Example: Custom configuration for different deployment environments
-# [deployment]
-# environment = "production"  # Options: development, staging, production
-
-# Example: Override defaults for specific use cases
-# [providers.elevenlabs]
-# default_stability = 0.8      # Higher stability for production
-# default_style = 0.2          # Slight style adjustment
-
-# [timeouts]
-# ffplay_timeout = 10          # Longer timeout for slower systems
-# server_startup_timeout = 60  # Longer startup for heavy loads
-
-# [network]
-# chatterbox_server_port = 8080 # Alternative port for deployment

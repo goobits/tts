@@ -5,7 +5,7 @@ from ..exceptions import (
     DependencyError, ProviderError, NetworkError, AudioPlaybackError,
     AuthenticationError
 )
-from ..config import get_api_key, is_ssml, strip_ssml_tags, Config
+from ..config import get_api_key, is_ssml, strip_ssml_tags, get_config_value
 from ..utils.audio import check_audio_environment, stream_audio_file, convert_audio
 from typing import Optional, Dict, Any
 import logging
@@ -171,7 +171,7 @@ class OpenAITTSProvider(TTSProvider):
                 first_chunk_time = None
                 
                 # OpenAI returns an iterator of bytes
-                for chunk in response.iter_bytes(chunk_size=Config.HTTP_STREAMING_CHUNK_SIZE):
+                for chunk in response.iter_bytes(chunk_size=get_config_value('http_streaming_chunk_size')):
                     chunk_count += 1
                     
                     # Log when we get the first chunk (latency measurement)
@@ -186,7 +186,7 @@ class OpenAITTSProvider(TTSProvider):
                         bytes_written += len(chunk)
                         
                         # Log progress every N chunks
-                        if chunk_count % Config.STREAMING_PROGRESS_INTERVAL == 0:
+                        if chunk_count % get_config_value('streaming_progress_interval') == 0:
                             self.logger.debug(f"Streamed {chunk_count} chunks, {bytes_written} bytes")
                             
                     except BrokenPipeError:
@@ -201,7 +201,7 @@ class OpenAITTSProvider(TTSProvider):
                 # Close stdin and wait for ffplay to finish
                 try:
                     ffplay_process.stdin.close()
-                    exit_code = ffplay_process.wait(timeout=Config.FFPLAY_TIMEOUT)
+                    exit_code = ffplay_process.wait(timeout=get_config_value('ffplay_timeout'))
                     
                     # Calculate and log timing metrics
                     total_time = time.time() - start_time
@@ -220,7 +220,7 @@ class OpenAITTSProvider(TTSProvider):
                 if ffplay_process.poll() is None:
                     ffplay_process.terminate()
                     try:
-                        ffplay_process.wait(timeout=Config.FFPLAY_TERMINATION_TIMEOUT)
+                        ffplay_process.wait(timeout=get_config_value('ffplay_termination_timeout'))
                     except subprocess.TimeoutExpired:
                         ffplay_process.kill()
                 
