@@ -52,6 +52,9 @@ Thumbs.db
 *.ogg
 *.m4a
 
+# Voice samples directory
+voices/
+
 # Model caches
 .cache/
 models/
