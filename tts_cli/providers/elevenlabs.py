@@ -7,6 +7,8 @@ from ..exceptions import (
 )
 from ..config import get_api_key, is_ssml, strip_ssml_tags, get_config_value
 from ..utils.audio import check_audio_environment, stream_audio_file, convert_audio
+from ..audio_utils import stream_via_tempfile, create_ffplay_process, handle_ffplay_process_error
+from ..types import ProviderInfo, VoiceInfo
 from typing import Optional, Dict, Any, List
 import logging
 import tempfile
@@ -32,7 +34,7 @@ class ElevenLabsProvider(TTSProvider):
         "sam": "Natural and conversational male voice"
     }
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self._voices_cache = None
         self.base_url = "https://api.elevenlabs.io/v1"
@@ -228,26 +230,12 @@ class ElevenLabsProvider(TTSProvider):
             
             # Start ffplay process for streaming
             try:
-                ffplay_cmd = [
-                    'ffplay', 
-                    '-nodisp',           # No video display
-                    '-autoexit',         # Exit when done
-                    '-loglevel', 'quiet', # Reduce ffplay output
-                    '-f', 'mp3',         # Specify MP3 format
-                    '-i', 'pipe:0'       # Read from stdin
-                ]
-                
-                self.logger.debug(f"Starting ffplay with command: {' '.join(ffplay_cmd)}")
-                ffplay_process = subprocess.Popen(
-                    ffplay_cmd,
-                    stdin=subprocess.PIPE, 
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.PIPE,
-                    bufsize=0  # Unbuffered for real-time streaming
+                ffplay_process = create_ffplay_process(
+                    logger=self.logger,
+                    format_args=['-f', 'mp3']
                 )
-            except FileNotFoundError:
-                self.logger.error("FFplay not found for audio streaming")
-                raise DependencyError("ffplay not found. Please install ffmpeg to use audio streaming.")
+                ffplay_process.stdout = subprocess.DEVNULL  # Override stdout
+                ffplay_process.bufsize = 0  # Unbuffered for real-time streaming
             
             try:
                 # Prepare request for streaming
@@ -369,56 +357,47 @@ class ElevenLabsProvider(TTSProvider):
     
     
     def _stream_via_tempfile(self, text: str, voice_id: str, voice_name: str,
-                            stability: float, similarity_boost: float, style: float):
+                            stability: float, similarity_boost: float, style: float) -> None:
         """Fallback streaming method using temporary file when direct streaming fails."""
-        self.logger.info("Using temporary file fallback for audio streaming")
-        
-        payload = {
-            "text": text,
-            "model_id": "eleven_monolingual_v1",
-            "voice_settings": {
-                "stability": stability,
-                "similarity_boost": similarity_boost,
-                "style": style
+        def synthesize_to_file(text: str, output_path: str, **kwargs: Any) -> None:
+            payload = {
+                "text": text,
+                "model_id": "eleven_monolingual_v1",
+                "voice_settings": {
+                    "stability": kwargs['stability'],
+                    "similarity_boost": kwargs['similarity_boost'],
+                    "style": kwargs['style']
+                }
             }
-        }
+            
+            response = self._make_request(
+                "POST", 
+                f"/text-to-speech/{kwargs['voice_id']}",
+                json=payload
+            )
+            
+            if response.status_code != 200:
+                error_msg = f"ElevenLabs API error {response.status_code}: {response.text[:200]}"
+                raise ProviderError(error_msg)
+            
+            with open(output_path, 'wb') as f:
+                f.write(response.content)
         
-        response = self._make_request(
-            "POST", 
-            f"/text-to-speech/{voice_id}",
-            json=payload
+        stream_via_tempfile(
+            synthesize_func=synthesize_to_file,
+            text=text,
+            logger=self.logger,
+            file_suffix='.mp3',
+            voice_id=voice_id,
+            voice_name=voice_name,
+            stability=stability,
+            similarity_boost=similarity_boost,
+            style=style
         )
-        
-        if response.status_code != 200:
-            error_msg = f"ElevenLabs API error {response.status_code}: {response.text[:200]}"
-            raise ProviderError(error_msg)
-        
-        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp_file:
-            temp_file = tmp_file.name
-            tmp_file.write(response.content)
-        
-        try:
-            # Play the temporary file
-            stream_audio_file(temp_file)
-            self.logger.debug("Temporary file streaming completed")
-        except FileNotFoundError:
-            self.logger.warning(f"FFplay not available, audio saved to: {temp_file}")
-            raise DependencyError(f"Audio generated but cannot play automatically. File saved to: {temp_file}")
-        except subprocess.CalledProcessError as e:
-            self.logger.warning(f"FFplay failed to play temporary file: {e}")
-            raise AudioPlaybackError(f"Audio generated but playback failed. File saved to: {temp_file}")
-        finally:
-            # Clean up temporary file
-            try:
-                import os
-                if os.path.exists(temp_file):
-                    os.unlink(temp_file)
-            except OSError as e:
-                self.logger.debug(f"Could not clean up temporary file {temp_file}: {e}")
     
     
     
-    def get_info(self) -> Optional[Dict[str, Any]]:
+    def get_info(self) -> Optional[ProviderInfo]:
         """Get provider information including available voices."""
         # Check if API key is configured
         api_key = get_api_key("elevenlabs")

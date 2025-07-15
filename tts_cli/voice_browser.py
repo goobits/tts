@@ -18,6 +18,7 @@ import curses
 import logging
 import subprocess
 import tempfile
+from .audio_utils import play_audio_with_ffplay, cleanup_file
 import threading
 import time
 from typing import List, Tuple, Set, Dict, Any, Optional
@@ -72,7 +73,7 @@ def analyze_voice(provider: str, voice: str) -> Tuple[int, str, str]:
 class VoiceBrowser:
     """Interactive voice browser with filtering and preview capabilities."""
     
-    def __init__(self, providers_registry: Dict[str, Any], load_provider_func):
+    def __init__(self, providers_registry: Dict[str, Any], load_provider_func: Any) -> None:
         """Initialize the voice browser.
         
         Args:
@@ -363,19 +364,16 @@ class VoiceBrowser:
                 kwargs = {"voice": voice}
                 provider_instance.synthesize(preview_text, temp_file, **kwargs)
                 
-                # Play audio
+                # Play audio using shared utility
+                # Note: We need to handle the subprocess differently for the voice browser
+                # to support the current_playback_process tracking
                 play_process = subprocess.Popen(['ffplay', '-nodisp', '-autoexit', temp_file], 
                                               stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
                 self.current_playback_process = play_process
                 play_process.wait()
                 
-                # Cleanup
-                import os
-                try:
-                    os.unlink(temp_file)
-                except (OSError, FileNotFoundError):
-                    # Ignore if file already deleted or doesn't exist
-                    pass
+                # Cleanup using shared utility
+                cleanup_file(temp_file, logger=self.logger)
                     
                 if self.current_playback_process == play_process:
                     self.is_playing = False
@@ -478,7 +476,7 @@ class VoiceBrowser:
     
     def run(self) -> None:
         """Run the interactive voice browser."""
-        def main_browser(stdscr):
+        def main_browser(stdscr: Any) -> None:
             # Initialize curses and colors
             curses.curs_set(0)  # Hide cursor
             curses.start_color()

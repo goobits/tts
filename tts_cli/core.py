@@ -12,7 +12,7 @@ from .exceptions import ProviderNotFoundError, ProviderLoadError, TTSError
 class TTSEngine:
     """Core TTS engine that handles synthesis without CLI dependencies."""
     
-    def __init__(self, providers_registry: Dict[str, str]):
+    def __init__(self, providers_registry: Dict[str, str]) -> None:
         """Initialize TTS engine with provider registry.
         
         Args:

@@ -2,6 +2,8 @@ from ..base import TTSProvider
 from ..utils.audio import convert_with_cleanup, check_audio_environment
 from ..config import get_config_value
 from ..exceptions import DependencyError, NetworkError, AudioPlaybackError, ProviderError
+from ..audio_utils import stream_via_tempfile, create_ffplay_process, handle_ffplay_process_error
+from ..types import ProviderInfo
 from typing import Optional, Dict, Any
 import asyncio
 import logging
@@ -10,12 +12,12 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 class EdgeTTSProvider(TTSProvider):
-    def __init__(self):
+    def __init__(self) -> None:
         self.edge_tts = None
         self.logger = logging.getLogger(__name__)
         self._executor = ThreadPoolExecutor(max_workers=get_config_value('thread_pool_max_workers'), thread_name_prefix="edge_tts")
         
-    def _lazy_load(self):
+    def _lazy_load(self) -> None:
         if self.edge_tts is None:
             try:
                 import edge_tts
@@ -23,7 +25,7 @@ class EdgeTTSProvider(TTSProvider):
             except ImportError:
                 raise DependencyError("edge-tts not installed. Please install with: pip install edge-tts")
     
-    def _run_async_safely(self, coro):
+    def _run_async_safely(self, coro: Any) -> Any:
         """Safely run async coroutine, handling existing event loops."""
         try:
             # Try to get current event loop
@@ -198,45 +200,23 @@ class EdgeTTSProvider(TTSProvider):
                 raise ProviderError(f"Edge TTS streaming failed: {e}")
     
     
-    async def _stream_via_tempfile(self, text: str, voice: str, rate: str, pitch: str):
+    async def _stream_via_tempfile(self, text: str, voice: str, rate: str, pitch: str) -> None:
         """Fallback streaming method using temporary file when direct streaming fails"""
-        import tempfile
-        import subprocess
+        # Use the shared utility with async wrapper
+        def sync_synthesize(text: str, output_path: str, **kwargs: Any) -> None:
+            # Run async synthesis in sync context
+            asyncio.run(self._synthesize_async(text, output_path, kwargs['voice'], 
+                                               kwargs['rate'], kwargs['pitch'], "mp3"))
         
-        self.logger.info("Using temporary file fallback for audio streaming")
-        
-        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
-            temp_file = tmp.name
-        
-        try:
-            # Generate audio to temporary file
-            await self._synthesize_async(text, temp_file, voice, rate, pitch, "mp3")
-            
-            # Play the temporary file
-            try:
-                subprocess.run([
-                    'ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', temp_file
-                ], check=True, timeout=get_config_value('ffmpeg_conversion_timeout'))
-                self.logger.debug("Temporary file streaming completed")
-            except FileNotFoundError:
-                self.logger.warning(f"FFplay not available, audio saved to: {temp_file}")
-                raise DependencyError(f"Audio generated but cannot play automatically. File saved to: {temp_file}")
-            except subprocess.CalledProcessError as e:
-                self.logger.warning(f"FFplay failed to play temporary file: {e}")
-                raise AudioPlaybackError(f"Audio generated but playback failed. File saved to: {temp_file}")
-                
-        finally:
-            # Clean up temporary file
-            try:
-                import os
-                if os.path.exists(temp_file):
-                    os.unlink(temp_file)
-            except OSError as e:
-                # Log but don't fail if we can't clean up temp file
-                self.logger.debug(f"Could not clean up temporary file {temp_file}: {e}")
-            except Exception as e:
-                # Unexpected error during cleanup
-                self.logger.warning(f"Unexpected error cleaning up temporary file {temp_file}: {e}")
+        stream_via_tempfile(
+            synthesize_func=sync_synthesize,
+            text=text,
+            logger=self.logger,
+            file_suffix='.mp3',
+            voice=voice,
+            rate=rate,
+            pitch=pitch
+        )
     
     def synthesize(self, text: str, output_path: str, **kwargs) -> None:
         self._lazy_load()
@@ -264,7 +244,7 @@ class EdgeTTSProvider(TTSProvider):
         else:
             self._run_async_safely(self._synthesize_async(text, output_path, voice, rate, pitch, output_format))
     
-    def get_info(self) -> Optional[Dict[str, Any]]:
+    def get_info(self) -> Optional[ProviderInfo]:
         self._lazy_load()
         
         # Get available voices

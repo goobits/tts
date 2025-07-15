@@ -2,6 +2,7 @@ from ..base import TTSProvider
 from ..utils.audio import convert_with_cleanup
 from ..exceptions import DependencyError, AudioPlaybackError, ProviderError
 from ..voice_manager import VoiceManager
+from ..types import ProviderInfo
 from typing import Optional, Dict, Any
 import logging
 import tempfile
@@ -9,11 +10,11 @@ import base64
 
 
 class ChatterboxProvider(TTSProvider):
-    def __init__(self):
+    def __init__(self) -> None:
         self.tts = None
         self.logger = logging.getLogger(__name__)
         
-    def _lazy_load(self):
+    def _lazy_load(self) -> None:
         if self.tts is None:
             try:
                 from chatterbox.tts import ChatterboxTTS
@@ -29,7 +30,7 @@ class ChatterboxProvider(TTSProvider):
             except Exception as e:
                 raise ProviderError(f"Failed to load Chatterbox model: {e}")
     
-    def _has_cuda(self):
+    def _has_cuda(self) -> bool:
         try:
             import torch
             return torch.cuda.is_available()
@@ -112,7 +113,7 @@ class ChatterboxProvider(TTSProvider):
                 # Convert using utility function with cleanup
                 convert_with_cleanup(wav_path, output_path, output_format)
     
-    def _stream_to_speakers(self, wav_tensor):
+    def _stream_to_speakers(self, wav_tensor: Any) -> None:
         """Stream audio tensor directly to speakers using ffplay"""
         import subprocess
         import io
@@ -220,7 +221,7 @@ class ChatterboxProvider(TTSProvider):
             self.logger.error(f"Failed to save audio data: {e}")
             raise ProviderError(f"Failed to save audio: {e}")
     
-    def get_info(self) -> Optional[Dict[str, Any]]:
+    def get_info(self) -> Optional[ProviderInfo]:
         # Scan for available voice files in the voices directory
         sample_voices = []
         from pathlib import Path

@@ -79,6 +79,11 @@ Provider loading is dynamic via the `PROVIDERS` dict in `tts.py:21-27`.
 
 ### Key CLI Commands
 
+**IMPORTANT: Always install using pipx, never use pip directly:**
+```bash
+pipx install tts-cli          # Install the package
+```
+
 ```bash
 tts "text"                    # Stream audio (default)
 tts "text" --save             # Save to file

@@ -6,12 +6,14 @@ import subprocess
 from typing import Dict, Any
 
 from ..exceptions import DependencyError, ProviderError, AudioPlaybackError
+from ..audio_utils import play_audio_with_ffplay
+from ..types import AudioEnvironment
 
 
 logger = logging.getLogger(__name__)
 
 
-def check_audio_environment() -> Dict[str, Any]:
+def check_audio_environment() -> AudioEnvironment:
     """Check if audio streaming is available in current environment.
     
     Returns:
@@ -67,14 +69,7 @@ def stream_audio_file(audio_path: str) -> None:
         DependencyError: If ffplay is not found
         AudioPlaybackError: If playback fails
     """
-    try:
-        subprocess.run([
-            'ffplay', '-nodisp', '-autoexit', audio_path
-        ], stderr=subprocess.DEVNULL, check=True)
-    except FileNotFoundError:
-        raise DependencyError("ffplay not found. Please install ffmpeg for audio playback.")
-    except subprocess.CalledProcessError as e:
-        raise AudioPlaybackError(f"Audio playback failed: {e}")
+    play_audio_with_ffplay(audio_path, logger=logger)
 
 
 def convert_audio(input_path: str, output_path: str, output_format: str) -> None:

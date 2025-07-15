@@ -13,7 +13,7 @@ from .exceptions import TTSError
 class VoiceManager:
     """Manages voice loading/unloading and server communication"""
     
-    def __init__(self, server_host: str = "localhost", server_port: int = 12345):
+    def __init__(self, server_host: str = "localhost", server_port: int = 12345) -> None:
         self.server_host = server_host
         self.server_port = server_port
         self.logger = logging.getLogger(__name__)

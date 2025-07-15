@@ -7,6 +7,8 @@ from ..exceptions import (
 )
 from ..config import get_api_key, is_ssml, strip_ssml_tags, get_config_value
 from ..utils.audio import check_audio_environment, stream_audio_file, convert_audio
+from ..audio_utils import stream_via_tempfile, create_ffplay_process, handle_ffplay_process_error
+from ..types import ProviderInfo
 from typing import Optional, Dict, Any
 import logging
 import tempfile
@@ -27,11 +29,11 @@ class OpenAITTSProvider(TTSProvider):
         "shimmer": "Bright and energetic voice"
     }
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self._client = None
     
-    def _get_client(self):
+    def _get_client(self) -> Any:
         """Get OpenAI client, initializing if needed."""
         if self._client is None:
             try:
@@ -134,26 +136,15 @@ class OpenAITTSProvider(TTSProvider):
             
             # Start ffplay process for streaming
             try:
-                ffplay_cmd = [
-                    'ffplay', 
-                    '-nodisp',           # No video display
-                    '-autoexit',         # Exit when done
-                    '-loglevel', 'quiet', # Reduce ffplay output
-                    '-f', 'mp3',         # Specify MP3 format
-                    '-i', 'pipe:0'       # Read from stdin
-                ]
-                
-                self.logger.debug(f"Starting ffplay with command: {' '.join(ffplay_cmd)}")
-                ffplay_process = subprocess.Popen(
-                    ffplay_cmd,
+                ffplay_process = create_ffplay_process(
+                    logger=self.logger,
+                    format_args=['-f', 'mp3']
+                )
                     stdin=subprocess.PIPE, 
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.PIPE,
                     bufsize=0  # Unbuffered for real-time streaming
                 )
-            except FileNotFoundError:
-                self.logger.error("FFplay not found for audio streaming")
-                raise DependencyError("ffplay not found. Please install ffmpeg to use audio streaming.")
             
             try:
                 # Create streaming response
@@ -241,44 +232,29 @@ class OpenAITTSProvider(TTSProvider):
                 raise ProviderError(f"OpenAI TTS streaming failed: {e}")
     
     
-    def _stream_via_tempfile(self, text: str, voice: str):
+    def _stream_via_tempfile(self, text: str, voice: str) -> None:
         """Fallback streaming method using temporary file when direct streaming fails."""
-        self.logger.info("Using temporary file fallback for audio streaming")
+        def synthesize_to_file(text: str, output_path: str, **kwargs: Any) -> None:
+            client = self._get_client()
+            response = client.audio.speech.create(
+                model="tts-1",
+                voice=kwargs['voice'],
+                input=text,
+                response_format="mp3"
+            )
+            response.stream_to_file(output_path)
         
-        client = self._get_client()
-        response = client.audio.speech.create(
-            model="tts-1",
-            voice=voice,
-            input=text,
-            response_format="mp3"
+        stream_via_tempfile(
+            synthesize_func=synthesize_to_file,
+            text=text,
+            logger=self.logger,
+            file_suffix='.mp3',
+            voice=voice
         )
-        
-        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp_file:
-            temp_file = tmp_file.name
-            response.stream_to_file(temp_file)
-        
-        try:
-            # Play the temporary file
-            stream_audio_file(temp_file)
-            self.logger.debug("Temporary file streaming completed")
-        except FileNotFoundError:
-            self.logger.warning(f"FFplay not available, audio saved to: {temp_file}")
-            raise DependencyError(f"Audio generated but cannot play automatically. File saved to: {temp_file}")
-        except subprocess.CalledProcessError as e:
-            self.logger.warning(f"FFplay failed to play temporary file: {e}")
-            raise AudioPlaybackError(f"Audio generated but playback failed. File saved to: {temp_file}")
-        finally:
-            # Clean up temporary file
-            try:
-                import os
-                if os.path.exists(temp_file):
-                    os.unlink(temp_file)
-            except OSError as e:
-                self.logger.debug(f"Could not clean up temporary file {temp_file}: {e}")
     
     
     
-    def get_info(self) -> Optional[Dict[str, Any]]:
+    def get_info(self) -> Optional[ProviderInfo]:
         """Get provider information including available voices."""
         # Check if API key is configured
         api_key = get_api_key("openai")

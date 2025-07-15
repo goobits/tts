@@ -66,7 +66,7 @@ PROVIDERS: Dict[str, str] = {
 }
 
 
-def setup_logging():
+def setup_logging() -> logging.Logger:
     """Setup logging configuration for TTS CLI"""
     # Create logs directory if it doesn't exist
     logs_dir = Path("logs")
@@ -153,7 +153,7 @@ def load_provider(name: str) -> Type[TTSProvider]:
 
 
 
-def show_browser_snapshot():
+def show_browser_snapshot() -> None:
     """Show a snapshot of what the browser would display"""
     click.echo("=== TTS VOICE BROWSER SNAPSHOT ===\n")
     
@@ -892,7 +892,7 @@ def handle_unload_command(args: tuple) -> None:
 @click.option("--clone", help="Audio file to clone voice from (deprecated: use --voice instead)")
 @click.option("--json", "json_output", is_flag=True, help="Output results as JSON")
 @click.argument("options", nargs=-1)
-def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, output_format: str, json_output: bool):
+def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, output_format: str, json_output: bool) -> None:
     """Text-to-speech CLI with multiple providers."""
     
     # Setup logging

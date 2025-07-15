@@ -194,7 +194,7 @@ def get_config_value(key: str, default: Any = None) -> Any:
     config = load_toml_config()
     return config.get(key, default)
 
-def reload_config():
+def reload_config() -> None:
     """Reload configuration from files (useful for testing)."""
     global _config_cache
     _config_cache = None

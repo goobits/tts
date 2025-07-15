@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any
+from .types import ProviderInfo
 
 
 class TTSProvider(ABC):
@@ -40,7 +41,7 @@ class TTSProvider(ABC):
         """
         pass
     
-    def get_info(self) -> Optional[Dict[str, Any]]:
+    def get_info(self) -> Optional[ProviderInfo]:
         """Get provider information including available voices and capabilities.
         
         Returns provider metadata that helps users understand what options

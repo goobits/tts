@@ -7,6 +7,7 @@ from ..exceptions import (
 )
 from ..config import get_api_key, is_ssml, strip_ssml_tags
 from ..utils.audio import stream_audio_file, convert_audio
+from ..types import ProviderInfo
 from typing import Optional, Dict, Any, List
 import logging
 import tempfile
@@ -36,14 +37,14 @@ class GoogleTTSProvider(TTSProvider):
         "en-AU-Neural2-B": "Australian English, Neural2, Male",
     }
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self._voices_cache = None
         self.base_url = "https://texttospeech.googleapis.com/v1"
         self._client = None
         self._auth_method = None
     
-    def _get_client(self):
+    def _get_client(self) -> Any:
         """Get Google Cloud TTS client, supporting both API key and service account auth."""
         if self._client is None:
             api_key = get_api_key("google")
@@ -105,7 +106,7 @@ class GoogleTTSProvider(TTSProvider):
         except requests.RequestException as e:
             raise NetworkError(f"Google Cloud TTS API request failed: {e}")
     
-    def get_info(self) -> Dict[str, Any]:
+    def get_info(self) -> ProviderInfo:
         """Get provider information and capabilities."""
         api_key = get_api_key("google")
         
