@@ -1,27 +1,42 @@
-# 🗣️ TTS CLI
+# 🗣️ GOOBITS TTS
 
-A modern command-line text-to-speech tool with pluggable provider architecture, real-time streaming, and voice cloning capabilities. Features smart auto-selection, interactive voice browser, and comprehensive configuration management.
+A modern command-line text-to-speech tool with pluggable provider architecture, real-time streaming, and voice cloning capabilities. Features smart auto-selection, interactive voice browser, and comprehensive configuration management with support for multiple TTS providers.
 
-## ✨ Key Features
+## 🔗 Related Projects
 
-- **Multiple TTS Providers**: Edge TTS, OpenAI, Google Cloud, ElevenLabs, Chatterbox
-- **Real-time Streaming**: Low-latency audio playback with chunk-by-chunk streaming
-- **Voice Cloning**: Local voice cloning with GPU/CPU support via Chatterbox
-- **Interactive Browser**: Curses-based UI for exploring 1000+ voices
-- **Smart Configuration**: XDG-compliant with auto-detection and validation
-- **Performance Optimized**: Voice caching, shared utilities, comprehensive type safety
+This project is part of the GOOBITS ecosystem:
+
+- **[GOOBITS TTS](https://github.com/goobits/tts)** - Text-to-Speech engine (this project)
+- **[GOOBITS STT](https://github.com/goobits/stt)** - Speech-to-Text engine with real-time transcription
+- **[GOOBITS TTT](https://github.com/goobits/ttt)** - Text-to-Text processing and transformation tools
+- **[Matilda](https://github.com/goobits/matilda)** - AI assistant for conversational interactions
+
+## 📋 Table of Contents
+
+- [Installation](#-installation)
+- [Basic Usage](#-basic-usage)
+- [Configuration](#️-configuration)
+- [Voice Discovery](#-voice-discovery)
+- [Voice Loading (Performance)](#-voice-loading-performance)
+- [Voice Cloning Workflow](#-voice-cloning-workflow)
+- [System Management](#-system-management)
+- [Supported Engines](#-supported-engines)
+- [Tech Stack & Architecture](#️-tech-stack--architecture)
+- [Recent Improvements](#-recent-improvements)
+- [Development](#-development)
+
 
 ## 📦 Installation
 
 **⚠️ Important: Always use pipx for installation, never pip directly:**
 
 ```bash
-# Install with pipx (recommended)
-pipx install tts-cli
+# Install from source (currently only option)
+# pipx install goobits-tts-cli  # TODO: Will be available when published
 
-# Or install from source
-git clone <repository>
-cd tts-cli
+# Install from local source
+git clone https://github.com/goobits/tts
+cd tts
 ./setup.sh install         # Uses pipx automatically
 
 # Verify installation
@@ -42,8 +57,8 @@ tts "Hello world" --voice voice.wav  # Voice cloning
 
 ```bash
 tts config                           # Show current settings
-tts config set voice en-IE-EmilyNeural  # Set default voice
-tts config set default_action save   # Save files by default
+tts config voice en-IE-EmilyNeural  # Set default voice
+tts config default_action save   # Save files by default
 tts config edit                      # Interactive editor
 ```
 
@@ -51,7 +66,7 @@ tts config edit                      # Interactive editor
 
 ```bash
 tts voices                           # Interactive voice browser
-tts voices edge_tts                  # List voices for specific provider
+tts models edge_tts                  # List voices for specific provider
 tts voices en-GB                     # Filter by language/region
 tts models                           # List providers and capabilities
 ```
@@ -91,11 +106,11 @@ tts install chatterbox gpu           # Install provider with GPU support
 
 | Engine | Speed | Quality | Offline | Voice Cloning | API Required |
 |--------|-------|---------|---------|---------------|--------------|
-| **Edge TTS** | ⚡ Instant | 🌟 Excellent | ❌ No | ❌ No | ❌ Free |
-| **Chatterbox** | 🔥 Fast | 🏆 Best-in-class | ✅ Yes | ✅ Yes | ❌ Free |
-| **OpenAI TTS** | ⚡ Fast | 🌟 Excellent | ❌ No | ❌ No | ✅ Paid |
-| **Google Cloud TTS** | ⚡ Fast | 🌟 Excellent | ❌ No | ❌ No | ✅ Paid |
-| **ElevenLabs** | 🔥 Fast | 🏆 Premium | ❌ No | ✅ Yes | ✅ Paid |
+| **Edge TTS** | ⚡ Instant | 🌟 Excellent | ❌ No | ❌ No | ❌ No |
+| **Chatterbox** | 🔥 Fast | 🏆 Best-in-class | ✅ Yes | ✅ Yes | ❌ No |
+| **OpenAI TTS** | ⚡ Fast | 🌟 Excellent | ❌ No | ❌ No | ✅ Yes |
+| **Google Cloud TTS** | ⚡ Fast | 🌟 Excellent | ❌ No | ❌ No | ✅ Yes |
+| **ElevenLabs** | 🔥 Fast | 🏆 Premium | ❌ No | ✅ Yes | ✅ Yes |
 
 Choose from free offline options or premium cloud services based on your needs.
 
@@ -122,12 +137,12 @@ Choose from free offline options or premium cloud services based on your needs.
 
 ### Configuration & Storage
 - **XDG-compliant** paths (`~/.config/tts/`)
-- **TOML/JSON** configuration with validation
+- **JSON** configuration with validation
 - **Environment variable** support
 - **API key management** with secure storage
 
 ### Development Quality
-- **100% type hints** with mypy enforcement
+- **Comprehensive type hints** with mypy enforcement
 - **Code formatting** with Black (100-char line length)
 - **Linting** with Ruff
 - **No code duplication** - shared utilities pattern
