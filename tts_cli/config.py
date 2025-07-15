@@ -94,10 +94,14 @@ CONFIG_DEFAULTS = {
     'http_unauthorized': 401,
     'http_forbidden': 403,
     'http_rate_limit': 429,
-    'http_payment_errors': [402, 409],
+    'http_payment_errors': [402],
     'http_server_error_range_start': 500,
     'http_server_error_range_end': 600,
     'error_message_max_length': 100,
+    
+    # API Key Validation
+    'openai_api_key_min_length': 48,
+    'openai_api_key_max_length': 51,
     
     # Streaming & Progress
     'streaming_progress_interval': 10,
@@ -283,7 +287,7 @@ def parse_voice_setting(voice_str: str) -> Tuple[Optional[str], str]:
         return provider, voice
     else:
         # Auto-detect provider based on voice characteristics
-        if '/' in voice_str or voice_str.endswith(('.wav', '.mp3', '.flac', '.ogg')):
+        if '/' in voice_str or voice_str.endswith(('.wav', '.mp3', '.flac', '.ogg', '.m4a')):
             # File path - likely chatterbox voice cloning
             return 'chatterbox', voice_str
         elif voice_str in ['alloy', 'echo', 'fable', 'nova', 'onyx', 'shimmer']:
@@ -295,8 +299,8 @@ def parse_voice_setting(voice_str: str) -> Tuple[Optional[str], str]:
         elif voice_str in ['rachel', 'domi', 'bella', 'antoni', 'elli', 'josh', 'arnold', 'adam', 'sam']:
             # ElevenLabs default voice names
             return 'elevenlabs', voice_str
-        elif 'Neural' in voice_str or '-' in voice_str:
-            # Standard Azure/Edge TTS format like "en-US-JennyNeural"
+        elif 'Neural' in voice_str or (len(voice_str.split('-')) >= 3 and voice_str.startswith(('en-', 'es-', 'fr-', 'de-', 'it-', 'pt-', 'ru-', 'ja-', 'ko-', 'zh-'))):
+            # Standard Azure/Edge TTS format like "en-US-JennyNeural" (language-region-voice pattern)
             return 'edge_tts', voice_str
         else:
             # Unknown format, let current provider handle it
@@ -335,12 +339,13 @@ def set_setting(key: str, value: Any) -> bool:
 
 def validate_api_key(provider: str, api_key: str) -> bool:
     """Validate API key format for different providers."""
-    if not api_key or not isinstance(api_key, str):
+    if not api_key or not isinstance(api_key, str) or not provider or not isinstance(provider, str):
         return False
     
     if provider == "openai":
-        # OpenAI keys start with sk- and are ~50 chars
-        return api_key.startswith("sk-") and len(api_key) >= get_config_value('openai_api_key_min_length', 40)
+        # OpenAI keys start with sk- and are typically 48-51 chars
+        return (api_key.startswith("sk-") and 
+                get_config_value('openai_api_key_min_length', 48) <= len(api_key) <= get_config_value('openai_api_key_max_length', 51))
     
     elif provider == "google":
         # Google API keys are 39 chars, start with AIza or can be OAuth token
@@ -353,8 +358,8 @@ def validate_api_key(provider: str, api_key: str) -> bool:
         return len(api_key) == get_config_value('elevenlabs_api_key_length', 32) and all(c in '0123456789abcdef' for c in api_key.lower())
     
     else:
-        # Unknown provider, assume valid if non-empty
-        return len(api_key.strip()) > 0
+        # Unknown provider, return False for security
+        return False
 
 def get_api_key(provider: str) -> Optional[str]:
     """Get API key for a provider, checking JSON config and environment.

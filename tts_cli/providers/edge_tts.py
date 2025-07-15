@@ -204,9 +204,9 @@ class EdgeTTSProvider(TTSProvider):
         """Fallback streaming method using temporary file when direct streaming fails"""
         # Use the shared utility with async wrapper
         def sync_synthesize(text: str, output_path: str, **kwargs: Any) -> None:
-            # Run async synthesis in sync context
-            asyncio.run(self._synthesize_async(text, output_path, kwargs['voice'], 
-                                               kwargs['rate'], kwargs['pitch'], "mp3"))
+            # Run async synthesis in sync context using proper event loop handling
+            self._run_async_safely(self._synthesize_async(text, output_path, kwargs['voice'], 
+                                                          kwargs['rate'], kwargs['pitch'], "mp3"))
         
         stream_via_tempfile(
             synthesize_func=sync_synthesize,

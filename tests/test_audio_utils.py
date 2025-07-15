@@ -12,7 +12,7 @@ import pytest
 import tempfile
 import os
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from tts_cli.audio_utils import cleanup_file, play_audio_with_ffplay
 from tts_cli.exceptions import DependencyError, AudioPlaybackError
@@ -66,39 +66,32 @@ class TestCleanupFile:
         assert "Cleaned up temporary file" in debug_call_args
         assert temp_path in debug_call_args
     
-    def test_cleanup_permission_error(self):
+    @patch('os.path.exists')
+    @patch('os.unlink')
+    def test_cleanup_permission_error(self, mock_unlink, mock_exists):
         """Test cleanup behavior when file cannot be deleted due to permissions."""
-        # Create a temporary file
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            temp_path = tmp.name
-            tmp.write(b"test content")
+        # Setup mocks
+        mock_exists.return_value = True
+        mock_unlink.side_effect = PermissionError("Permission denied")
         
-        # Try to make file read-only (this may not work on all systems)
-        try:
-            os.chmod(temp_path, 0o444)  # Read-only
-            
-            # Make parent directory read-only to prevent deletion
-            parent_dir = os.path.dirname(temp_path)
-            original_mode = os.stat(parent_dir).st_mode
-            os.chmod(parent_dir, 0o555)  # Read-only parent
-            
-            mock_logger = Mock()
-            
-            # Cleanup should not raise exception, but log warning
-            cleanup_file(temp_path, logger=mock_logger)
-            
-            # Restore permissions for cleanup
-            os.chmod(parent_dir, original_mode)
-            if os.path.exists(temp_path):
-                os.chmod(temp_path, 0o666)
-                os.unlink(temp_path)
-                
-        except (OSError, PermissionError):
-            # Some systems may not allow permission changes
-            # Skip this test if we can't set up the scenario
-            if os.path.exists(temp_path):
-                os.unlink(temp_path)
-            pytest.skip("Cannot test permission errors on this system")
+        mock_logger = Mock()
+        test_path = "/fake/test/file.mp3"
+        
+        # Cleanup should not raise exception, but should log the error
+        cleanup_file(test_path, logger=mock_logger)
+        
+        # Verify the file existence was checked
+        mock_exists.assert_called_once_with(test_path)
+        
+        # Verify unlink was attempted
+        mock_unlink.assert_called_once_with(test_path)
+        
+        # Verify error was logged
+        mock_logger.debug.assert_called_once()
+        debug_call_args = mock_logger.debug.call_args[0][0]
+        assert "Could not clean up temporary file" in debug_call_args
+        assert test_path in debug_call_args
+        assert "Permission denied" in debug_call_args
     
     def test_cleanup_with_pathlib(self):
         """Test cleanup with pathlib.Path objects."""

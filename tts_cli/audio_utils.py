@@ -78,6 +78,8 @@ def cleanup_file(file_path: str, logger: Optional[logging.Logger] = None) -> Non
         if os.path.exists(file_path):
             os.unlink(file_path)
             logger.debug(f"Cleaned up temporary file: {file_path}")
+        else:
+            logger.debug(f"Temporary file does not exist, no cleanup needed: {file_path}")
     except OSError as e:
         # Log but don't fail if we can't clean up temp file
         logger.debug(f"Could not clean up temporary file {file_path}: {e}")

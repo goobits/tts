@@ -16,6 +16,7 @@ an intuitive way to explore and test available TTS voices before use.
 
 import curses
 import logging
+import re
 import subprocess
 import tempfile
 from .audio_utils import play_audio_with_ffplay, cleanup_file
@@ -59,13 +60,37 @@ def analyze_voice(provider: str, voice: str) -> Tuple[int, str, str]:
     
     # Gender detection
     gender = "U"  # Unknown
-    female_indicators = ['emily', 'jenny', 'aria', 'davis', 'jane', 'sarah', 'amy', 'emma', 'female', 'woman']
-    male_indicators = ['guy', 'tony', 'brandon', 'christopher', 'eric', 'male', 'man']
+    female_indicators = ['emily', 'jenny', 'aria', 'davis', 'jane', 'sarah', 'amy', 'emma', 'female', 'woman', 'libby', 'clara', 'natasha']
+    male_indicators = ['guy', 'tony', 'brandon', 'christopher', 'eric', 'male', 'man', 'boy']
     
-    if any(indicator in voice_lower for indicator in female_indicators):
-        gender = "F"
-    elif any(indicator in voice_lower for indicator in male_indicators):
-        gender = "M"
+    # Check for gender indicators with smart boundary detection
+    # Use word boundaries for problematic short words, partial matches for names
+    problematic_words = ['man', 'eric']  # Words that commonly appear in other words
+    
+    for indicator in female_indicators:
+        if indicator in problematic_words:
+            # Use word boundaries for problematic words
+            if re.search(r'\b' + re.escape(indicator) + r'\b', voice_lower):
+                gender = "F"
+                break
+        else:
+            # Allow partial matches for names (e.g., "jenny" in "jennyneural")
+            if indicator in voice_lower:
+                gender = "F"
+                break
+    
+    if gender == "U":  # Only check male if not already female
+        for indicator in male_indicators:
+            if indicator in problematic_words:
+                # Use word boundaries for problematic words
+                if re.search(r'\b' + re.escape(indicator) + r'\b', voice_lower):
+                    gender = "M"
+                    break
+            else:
+                # Allow partial matches for names
+                if indicator in voice_lower:
+                    gender = "M"
+                    break
     
     return quality, region, gender
 

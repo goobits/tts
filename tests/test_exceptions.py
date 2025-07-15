@@ -23,7 +23,6 @@ from tts_cli.exceptions import (
     AudioPlaybackError,
     DependencyError,
     VoiceNotFoundError,
-    APIError,
     map_http_error
 )
 
@@ -44,8 +43,7 @@ class TestExceptionHierarchy:
             NetworkError,
             AudioPlaybackError,
             DependencyError,
-            VoiceNotFoundError,
-            APIError
+            VoiceNotFoundError
         ]
         
         for exc_class in exception_classes:
@@ -66,8 +64,7 @@ class TestExceptionHierarchy:
             NetworkError,
             AudioPlaybackError,
             DependencyError,
-            VoiceNotFoundError,
-            APIError
+            VoiceNotFoundError
         ]
         
         for exc_class in exception_classes:

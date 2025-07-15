@@ -95,7 +95,7 @@ def parse_input(text: str) -> Tuple[str, Dict]:
     if text and text.strip().startswith('{'):
         try:
             data = json.loads(text)
-            if 'text' in data:
+            if 'text' in data and isinstance(data['text'], str):
                 return data.pop('text'), data  # Extract text, return rest as params
         except json.JSONDecodeError:
             pass
@@ -135,7 +135,7 @@ def format_output(success: bool, provider: str = None, voice: str = None, action
 
 def load_provider(name: str) -> Type[TTSProvider]:
     if name not in PROVIDERS:
-        raise ProviderNotFoundError(f"Unknown provider: {name}. Available: {', '.join(PROVIDERS.keys())}")
+        raise ProviderNotFoundError(f"Unknown provider: {name}")
     
     try:
         module_path, class_name = PROVIDERS[name].rsplit(".", 1)
@@ -895,6 +895,11 @@ def handle_unload_command(args: tuple) -> None:
 def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, output_format: str, json_output: bool) -> None:
     """Text-to-speech CLI with multiple providers."""
     
+    # Check if no meaningful arguments provided (text is None and no flags set)
+    if not text and not list_models and not any([model, output, voice, clone, save]):
+        click.echo("Error: You must provide text to synthesize", err=True)
+        sys.exit(1)
+    
     # Setup logging
     logger = setup_logging()
     
@@ -995,6 +1000,11 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
         if config_voice:
             _, voice = parse_voice_setting(config_voice)
     
+    # Validate model/provider early
+    if model not in PROVIDERS:
+        click.echo(f"Error: Unknown provider: {model}", err=True)
+        sys.exit(1)
+    
     if not output:
         if user_config.get('default_action') == 'save':
             output_dir = Path(user_config.get('output_dir', '~/Downloads')).expanduser()
@@ -1027,10 +1037,9 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
                 click.echo("Error: Failed to read text from stdin", err=True)
                 sys.exit(1)
         else:
-            # Show help when no text is provided
-            ctx = click.get_current_context()
-            click.echo(ctx.get_help())
-            sys.exit(0)
+            # Error when no text is provided
+            click.echo("Error: You must provide text to synthesize", err=True)
+            sys.exit(1)
     
     # Parse JSON input if provided and override parameters
     text, json_params = parse_input(text)
