@@ -1,14 +1,14 @@
-# 🗣️ GOOBITS TTS
+# 🗣️ Goobits TTS
 
 A modern command-line text-to-speech tool with pluggable provider architecture, real-time streaming, and voice cloning capabilities. Features smart auto-selection, interactive voice browser, and comprehensive configuration management with support for multiple TTS providers.
 
 ## 🔗 Related Projects
 
-This project is part of the GOOBITS ecosystem:
+This project is part of the Goobits ecosystem:
 
-- **[GOOBITS TTS](https://github.com/goobits/tts)** - Text-to-Speech engine (this project)
-- **[GOOBITS STT](https://github.com/goobits/stt)** - Speech-to-Text engine with real-time transcription
-- **[GOOBITS TTT](https://github.com/goobits/ttt)** - Text-to-Text processing and transformation tools
+- **[Goobits TTS](https://github.com/goobits/tts)** - Text-to-Speech engine (this project)
+- **[Goobits STT](https://github.com/goobits/stt)** - Speech-to-Text engine with real-time transcription
+- **[Goobits TTT](https://github.com/goobits/ttt)** - Text-to-Text processing and transformation tools
 - **[Matilda](https://github.com/goobits/matilda)** - AI assistant for conversational interactions
 
 ## 📋 Table of Contents

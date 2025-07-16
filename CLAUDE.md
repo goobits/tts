@@ -14,22 +14,17 @@ TTS CLI is a Python text-to-speech command-line tool that supports multiple TTS 
 
 ## Installation & Development Setup
 
-**Always use pipx for installation and development** as mentioned in the README and setup script:
+**Always use pipx for installation** as mentioned in the README and setup script:
 
 ```bash
 # Production install
-./setup-pipx.sh install
+./setup.sh install
 
 # Development install (editable)
-./setup-pipx.sh dev
+./setup.sh dev
 
 # Uninstall
-./setup-pipx.sh uninstall
-```
-
-For development dependencies:
-```bash
-pipx inject tts-cli pytest pytest-asyncio pytest-cov black ruff mypy
+./setup.sh uninstall
 ```
 
 ## Common Development Commands
@@ -79,9 +74,9 @@ Provider loading is dynamic via the `PROVIDERS` dict in `tts.py:21-27`.
 
 ### Key CLI Commands
 
-**IMPORTANT: Always install using pipx, never use pip directly:**
+**IMPORTANT: Always use the setup script for installation:**
 ```bash
-pipx install tts-cli          # Install the package
+./setup.sh install           # Install the package
 ```
 
 ```bash
