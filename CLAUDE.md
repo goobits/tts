@@ -31,7 +31,7 @@ TTS CLI is a Python text-to-speech command-line tool that supports multiple TTS 
 
 **Testing:**
 ```bash
-./run_tests.sh          # Main test runner
+./test.sh               # Main test runner
 python -m pytest tests/ -v    # Direct pytest execution
 ```
 

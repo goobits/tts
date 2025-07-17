@@ -548,27 +548,69 @@ def handle_install_command(args: tuple) -> None:
             except ImportError:
                 if gpu_flag:
                     click.echo("📦 Installing PyTorch with CUDA support...")
-                    click.echo("💡 This may take a few minutes...")
-                    # In a real implementation, we'd run: pipx inject tts-cli torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-                    click.echo("⚠️  Manual installation required:")
-                    click.echo("   pipx inject tts-cli torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121")
+                    click.echo("💡 This may take 5-10 minutes to download large packages...")
+                    try:
+                        subprocess.run([
+                            'pipx', 'inject', '--index-url', 'https://download.pytorch.org/whl/cu121',
+                            'goobits-tts-cli', 'torch', 'torchvision', 'torchaudio'
+                        ], check=True, timeout=600)  # 10 minute timeout
+                        click.echo("✅ PyTorch with CUDA installed successfully!")
+                    except subprocess.CalledProcessError as e:
+                        click.echo(f"❌ Failed to install PyTorch with CUDA: {e}")
+                        click.echo("💡 Try manually: pipx inject --index-url https://download.pytorch.org/whl/cu121 goobits-tts-cli torch torchvision torchaudio")
+                        return
                 else:
                     click.echo("📦 Installing PyTorch (CPU)...")
-                    click.echo("⚠️  Manual installation required:")
-                    click.echo("   pipx inject tts-cli torch torchvision torchaudio")
+                    try:
+                        subprocess.run([
+                            'pipx', 'inject', 'goobits-tts-cli', 'torch', 'torchvision', 'torchaudio'
+                        ], check=True, capture_output=True)
+                        click.echo("✅ PyTorch (CPU) installed successfully!")
+                    except subprocess.CalledProcessError as e:
+                        click.echo("❌ Failed to install PyTorch")
+                        click.echo("💡 Try manually: pipx inject goobits-tts-cli torch torchvision torchaudio")
+                        return
             
             return
             
         except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
             click.echo(f"📦 Chatterbox not available: {e}")
-            click.echo("📦 Manual installation required")
-            click.echo("💡 Install with:")
+            click.echo("📦 Installing dependencies...")
+            
+            # Install PyTorch first
             if gpu_flag:
-                click.echo("   pipx inject tts-cli torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121")
-                click.echo("   pipx inject tts-cli chatterbox-tts")
+                click.echo("📦 Installing PyTorch with CUDA support...")
+                try:
+                    subprocess.run([
+                        'pipx', 'inject', '--index-url', 'https://download.pytorch.org/whl/cu121',
+                        'goobits-tts-cli', 'torch', 'torchvision', 'torchaudio'
+                    ], check=True)
+                    click.echo("✅ PyTorch with CUDA installed!")
+                except subprocess.CalledProcessError as e:
+                    click.echo(f"❌ Failed to install PyTorch with CUDA: {e}")
+                    click.echo("💡 Try manually: pipx inject --index-url https://download.pytorch.org/whl/cu121 tts-cli torch torchvision torchaudio")
+                    return
             else:
-                click.echo("   pipx inject tts-cli torch torchvision torchaudio")
-                click.echo("   pipx inject tts-cli chatterbox-tts")
+                click.echo("📦 Installing PyTorch (CPU)...")
+                try:
+                    subprocess.run([
+                        'pipx', 'inject', 'tts-cli', 'torch', 'torchvision', 'torchaudio'
+                    ], check=True, capture_output=True)
+                    click.echo("✅ PyTorch (CPU) installed!")
+                except subprocess.CalledProcessError as e:
+                    click.echo(f"❌ Failed to install PyTorch: {e}")
+                    click.echo("💡 Try manually: pipx inject goobits-tts-cli torch torchvision torchaudio")
+                    return
+            
+            # Install chatterbox-tts
+            click.echo("📦 Installing Chatterbox TTS...")
+            try:
+                subprocess.run(['pipx', 'inject', 'goobits-tts-cli', 'chatterbox-tts'], check=True, capture_output=True)
+                click.echo("✅ Chatterbox TTS installed successfully!")
+                click.echo("🎉 Installation complete! You can now use Chatterbox with voice cloning.")
+            except subprocess.CalledProcessError as e:
+                click.echo(f"❌ Failed to install Chatterbox TTS: {e}")
+                click.echo("💡 Try manually: pipx inject goobits-tts-cli chatterbox-tts")
             
     elif provider == "edge_tts":
         click.echo("✅ Edge TTS is already included and ready to use!")
@@ -730,12 +772,49 @@ def handle_unload_command(args: tuple) -> None:
 @click.option("--json", "json_output", is_flag=True, help="Output results as JSON")
 @click.argument("options", nargs=-1)
 def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, output_format: str, json_output: bool) -> None:
-    """Text-to-speech CLI with multiple providers."""
+    """🎤 Transform text into speech with AI-powered voices
     
-    # Check if no meaningful arguments provided (text is None and no flags set)
-    if not text and not list_models and not any([model, output, voice, clone, save]):
-        click.echo("Error: You must provide text to synthesize", err=True)
-        sys.exit(1)
+    TTS CLI supports multiple providers with smart auto-selection and voice cloning.
+    Stream directly to speakers or save high-quality audio files.
+    
+    \b
+    📝 Basic Usage:
+      tts "Hello world"                    # Stream with default voice
+      tts "Hello" --save                   # Save to file
+      tts "Hello" --voice edge_tts:en-US-JennyNeural
+    
+    \b
+    🎙️ Voice Management:
+      tts voices                           # Interactive voice browser
+      tts load voice.wav                   # Preload voice for fast access
+      tts unload voice.wav                 # Remove voice from memory
+    
+    \b
+    ⚙️ Configuration & System:
+      tts config                           # Show current settings
+      tts config voice edge_tts:en-IE-EmilyNeural
+      tts doctor                           # Check system health
+      tts status                           # Show loaded voices & providers
+    
+    \b
+    📦 Provider Management:
+      tts models                           # List all providers
+      tts install chatterbox gpu           # Install dependencies
+    
+    \b
+    🚀 Supported Providers:
+      • Edge TTS (Microsoft): Free, 400+ neural voices
+      • Chatterbox: Local voice cloning with GPU support  
+      • OpenAI TTS: Premium voices (alloy, echo, fable, nova, onyx, shimmer)
+      • Google Cloud TTS: Neural voices with 40+ languages
+      • ElevenLabs: Advanced voice synthesis and cloning
+    """
+    
+    # Check if no meaningful arguments provided (text is None and no flags set) and no stdin
+    if not text and not list_models and not any([model, output, voice, clone, save]) and sys.stdin.isatty():
+        ctx = click.get_current_context()
+        click.echo(ctx.get_help())
+        sys.exit(0)
     
     # Setup logging
     logger = setup_logging()

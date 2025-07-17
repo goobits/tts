@@ -171,7 +171,7 @@ Choose from free offline options or premium cloud services based on your needs.
 
 ### Running Tests
 ```bash
-./run_tests.sh              # Main test runner
+./test.sh                   # Main test runner
 python -m pytest tests/ -v  # Direct pytest execution
 ```
 
