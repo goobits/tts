@@ -7,14 +7,15 @@ def test_cli_help():
     runner = CliRunner()
     result = runner.invoke(cli, ['--help'])
     assert result.exit_code == 0
-    assert 'Text-to-speech CLI' in result.output
+    assert '🎤 Transform text into speech with AI-powered voices' in result.output
 
 
 def test_cli_missing_text():
     runner = CliRunner()
     result = runner.invoke(cli, [])
-    assert result.exit_code == 1
-    assert 'Error: You must provide text to synthesize' in result.output
+    # Now shows help text instead of error when no arguments provided
+    assert result.exit_code == 0
+    assert '🎤 Transform text into speech with AI-powered voices' in result.output
 
 
 def test_cli_unknown_model():
