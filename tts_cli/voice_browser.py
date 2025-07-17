@@ -18,11 +18,12 @@ import curses
 import logging
 import re
 import subprocess
+import sys
 import tempfile
 from .audio_utils import play_audio_with_ffplay, cleanup_file
 import threading
 import time
-from typing import List, Tuple, Set, Dict, Any, Optional
+from typing import List, Tuple, Set, Dict, Any, Optional, Callable
 
 import click
 
@@ -669,3 +670,238 @@ def interactive_voice_browser(providers_registry: Dict[str, Any], load_provider_
     """
     browser = VoiceBrowser(providers_registry, load_provider_func)
     browser.run()
+
+
+def show_browser_snapshot(providers_registry: Dict[str, str], load_provider_func: Callable) -> None:
+    """Show a snapshot of what the browser would display"""
+    click.echo("=== TTS VOICE BROWSER SNAPSHOT ===\n")
+    
+    # Load all voices exactly like the browser does
+    all_voices = []
+    voice_cache = {}
+    
+    click.echo("Loading voices from providers...")
+    for provider_name in providers_registry.keys():
+        try:
+            provider_class = load_provider_func(provider_name)
+            provider = provider_class()
+            info = provider.get_info()
+            if info:
+                voices = info.get('all_voices') or info.get('sample_voices', [])
+                click.echo(f"  {provider_name}: {len(voices)} voices")
+                for voice in voices:
+                    quality, region, gender = analyze_voice(provider_name, voice)
+                    all_voices.append((provider_name, voice, quality, region, gender))
+                    voice_cache[f"{provider_name}:{voice}"] = (quality, region, gender)
+        except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
+            click.echo(f"  {provider_name}: SKIPPED ({e})")
+            continue
+        except Exception as e:
+            click.echo(f"  {provider_name}: ERROR ({e})")
+            continue
+    
+    click.echo(f"\nTotal voices loaded: {len(all_voices)}")
+    
+    # Default filters from browser
+    filters = {
+        'providers': {'edge_tts': True, 'google': True, 'openai': True, 'elevenlabs': True, 'chatterbox': True},
+        'quality': {3: True, 2: True, 1: False},
+        'regions': {
+            'Irish': True, 'British': True, 'American': True, 'Australian': True, 
+            'Canadian': True, 'Indian': False, 'S.African': False, 'N.Zealand': False,
+            'Singapore': False, 'Hong Kong': False, 'Philippine': False, 'Nigerian': False,
+            'Kenyan': False, 'Tanzanian': False, 'General': True, 'Chatterbox': True
+        }
+    }
+    
+    # Apply filters
+    filtered_voices = []
+    for provider, voice, quality, region, gender in all_voices:
+        if not filters['providers'].get(provider, False):
+            continue
+        if not filters['quality'].get(quality, False):
+            continue
+        if not filters['regions'].get(region, False):
+            continue
+        filtered_voices.append((provider, voice, quality, region, gender))
+    
+    click.echo(f"After default filters: {len(filtered_voices)} voices\n")
+    
+    # Show active filters
+    click.echo("ACTIVE FILTERS:")
+    click.echo("  Providers: " + ", ".join([p for p, enabled in filters['providers'].items() if enabled]))
+    click.echo("  Quality: " + ", ".join([f"★{'★' if q >= 2 else '☆'}{'★' if q >= 3 else '☆'}" for q, enabled in filters['quality'].items() if enabled]))
+    click.echo("  Regions: " + ", ".join([r for r, enabled in filters['regions'].items() if enabled]))
+    click.echo()
+    
+    # Group by provider
+    by_provider = {}
+    for provider, voice, quality, region, gender in filtered_voices:
+        if provider not in by_provider:
+            by_provider[provider] = []
+        by_provider[provider].append((voice, quality, region, gender))
+    
+    # Display voices by provider
+    click.echo("VOICES THAT WOULD BE VISIBLE IN BROWSER:")
+    for provider_name in providers_registry.keys():
+        if provider_name in by_provider:
+            voices = by_provider[provider_name]
+            click.echo(f"\n🔹 {provider_name.upper()} ({len(voices)} voices):")
+            for voice, quality, region, gender in voices:
+                stars = "★" * quality + "☆" * (3 - quality)
+                gender_str = {'F': 'Female', 'M': 'Male', 'U': 'Unknown'}[gender]
+                click.echo(f"  {voice}")
+                click.echo(f"    {stars} {gender_str} {region}")
+        else:
+            click.echo(f"\n🔹 {provider_name.upper()}: No voices (filtered out)")
+    
+    click.echo(f"\nTOTAL VISIBLE: {len(filtered_voices)} voices")
+    click.echo("If you don't see these in the browser, try: pipx uninstall tts-cli && pipx install -e .")
+
+
+def handle_voices_command(args: tuple, providers_registry: Dict[str, str], load_provider_func: Callable) -> None:
+    """Handle voices subcommand"""
+    # Check for snapshot option
+    if len(args) > 0 and args[0] == "--snapshot":
+        show_browser_snapshot(providers_registry, load_provider_func)
+        return
+    
+    # Parse language filter argument
+    language_filter = None
+    if len(args) > 0:
+        language_filter = args[0].lower()
+    
+    if len(args) == 0:
+        # tts voices - launch interactive browser
+        if sys.stdout.isatty():
+            # Terminal environment - use interactive browser
+            interactive_voice_browser(providers_registry, load_provider_func)
+        else:
+            # Non-terminal (pipe/script) - use simple list
+            click.echo("Available voices from all providers:")
+            click.echo()
+            
+            for provider_name in providers_registry.keys():
+                try:
+                    provider_class = load_provider_func(provider_name)
+                    provider = provider_class()
+                    info = provider.get_info()
+                    
+                    # Use all_voices if available, fallback to sample_voices
+                    voices = info.get('all_voices') or info.get('sample_voices', [])
+                    
+                    if voices:
+                        click.echo(f"🔹 {provider_name.upper()}:")
+                        for voice in voices:
+                            click.echo(f"  - {voice}")
+                
+                except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
+                    # Skip providers that can't be loaded (missing dependencies, etc.)
+                    continue
+                except Exception as e:
+                    # Log unexpected errors but continue with other providers
+                    logging.getLogger(__name__).warning(f"Unexpected error loading provider {provider_name}: {e}")
+                    continue
+    else:
+        # Language filtering mode: tts voices en, tts voices english, etc.
+        click.echo(f"Voices for language: {language_filter}")
+        click.echo("=" * 40)
+        
+        # English language patterns
+        english_patterns = ['en-', 'english']
+        
+        if language_filter in ['en', 'english', 'eng']:
+            # Show only English voices
+            for provider_name in providers_registry.keys():
+                try:
+                    provider_class = load_provider_func(provider_name)
+                    provider = provider_class()
+                    info = provider.get_info()
+                    
+                    voices = info.get('all_voices') or info.get('sample_voices', [])
+                    english_voices = []
+                    
+                    if provider_name == 'openai' or provider_name == 'elevenlabs':
+                        # OpenAI and ElevenLabs voices are English by default
+                        english_voices = voices
+                    else:
+                        # Filter for English voices (en-*)
+                        english_voices = [v for v in voices if v.startswith('en-')]
+                    
+                    if english_voices:
+                        click.echo(f"\n🔹 {provider_name.upper()} (English):")
+                        
+                        # Group by region for better organization
+                        regions = {}
+                        for voice in english_voices:
+                            if provider_name in ['openai', 'elevenlabs']:
+                                region = "General"
+                            else:
+                                # Extract region from voice name (e.g., en-US-*, en-GB-*)
+                                parts = voice.split('-')
+                                if len(parts) >= 2:
+                                    region_code = f"{parts[0]}-{parts[1]}"
+                                    region_map = {
+                                        'en-US': '🇺🇸 US English',
+                                        'en-GB': '🇬🇧 British English', 
+                                        'en-IE': '🇮🇪 Irish English',
+                                        'en-AU': '🇦🇺 Australian English',
+                                        'en-CA': '🇨🇦 Canadian English',
+                                        'en-IN': '🇮🇳 Indian English',
+                                        'en-ZA': '🇿🇦 South African English',
+                                        'en-NZ': '🇳🇿 New Zealand English',
+                                        'en-SG': '🇸🇬 Singapore English',
+                                        'en-HK': '🇭🇰 Hong Kong English',
+                                        'en-PH': '🇵🇭 Philippine English',
+                                        'en-KE': '🇰🇪 Kenyan English',
+                                        'en-NG': '🇳🇬 Nigerian English',
+                                        'en-TZ': '🇹🇿 Tanzanian English'
+                                    }
+                                    region = region_map.get(region_code, region_code)
+                                else:
+                                    region = "Other"
+                            
+                            if region not in regions:
+                                regions[region] = []
+                            regions[region].append(voice)
+                        
+                        # Display grouped by region
+                        for region, region_voices in regions.items():
+                            if len(regions) > 1:
+                                click.echo(f"   {region}:")
+                                for voice in sorted(region_voices):
+                                    click.echo(f"     - {voice}")
+                            else:
+                                for voice in sorted(region_voices):
+                                    click.echo(f"   - {voice}")
+                
+                except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
+                    # Skip providers that can't be loaded (missing dependencies, etc.)
+                    continue
+                except Exception as e:
+                    # Log unexpected errors but continue with other providers
+                    logging.getLogger(__name__).warning(f"Unexpected error loading provider {provider_name}: {e}")
+                    continue
+        else:
+            # Generic language filtering
+            for provider_name in providers_registry.keys():
+                try:
+                    provider_class = load_provider_func(provider_name)
+                    provider = provider_class()
+                    info = provider.get_info()
+                    
+                    voices = info.get('all_voices') or info.get('sample_voices', [])
+                    filtered_voices = [v for v in voices if language_filter in v.lower()]
+                    
+                    if filtered_voices:
+                        click.echo(f"\n🔹 {provider_name.upper()}:")
+                        for voice in filtered_voices:
+                            click.echo(f"  - {voice}")
+                
+                except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
+                    # Skip providers that can't be loaded (missing dependencies, etc.)
+                    continue
+                except Exception as e:
+                    # Log unexpected errors but continue with other providers
+                    logging.getLogger(__name__).warning(f"Unexpected error loading provider {provider_name}: {e}")
+                    continue

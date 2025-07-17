@@ -1,8 +1,7 @@
 from ..base import TTSProvider
-from ..utils.audio import convert_with_cleanup, check_audio_environment
+from ..audio_utils import convert_with_cleanup, check_audio_environment, stream_via_tempfile, create_ffplay_process, handle_ffplay_process_error
 from ..config import get_config_value
 from ..exceptions import DependencyError, NetworkError, AudioPlaybackError, ProviderError
-from ..audio_utils import stream_via_tempfile, create_ffplay_process, handle_ffplay_process_error
 from ..types import ProviderInfo
 from typing import Optional, Dict, Any
 import asyncio

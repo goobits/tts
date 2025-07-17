@@ -53,7 +53,7 @@ from .exceptions import TTSError, ProviderNotFoundError, ProviderLoadError, Depe
 from .__version__ import __version__
 from .config import load_config, save_config, get_default_config, parse_voice_setting, set_setting, get_setting, set_api_key, validate_api_key
 from .voice_manager import VoiceManager
-from .voice_browser import interactive_voice_browser, analyze_voice
+from .voice_browser import interactive_voice_browser, analyze_voice, show_browser_snapshot, handle_voices_command
 from .core import initialize_tts_engine, get_tts_engine
 
 
@@ -153,240 +153,6 @@ def load_provider(name: str) -> Type[TTSProvider]:
 
 
 
-def show_browser_snapshot() -> None:
-    """Show a snapshot of what the browser would display"""
-    click.echo("=== TTS VOICE BROWSER SNAPSHOT ===\n")
-    
-    # Load all voices exactly like the browser does
-    all_voices = []
-    voice_cache = {}
-    
-    click.echo("Loading voices from providers...")
-    for provider_name in PROVIDERS.keys():
-        try:
-            provider_class = load_provider(provider_name)
-            provider = provider_class()
-            info = provider.get_info()
-            if info:
-                voices = info.get('all_voices') or info.get('sample_voices', [])
-                click.echo(f"  {provider_name}: {len(voices)} voices")
-                for voice in voices:
-                    quality, region, gender = analyze_voice(provider_name, voice)
-                    all_voices.append((provider_name, voice, quality, region, gender))
-                    voice_cache[f"{provider_name}:{voice}"] = (quality, region, gender)
-        except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
-            click.echo(f"  {provider_name}: SKIPPED ({e})")
-            continue
-        except Exception as e:
-            click.echo(f"  {provider_name}: ERROR ({e})")
-            continue
-    
-    click.echo(f"\nTotal voices loaded: {len(all_voices)}")
-    
-    # Default filters from browser
-    filters = {
-        'providers': {'edge_tts': True, 'google': True, 'openai': True, 'elevenlabs': True, 'chatterbox': True},
-        'quality': {3: True, 2: True, 1: False},
-        'regions': {
-            'Irish': True, 'British': True, 'American': True, 'Australian': True, 
-            'Canadian': True, 'Indian': False, 'S.African': False, 'N.Zealand': False,
-            'Singapore': False, 'Hong Kong': False, 'Philippine': False, 'Nigerian': False,
-            'Kenyan': False, 'Tanzanian': False, 'General': True, 'Chatterbox': True
-        }
-    }
-    
-    # Apply filters
-    filtered_voices = []
-    for provider, voice, quality, region, gender in all_voices:
-        if not filters['providers'].get(provider, False):
-            continue
-        if not filters['quality'].get(quality, False):
-            continue
-        if not filters['regions'].get(region, False):
-            continue
-        filtered_voices.append((provider, voice, quality, region, gender))
-    
-    click.echo(f"After default filters: {len(filtered_voices)} voices\n")
-    
-    # Show active filters
-    click.echo("ACTIVE FILTERS:")
-    click.echo("  Providers: " + ", ".join([p for p, enabled in filters['providers'].items() if enabled]))
-    click.echo("  Quality: " + ", ".join([f"★{'★' if q >= 2 else '☆'}{'★' if q >= 3 else '☆'}" for q, enabled in filters['quality'].items() if enabled]))
-    click.echo("  Regions: " + ", ".join([r for r, enabled in filters['regions'].items() if enabled]))
-    click.echo()
-    
-    # Group by provider
-    by_provider = {}
-    for provider, voice, quality, region, gender in filtered_voices:
-        if provider not in by_provider:
-            by_provider[provider] = []
-        by_provider[provider].append((voice, quality, region, gender))
-    
-    # Display voices by provider
-    click.echo("VOICES THAT WOULD BE VISIBLE IN BROWSER:")
-    for provider_name in PROVIDERS.keys():
-        if provider_name in by_provider:
-            voices = by_provider[provider_name]
-            click.echo(f"\n🔹 {provider_name.upper()} ({len(voices)} voices):")
-            for voice, quality, region, gender in voices:
-                stars = "★" * quality + "☆" * (3 - quality)
-                gender_str = {'F': 'Female', 'M': 'Male', 'U': 'Unknown'}[gender]
-                click.echo(f"  {voice}")
-                click.echo(f"    {stars} {gender_str} {region}")
-        else:
-            click.echo(f"\n🔹 {provider_name.upper()}: No voices (filtered out)")
-    
-    click.echo(f"\nTOTAL VISIBLE: {len(filtered_voices)} voices")
-    click.echo("If you don't see these in the browser, try: pipx uninstall tts-cli && pipx install -e .")
-
-
-def handle_voices_command(args: tuple) -> None:
-    """Handle voices subcommand"""
-    # Check for snapshot option
-    if len(args) > 0 and args[0] == "--snapshot":
-        show_browser_snapshot()
-        return
-    
-    # Parse language filter argument
-    language_filter = None
-    if len(args) > 0:
-        language_filter = args[0].lower()
-    
-    if len(args) == 0:
-        # tts voices - launch interactive browser
-        if sys.stdout.isatty():
-            # Terminal environment - use interactive browser
-            interactive_voice_browser(PROVIDERS, load_provider)
-        else:
-            # Non-terminal (pipe/script) - use simple list
-            click.echo("Available voices from all providers:")
-            click.echo()
-            
-            for provider_name in PROVIDERS.keys():
-                try:
-                    provider_class = load_provider(provider_name)
-                    provider = provider_class()
-                    info = provider.get_info()
-                    
-                    # Use all_voices if available, fallback to sample_voices
-                    voices = info.get('all_voices') or info.get('sample_voices', [])
-                    
-                    if voices:
-                        click.echo(f"🔹 {provider_name.upper()}:")
-                        for voice in voices:
-                            click.echo(f"  - {voice}")
-                
-                except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
-                    # Skip providers that can't be loaded (missing dependencies, etc.)
-                    continue
-                except Exception as e:
-                    # Log unexpected errors but continue with other providers
-                    logging.getLogger(__name__).warning(f"Unexpected error loading provider {provider_name}: {e}")
-                    continue
-    else:
-        # Language filtering mode: tts voices en, tts voices english, etc.
-        click.echo(f"Voices for language: {language_filter}")
-        click.echo("=" * 40)
-        
-        # English language patterns
-        english_patterns = ['en-', 'english']
-        
-        if language_filter in ['en', 'english', 'eng']:
-            # Show only English voices
-            for provider_name in PROVIDERS.keys():
-                try:
-                    provider_class = load_provider(provider_name)
-                    provider = provider_class()
-                    info = provider.get_info()
-                    
-                    voices = info.get('all_voices') or info.get('sample_voices', [])
-                    english_voices = []
-                    
-                    if provider_name == 'openai' or provider_name == 'elevenlabs':
-                        # OpenAI and ElevenLabs voices are English by default
-                        english_voices = voices
-                    else:
-                        # Filter for English voices (en-*)
-                        english_voices = [v for v in voices if v.startswith('en-')]
-                    
-                    if english_voices:
-                        click.echo(f"\n🔹 {provider_name.upper()} (English):")
-                        
-                        # Group by region for better organization
-                        regions = {}
-                        for voice in english_voices:
-                            if provider_name in ['openai', 'elevenlabs']:
-                                region = "General"
-                            else:
-                                # Extract region from voice name (e.g., en-US-*, en-GB-*)
-                                parts = voice.split('-')
-                                if len(parts) >= 2:
-                                    region_code = f"{parts[0]}-{parts[1]}"
-                                    region_map = {
-                                        'en-US': '🇺🇸 US English',
-                                        'en-GB': '🇬🇧 British English', 
-                                        'en-IE': '🇮🇪 Irish English',
-                                        'en-AU': '🇦🇺 Australian English',
-                                        'en-CA': '🇨🇦 Canadian English',
-                                        'en-IN': '🇮🇳 Indian English',
-                                        'en-ZA': '🇿🇦 South African English',
-                                        'en-NZ': '🇳🇿 New Zealand English',
-                                        'en-SG': '🇸🇬 Singapore English',
-                                        'en-HK': '🇭🇰 Hong Kong English',
-                                        'en-PH': '🇵🇭 Philippine English',
-                                        'en-KE': '🇰🇪 Kenyan English',
-                                        'en-NG': '🇳🇬 Nigerian English',
-                                        'en-TZ': '🇹🇿 Tanzanian English'
-                                    }
-                                    region = region_map.get(region_code, region_code)
-                                else:
-                                    region = "Other"
-                            
-                            if region not in regions:
-                                regions[region] = []
-                            regions[region].append(voice)
-                        
-                        # Display grouped by region
-                        for region, region_voices in regions.items():
-                            if len(regions) > 1:
-                                click.echo(f"   {region}:")
-                                for voice in sorted(region_voices):
-                                    click.echo(f"     - {voice}")
-                            else:
-                                for voice in sorted(region_voices):
-                                    click.echo(f"   - {voice}")
-                
-                except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
-                    # Skip providers that can't be loaded (missing dependencies, etc.)
-                    continue
-                except Exception as e:
-                    # Log unexpected errors but continue with other providers
-                    logging.getLogger(__name__).warning(f"Unexpected error loading provider {provider_name}: {e}")
-                    continue
-        else:
-            # Generic language filtering
-            for provider_name in PROVIDERS.keys():
-                try:
-                    provider_class = load_provider(provider_name)
-                    provider = provider_class()
-                    info = provider.get_info()
-                    
-                    voices = info.get('all_voices') or info.get('sample_voices', [])
-                    filtered_voices = [v for v in voices if language_filter in v.lower()]
-                    
-                    if filtered_voices:
-                        click.echo(f"\n🔹 {provider_name.upper()}:")
-                        for voice in filtered_voices:
-                            click.echo(f"  - {voice}")
-                
-                except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
-                    # Skip providers that can't be loaded (missing dependencies, etc.)
-                    continue
-                except Exception as e:
-                    # Log unexpected errors but continue with other providers
-                    logging.getLogger(__name__).warning(f"Unexpected error loading provider {provider_name}: {e}")
-                    continue
-    
 def handle_models_command(args: tuple) -> None:
     """Handle models subcommand"""
     if len(args) == 0:
@@ -604,75 +370,146 @@ def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str
 
 def handle_doctor_command() -> None:
     """Check system capabilities and provider availability"""
-    click.echo("🔍 TTS System Health Check")
-    click.echo("=" * 40)
+    click.echo("TTS System Health Check")
+    click.echo("━━━━━━━━━━━━━━━━━━━━━━━━")
     
+    # Suppress all logging during health checks
     logger = logging.getLogger(__name__)
+    original_level = logging.root.level
+    logging.root.setLevel(logging.CRITICAL)
     
-    # Check core dependencies
-    click.echo("\n📦 Core Dependencies:")
+    # Check system requirements
+    click.echo("\nSystem Requirements")
     
     # Check Python version
     python_version = sys.version.split()[0]
     if sys.version_info >= (3, 8):
-        click.echo(f"  ✅ Python {python_version}")
+        click.echo(f"├─ Python {python_version}                           ✅ Ready")
     else:
-        click.echo(f"  ❌ Python {python_version} (requires >= 3.8)")
+        click.echo(f"├─ Python {python_version}                           ❌ Requires >= 3.8")
     
     # Check ffmpeg/ffplay
     try:
         subprocess.run(['ffplay', '-version'], capture_output=True, check=True)
-        click.echo("  ✅ FFmpeg/FFplay available")
+        click.echo("└─ FFmpeg/FFplay                           ✅ Ready")
     except (FileNotFoundError, subprocess.CalledProcessError):
-        click.echo("  ⚠️  FFmpeg/FFplay not found (audio playback may not work)")
+        click.echo("└─ FFmpeg/FFplay                           ❌ Not found")
     
     # Check providers
-    click.echo("\n🎤 TTS Providers:")
+    click.echo("\nTTS Providers")
     
-    for provider_name in PROVIDERS.keys():
+    provider_status = {}
+    provider_count = len(PROVIDERS)
+    ready_count = 0
+    
+    for i, provider_name in enumerate(PROVIDERS.keys()):
+        is_last = i == provider_count - 1
+        prefix = "└─" if is_last else "├─"
+        
         try:
             provider_class = load_provider(provider_name)
             provider = provider_class()
             info = provider.get_info()
             
             if provider_name == "edge_tts":
-                click.echo(f"  ✅ {provider_name.upper()}: Ready ({len(info.get('sample_voices', []))} voices)")
+                voice_count = len(info.get('sample_voices', []))
+                click.echo(f"{prefix} Edge TTS                                ✅ Ready ({voice_count} voices)")
+                provider_status[provider_name] = "ready"
+                ready_count += 1
+                
             elif provider_name == "chatterbox":
                 voice_count = len(info.get('sample_voices', []))
-                if voice_count > 0:
-                    click.echo(f"  ✅ {provider_name.upper()}: Ready ({voice_count} voice files)")
-                else:
-                    click.echo(f"  ⚠️  {provider_name.upper()}: No voice files in ./voices/ directory")
-                
-                # Check GPU availability for chatterbox
+                has_pytorch = False
                 try:
                     import torch
-                    if torch.cuda.is_available():
-                        gpu_name = torch.cuda.get_device_name(0)
-                        click.echo(f"    🚀 GPU Available: {gpu_name}")
-                    else:
-                        click.echo(f"    💻 Using CPU (install CUDA for GPU acceleration)")
+                    has_pytorch = True
                 except ImportError:
-                    click.echo(f"    ❌ PyTorch not installed (required for chatterbox)")
+                    pass
+                
+                if voice_count > 0 and has_pytorch:
+                    click.echo(f"{prefix} Chatterbox                              ✅ Ready ({voice_count} voices)")
+                    provider_status[provider_name] = "ready"
+                    ready_count += 1
+                else:
+                    click.echo(f"{prefix} Chatterbox                              ⚠️  Missing dependencies")
+                    provider_status[provider_name] = "missing_deps"
                     
-        except (ProviderNotFoundError, ProviderLoadError, DependencyError) as e:
-            click.echo(f"  ❌ {provider_name.upper()}: {e}")
-        except Exception as e:
-            click.echo(f"  ❌ {provider_name.upper()}: Unexpected error - {e}")
-            logger.debug(f"Doctor check failed for {provider_name}: {e}")
+                    # Show sub-items
+                    if not is_last:
+                        voice_status = "✅ Ready" if voice_count > 0 else "❌ No files in ./voices/"
+                        pytorch_status = "✅ Ready" if has_pytorch else "❌ Not installed"
+                        click.echo(f"│  ├─ Voice files                          {voice_status}")
+                        click.echo(f"│  └─ PyTorch                              {pytorch_status}")
+                    else:
+                        voice_status = "✅ Ready" if voice_count > 0 else "❌ No files in ./voices/"
+                        pytorch_status = "✅ Ready" if has_pytorch else "❌ Not installed"
+                        click.echo(f"   ├─ Voice files                          {voice_status}")
+                        click.echo(f"   └─ PyTorch                              {pytorch_status}")
+                        
+            elif provider_name == "openai":
+                click.echo(f"{prefix} OpenAI TTS                              ✅ Ready")
+                provider_status[provider_name] = "ready"
+                ready_count += 1
+                
+            elif provider_name == "google":
+                click.echo(f"{prefix} Google Cloud TTS                        ✅ Ready")
+                provider_status[provider_name] = "ready"
+                ready_count += 1
+                
+            elif provider_name == "elevenlabs":
+                # Check if API key is configured
+                config = load_config()
+                has_api_key = config.get('elevenlabs_api_key') is not None
+                
+                if has_api_key:
+                    click.echo(f"{prefix} ElevenLabs                              ✅ Ready")
+                    provider_status[provider_name] = "ready"
+                    ready_count += 1
+                else:
+                    click.echo(f"{prefix} ElevenLabs                              ⚠️  API key not configured")
+                    provider_status[provider_name] = "no_api_key"
+                    
+        except (ProviderNotFoundError, ProviderLoadError, DependencyError):
+            click.echo(f"{prefix} {provider_name.title()}                              ❌ Not available")
+            provider_status[provider_name] = "error"
+        except Exception:
+            click.echo(f"{prefix} {provider_name.title()}                              ❌ Error")
+            provider_status[provider_name] = "error"
     
-    # Configuration check
-    click.echo("\n⚙️  Configuration:")
+    # Configuration
+    click.echo("\nConfiguration")
     config = load_config()
     default_voice = config.get('voice', 'edge_tts:en-IE-EmilyNeural')
     provider, voice = parse_voice_setting(default_voice)
-    click.echo(f"  🎯 Default voice: {voice} ({provider})")
-    click.echo(f"  📁 Output directory: {config.get('output_dir', '~/Downloads')}")
+    output_dir = config.get('output_dir', '~/Downloads')
+    config_path = "~/.config/tts/config.json"
     
-    click.echo("\n💡 Need help? Try:")
-    click.echo("  tts install chatterbox gpu  # Add GPU voice cloning")
-    click.echo("  tts config edit               # Change settings")
-    click.echo("  tts voices                    # Browse available voices")
+    click.echo(f"├─ Default voice: {voice} ({provider.title()})")
+    click.echo(f"├─ Output directory: {output_dir}")
+    click.echo(f"└─ Config file: {config_path}")
+    
+    # Recommendations
+    click.echo("\nRecommendations")
+    recommendations = []
+    
+    if provider_status.get("chatterbox") == "missing_deps":
+        recommendations.append("Install Chatterbox: tts install chatterbox gpu")
+    
+    if provider_status.get("elevenlabs") == "no_api_key":
+        recommendations.append("Configure ElevenLabs: tts config elevenlabs_api_key YOUR_KEY")
+    
+    recommendations.append("Browse voices: tts voices")
+    
+    for i, rec in enumerate(recommendations):
+        is_last = i == len(recommendations) - 1
+        prefix = "└─" if is_last else "├─"
+        click.echo(f"{prefix} {rec}")
+    
+    # Status summary
+    click.echo(f"\nStatus: {ready_count} of {provider_count} providers ready")
+    
+    # Restore original logging level
+    logging.root.setLevel(original_level)
 
 
 def handle_install_command(args: tuple) -> None:
@@ -939,12 +776,12 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
     
     # Handle voices subcommand
     if text and text.lower() == "voices":
-        handle_voices_command(options)
+        handle_voices_command(options, PROVIDERS, load_provider)
         return
     
     # Handle voices snapshot
     if text and text.lower() == "voices-snapshot":
-        show_browser_snapshot()
+        show_browser_snapshot(PROVIDERS, load_provider)
         return
     
     # Handle models subcommand

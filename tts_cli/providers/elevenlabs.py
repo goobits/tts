@@ -6,8 +6,7 @@ from ..exceptions import (
     AuthenticationError, RateLimitError, ServerError, VoiceNotFoundError, map_http_error
 )
 from ..config import get_api_key, is_ssml, strip_ssml_tags, get_config_value
-from ..utils.audio import check_audio_environment, stream_audio_file, convert_audio
-from ..audio_utils import stream_via_tempfile, create_ffplay_process, handle_ffplay_process_error
+from ..audio_utils import check_audio_environment, stream_audio_file, convert_audio, stream_via_tempfile, create_ffplay_process, handle_ffplay_process_error
 from ..types import ProviderInfo, VoiceInfo
 from typing import Optional, Dict, Any, List
 import logging
@@ -229,13 +228,12 @@ class ElevenLabsProvider(TTSProvider):
                 return self._stream_via_tempfile(text, voice_id, voice_name, stability, similarity_boost, style)
             
             # Start ffplay process for streaming
-            try:
-                ffplay_process = create_ffplay_process(
-                    logger=self.logger,
-                    format_args=['-f', 'mp3']
-                )
-                ffplay_process.stdout = subprocess.DEVNULL  # Override stdout
-                ffplay_process.bufsize = 0  # Unbuffered for real-time streaming
+            ffplay_process = create_ffplay_process(
+                logger=self.logger,
+                format_args=['-f', 'mp3']
+            )
+            ffplay_process.stdout = subprocess.DEVNULL  # Override stdout
+            ffplay_process.bufsize = 0  # Unbuffered for real-time streaming
             
             try:
                 # Prepare request for streaming

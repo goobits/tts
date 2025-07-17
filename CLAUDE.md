@@ -20,8 +20,8 @@ TTS CLI is a Python text-to-speech command-line tool that supports multiple TTS 
 # Production install
 ./setup.sh install
 
-# Development install (editable)
-./setup.sh dev
+# Development install (editable) - USE THIS FOR DEVELOPMENT
+./setup.sh install --dev
 
 # Uninstall
 ./setup.sh uninstall

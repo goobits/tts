@@ -6,8 +6,7 @@ from ..exceptions import (
     AuthenticationError
 )
 from ..config import get_api_key, is_ssml, strip_ssml_tags, get_config_value
-from ..utils.audio import check_audio_environment, stream_audio_file, convert_audio
-from ..audio_utils import stream_via_tempfile, create_ffplay_process, handle_ffplay_process_error
+from ..audio_utils import check_audio_environment, stream_audio_file, convert_audio, stream_via_tempfile, create_ffplay_process, handle_ffplay_process_error
 from ..types import ProviderInfo
 from typing import Optional, Dict, Any
 import logging
@@ -135,16 +134,10 @@ class OpenAITTSProvider(TTSProvider):
                 return self._stream_via_tempfile(text, voice)
             
             # Start ffplay process for streaming
-            try:
-                ffplay_process = create_ffplay_process(
-                    logger=self.logger,
-                    format_args=['-f', 'mp3']
-                )
-                    stdin=subprocess.PIPE, 
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.PIPE,
-                    bufsize=0  # Unbuffered for real-time streaming
-                )
+            ffplay_process = create_ffplay_process(
+                logger=self.logger,
+                format_args=['-f', 'mp3']
+            )
             
             try:
                 # Create streaming response

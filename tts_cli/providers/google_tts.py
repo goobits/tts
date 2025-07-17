@@ -6,7 +6,7 @@ from ..exceptions import (
     QuotaError, map_http_error
 )
 from ..config import get_api_key, is_ssml, strip_ssml_tags
-from ..utils.audio import stream_audio_file, convert_audio
+from ..audio_utils import stream_audio_file, convert_audio
 from ..types import ProviderInfo
 from typing import Optional, Dict, Any, List
 import logging

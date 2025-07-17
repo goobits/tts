@@ -1,5 +1,5 @@
 from ..base import TTSProvider
-from ..utils.audio import convert_with_cleanup
+from ..audio_utils import convert_with_cleanup
 from ..exceptions import DependencyError, AudioPlaybackError, ProviderError
 from ..voice_manager import VoiceManager
 from ..types import ProviderInfo
