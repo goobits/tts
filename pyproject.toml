@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "goobits-tts"
-version = "0.1.1"
+version = "1.0-rc1"
 description = "Command-line text-to-speech tool with multiple providers, voice cloning, and smart auto-selection"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -74,8 +74,8 @@ dev = [
 ]
 
 [project.scripts]
-tts-cli = "tts_cli.tts:cli"
-tts = "tts_cli.tts:cli"
+goobits-tts = "tts_cli.tts:cli"  # TTS - Text-to-Speech synthesis (branded name)
+tts = "tts_cli.tts:cli"          # TTS - Text-to-Speech synthesis (convenient alias)
 
 [project.urls]
 "Homepage" = "https://github.com/mudcube/tts-cli"
