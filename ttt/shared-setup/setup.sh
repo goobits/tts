@@ -443,6 +443,10 @@ install_with_pipx() {
         
         rm -f "$pipx_output_file"
         log_success "${CONFIG_package_name} installed successfully!"
+        
+        # Clear bash command cache so new command is immediately available
+        hash -r 2>/dev/null || true
+        
     echo
     echo "=== Installation Complete ==="
     echo "Package: ${CONFIG_package_name}"

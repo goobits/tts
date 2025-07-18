@@ -91,3 +91,7 @@ models/
 # TTS specific
 test.mp3
 test.wav
+
+# Build and development artifacts that might get created
+goobits_tts.egg-info/
+*.egg-info/
