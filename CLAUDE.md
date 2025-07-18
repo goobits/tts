@@ -14,13 +14,13 @@ TTS CLI is a Python text-to-speech command-line tool that supports multiple TTS 
 
 ## Installation & Development Setup
 
-**Always use pipx for installation** as mentioned in the README and setup script:
+**Use the setup script for installation**:
 
 ```bash
 # Production install
 ./setup.sh install
 
-# Development install (editable) - USE THIS FOR DEVELOPMENT
+# Development install (editable) - USE THIS FOR DEVELOPMENT  
 ./setup.sh install --dev
 
 # Uninstall
@@ -31,7 +31,7 @@ TTS CLI is a Python text-to-speech command-line tool that supports multiple TTS 
 
 **Testing:**
 ```bash
-./test.sh               # Main test runner
+./test.sh               # Main test runner with coverage
 python -m pytest tests/ -v    # Direct pytest execution
 ```
 
@@ -45,6 +45,7 @@ mypy tts_cli/           # Type checking
 **Building:**
 ```bash
 python -m build         # Build package
+make build              # Alternative build command
 ```
 
 ## Architecture Overview
@@ -73,6 +74,8 @@ Provider loading is dynamic via the `PROVIDERS` dict in `tts.py:21-27`.
 - Auto-detection of providers from voice strings in `parse_voice_setting()`
 
 ### Key CLI Commands
+
+**Package name:** `goobits-tts-cli` (installs as `tts` command)
 
 **IMPORTANT: Always use the setup script for installation:**
 ```bash
@@ -109,7 +112,7 @@ voice_manager.load_voice("/path/to/voice.wav")  # Pre-load for speed
 ```
 
 ### Interactive Voice Browser
-Advanced curses-based interface in `tts.py:130-725` with:
+Advanced curses-based interface in `tts_cli/tts.py` with:
 - Three-panel layout (filters, voices, preview)
 - Mouse and keyboard navigation
 - Real-time voice preview with background audio playback
@@ -135,7 +138,12 @@ The `tts install` command handles complex dependency management, especially for 
 
 ## Important Files to Understand
 
-- `tts_cli/tts.py:21-27` - Provider registry
-- `tts_cli/config.py:92-127` - Voice parsing logic  
-- `tts_cli/tts.py:130-725` - Interactive voice browser
-- `setup-pipx.sh` - Installation script (use this for all installs)
+- `tts_cli/tts.py` - Main CLI entry point with provider registry
+- `tts_cli/config.py` - Configuration management with voice parsing logic  
+- `tts_cli/voice_browser.py` - Interactive voice browser implementation
+- `tts_cli/providers/` - Provider implementations (Edge TTS, Chatterbox, etc.)
+- `setup.sh` - Installation script (use this for all installs)
+- `pyproject.toml` - Package configuration and dependencies
+
+### Temporary Files
+When creating temporary debug or test scripts, use `/tmp` directory to keep the project clean.

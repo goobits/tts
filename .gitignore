@@ -26,6 +26,7 @@ MANIFEST
 venv/
 env/
 ENV/
+.venv/
 env.bak/
 venv.bak/
 
@@ -45,44 +46,48 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# Audio files (generated TTS output)
+# Audio files (TTS outputs)
 *.wav
 *.mp3
 *.flac
 *.ogg
 *.m4a
 
-# Voice samples directory
+# Voice samples
 voices/
-
-# Model caches
-.cache/
-models/
+voice_samples/
 
 # Logs
 *.log
-logs/
+logs/*.txt
+logs/*.log
 
-# Temporary files
-*.tmp
-*.temp
-.tmp/
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+test-results/
+test_env/
 
 # Environment variables
 .env
 .env.local
 .env.*.local
 
-# Docker
-.dockerignore
-Dockerfile.local
-
-# pytest
-.pytest_cache/
-.coverage
-htmlcov/
-
 # MyPy
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+
+# Model caches
+.cache/
+models/
+
+# TTS specific
+test.mp3
+test.wav
