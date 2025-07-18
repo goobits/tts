@@ -75,7 +75,7 @@ Provider loading is dynamic via the `PROVIDERS` dict in `tts.py:21-27`.
 
 ### Key CLI Commands
 
-**Package name:** `goobits-tts-cli` (installs as `tts` command)
+**Package name:** `goobits-tts` (installs as `tts` command)
 
 **IMPORTANT: Always use the setup script for installation:**
 ```bash

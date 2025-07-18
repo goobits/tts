@@ -1,0 +1,65 @@
+# Setup Configuration for TTS CLI
+# This file configures the generic setup framework for the TTS project
+
+# Package information
+package_name: goobits-tts
+command_name: tts
+display_name: "TTS CLI - Text-to-Speech Engine"
+description: "High-performance text-to-speech with voice cloning support"
+
+# Python requirements
+python:
+  minimum_version: "3.8"
+  maximum_version: ""
+
+# Dependencies
+dependencies:
+  required:
+    - git
+    - pipx
+  optional:
+    - nvidia-smi  # For GPU voice cloning
+    - pactl       # For PulseAudio
+    - aplay       # For ALSA audio
+
+# Installation settings
+installation:
+  pypi_name: goobits-tts
+  development_path: "."
+
+# Shell integration
+shell_integration:
+  enabled: true
+  alias: "tts"
+
+# Post-installation messages
+messages:
+  install_success: |
+    TTS CLI has been installed successfully!
+
+    Quick start:
+      tts "Hello, world!"
+      tts doctor               # Check system capabilities
+      tts install chatterbox --gpu  # Add GPU voice cloning
+
+  install_dev_success: |
+    TTS CLI has been installed in development mode!
+    Your local changes will be reflected immediately.
+
+    Development tips:
+      - Run tests with: ./test.sh
+      - Check audio: tts doctor
+
+  upgrade_success: |
+    TTS CLI has been upgraded successfully!
+    Check out the latest features with: tts --version
+
+  uninstall_success: |
+    TTS CLI has been uninstalled.
+    Thank you for using TTS CLI!
+
+# Validation rules
+validation:
+  check_api_keys: false
+  check_disk_space: true
+  minimum_disk_space_mb: 500  # TTS models require more space

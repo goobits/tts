@@ -32,7 +32,7 @@ This project is part of the Goobits ecosystem:
 
 ```bash
 # Install from source (currently only option)
-# pipx install goobits-tts-cli  # TODO: Will be available when published
+# pipx install goobits-tts  # TODO: Will be available when published
 
 # Install from local source
 git clone https://github.com/goobits/tts

@@ -314,11 +314,8 @@ def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str
         tts_engine = get_tts_engine()
         
         # Display user feedback (only if not JSON output)
-        if not json_output:
-            if stream:
-                click.echo(f"Streaming with {model}...")
-            else:
-                click.echo(f"Saving with {model}...")
+        if not json_output and not stream:
+            click.echo(f"Saving with {model}...")
         
         # Perform synthesis with timing
         start_time = time.time()
@@ -552,23 +549,23 @@ def handle_install_command(args: tuple) -> None:
                     try:
                         subprocess.run([
                             'pipx', 'inject', '--index-url', 'https://download.pytorch.org/whl/cu121',
-                            'goobits-tts-cli', 'torch', 'torchvision', 'torchaudio'
+                            'goobits-tts', 'torch', 'torchvision', 'torchaudio'
                         ], check=True, timeout=600)  # 10 minute timeout
                         click.echo("✅ PyTorch with CUDA installed successfully!")
                     except subprocess.CalledProcessError as e:
                         click.echo(f"❌ Failed to install PyTorch with CUDA: {e}")
-                        click.echo("💡 Try manually: pipx inject --index-url https://download.pytorch.org/whl/cu121 goobits-tts-cli torch torchvision torchaudio")
+                        click.echo("💡 Try manually: pipx inject --index-url https://download.pytorch.org/whl/cu121 goobits-tts torch torchvision torchaudio")
                         return
                 else:
                     click.echo("📦 Installing PyTorch (CPU)...")
                     try:
                         subprocess.run([
-                            'pipx', 'inject', 'goobits-tts-cli', 'torch', 'torchvision', 'torchaudio'
+                            'pipx', 'inject', 'goobits-tts', 'torch', 'torchvision', 'torchaudio'
                         ], check=True, capture_output=True)
                         click.echo("✅ PyTorch (CPU) installed successfully!")
                     except subprocess.CalledProcessError as e:
                         click.echo("❌ Failed to install PyTorch")
-                        click.echo("💡 Try manually: pipx inject goobits-tts-cli torch torchvision torchaudio")
+                        click.echo("💡 Try manually: pipx inject goobits-tts torch torchvision torchaudio")
                         return
             
             return
@@ -583,7 +580,7 @@ def handle_install_command(args: tuple) -> None:
                 try:
                     subprocess.run([
                         'pipx', 'inject', '--index-url', 'https://download.pytorch.org/whl/cu121',
-                        'goobits-tts-cli', 'torch', 'torchvision', 'torchaudio'
+                        'goobits-tts', 'torch', 'torchvision', 'torchaudio'
                     ], check=True)
                     click.echo("✅ PyTorch with CUDA installed!")
                 except subprocess.CalledProcessError as e:
@@ -599,18 +596,18 @@ def handle_install_command(args: tuple) -> None:
                     click.echo("✅ PyTorch (CPU) installed!")
                 except subprocess.CalledProcessError as e:
                     click.echo(f"❌ Failed to install PyTorch: {e}")
-                    click.echo("💡 Try manually: pipx inject goobits-tts-cli torch torchvision torchaudio")
+                    click.echo("💡 Try manually: pipx inject goobits-tts torch torchvision torchaudio")
                     return
             
             # Install chatterbox-tts
             click.echo("📦 Installing Chatterbox TTS...")
             try:
-                subprocess.run(['pipx', 'inject', 'goobits-tts-cli', 'chatterbox-tts'], check=True, capture_output=True)
+                subprocess.run(['pipx', 'inject', 'goobits-tts', 'chatterbox-tts'], check=True, capture_output=True)
                 click.echo("✅ Chatterbox TTS installed successfully!")
                 click.echo("🎉 Installation complete! You can now use Chatterbox with voice cloning.")
             except subprocess.CalledProcessError as e:
                 click.echo(f"❌ Failed to install Chatterbox TTS: {e}")
-                click.echo("💡 Try manually: pipx inject goobits-tts-cli chatterbox-tts")
+                click.echo("💡 Try manually: pipx inject goobits-tts chatterbox-tts")
             
     elif provider == "edge_tts":
         click.echo("✅ Edge TTS is already included and ready to use!")
