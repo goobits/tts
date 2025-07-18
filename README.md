@@ -6,10 +6,10 @@ A modern command-line text-to-speech tool with pluggable provider architecture, 
 
 This project is part of the Goobits ecosystem:
 
-- **[Goobits TTS](https://github.com/goobits/tts)** - Text-to-Speech engine (this project)
-- **[Goobits STT](https://github.com/goobits/stt)** - Speech-to-Text engine with real-time transcription
-- **[Goobits TTT](https://github.com/goobits/ttt)** - Text-to-Text processing and transformation tools
 - **[Matilda](https://github.com/goobits/matilda)** - AI assistant for conversational interactions
+- **[Goobits STT](https://github.com/goobits/stt)** - Speech-to-Text engine with real-time transcription
+- **[Goobits TTS](https://github.com/goobits/tts)** - Text-to-Speech engine (this project)
+- **[Goobits TTT](https://github.com/goobits/ttt)** - Text-to-Text processing and transformation tools
 
 ## 📋 Table of Contents
 
