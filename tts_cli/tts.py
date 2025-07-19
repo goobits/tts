@@ -286,9 +286,146 @@ def handle_config_commands(action: str, key: str = None, value: str = None) -> N
         sys.exit(1)
 
 
+def _validate_provider_options(provider_name: str, kwargs: dict, logger: logging.Logger, debug: bool) -> None:
+    """Validate options against provider capabilities and show warnings for invalid options"""
+    try:
+        from .core import get_tts_engine
+        tts_engine = get_tts_engine()
+        
+        # Get provider info to see what options are supported
+        provider_info = tts_engine.get_provider_info(provider_name)
+        if not provider_info or 'options' not in provider_info:
+            return  # Can't validate without provider info
+        
+        supported_options = set(provider_info['options'].keys())
+        used_options = set(kwargs.keys())
+        
+        # Find invalid options
+        invalid_options = used_options - supported_options
+        
+        if invalid_options:
+            provider_name_display = provider_info.get('name', provider_name)
+            click.echo(f"⚠️  Warning: {provider_name_display} doesn't support these options:", err=True)
+            for invalid_opt in sorted(invalid_options):
+                click.echo(f"   • {invalid_opt}={kwargs[invalid_opt]}", err=True)
+            
+            if supported_options:
+                click.echo(f"   Supported options: {', '.join(sorted(supported_options))}", err=True)
+            click.echo(f"   Use 'tts info {provider_name}' to see all available options", err=True)
+        
+        # Validate specific option values
+        _validate_option_values(provider_name, kwargs, logger, debug)
+        
+    except Exception as e:
+        if debug:
+            logger.debug(f"Option validation failed: {e}")
+
+
+def _validate_option_values(provider_name: str, kwargs: dict, logger: logging.Logger, debug: bool) -> None:
+    """Validate specific option values for common parameters"""
+    
+    # Validate rate parameter
+    if 'rate' in kwargs:
+        rate = kwargs['rate']
+        if not _is_valid_rate(rate):
+            click.echo(f"⚠️  Warning: Invalid rate value '{rate}'. Expected format: +50%, -25%, 150%, etc.", err=True)
+    
+    # Validate pitch parameter  
+    if 'pitch' in kwargs:
+        pitch = kwargs['pitch']
+        if not _is_valid_pitch(pitch):
+            click.echo(f"⚠️  Warning: Invalid pitch value '{pitch}'. Expected format: +5Hz, -10Hz, etc.", err=True)
+    
+    # Validate boolean parameters
+    boolean_params = ['stream']
+    for param in boolean_params:
+        if param in kwargs:
+            value = kwargs[param]
+            if not _is_valid_boolean(value):
+                click.echo(f"⚠️  Warning: Invalid {param} value '{value}'. Expected: true, false, 1, 0, yes, no", err=True)
+    
+    # Provider-specific validations
+    if provider_name == 'elevenlabs':
+        _validate_elevenlabs_options(kwargs)
+    elif provider_name == 'google_tts':
+        _validate_google_tts_options(kwargs)
+
+
+def _is_valid_rate(rate: str) -> bool:
+    """Check if rate value is valid"""
+    import re
+    # Allow formats: +50%, -25%, 150%, +0%, etc.
+    return bool(re.match(r'^[+-]?\d+%$', rate))
+
+
+def _is_valid_pitch(pitch: str) -> bool:
+    """Check if pitch value is valid"""
+    import re
+    # Allow formats: +5Hz, -10Hz, +0Hz, etc.
+    return bool(re.match(r'^[+-]?\d+(\.\d+)?Hz$', pitch))
+
+
+def _is_valid_boolean(value: str) -> bool:
+    """Check if value is a valid boolean representation"""
+    return value.lower() in ('true', 'false', '1', '0', 'yes', 'no')
+
+
+def _validate_elevenlabs_options(kwargs: dict) -> None:
+    """Validate ElevenLabs-specific options"""
+    
+    # Validate stability (0.0-1.0)
+    if 'stability' in kwargs:
+        try:
+            stability = float(kwargs['stability'])
+            if not 0.0 <= stability <= 1.0:
+                click.echo(f"⚠️  Warning: ElevenLabs stability must be between 0.0 and 1.0, got {stability}", err=True)
+        except ValueError:
+            click.echo(f"⚠️  Warning: ElevenLabs stability must be a number, got '{kwargs['stability']}'", err=True)
+    
+    # Validate similarity_boost (0.0-1.0)
+    if 'similarity_boost' in kwargs:
+        try:
+            similarity = float(kwargs['similarity_boost'])
+            if not 0.0 <= similarity <= 1.0:
+                click.echo(f"⚠️  Warning: ElevenLabs similarity_boost must be between 0.0 and 1.0, got {similarity}", err=True)
+        except ValueError:
+            click.echo(f"⚠️  Warning: ElevenLabs similarity_boost must be a number, got '{kwargs['similarity_boost']}'", err=True)
+    
+    # Validate style (0.0-1.0)
+    if 'style' in kwargs:
+        try:
+            style = float(kwargs['style'])
+            if not 0.0 <= style <= 1.0:
+                click.echo(f"⚠️  Warning: ElevenLabs style must be between 0.0 and 1.0, got {style}", err=True)
+        except ValueError:
+            click.echo(f"⚠️  Warning: ElevenLabs style must be a number, got '{kwargs['style']}'", err=True)
+
+
+def _validate_google_tts_options(kwargs: dict) -> None:
+    """Validate Google TTS-specific options"""
+    
+    # Validate speaking_rate (0.25-4.0)
+    if 'speaking_rate' in kwargs:
+        try:
+            rate = float(kwargs['speaking_rate'])
+            if not 0.25 <= rate <= 4.0:
+                click.echo(f"⚠️  Warning: Google TTS speaking_rate must be between 0.25 and 4.0, got {rate}", err=True)
+        except ValueError:
+            click.echo(f"⚠️  Warning: Google TTS speaking_rate must be a number, got '{kwargs['speaking_rate']}'", err=True)
+    
+    # Validate pitch (-20.0 to 20.0)
+    if 'pitch' in kwargs and not kwargs['pitch'].endswith('Hz'):  # Google uses numeric pitch, not Hz
+        try:
+            pitch = float(kwargs['pitch'])
+            if not -20.0 <= pitch <= 20.0:
+                click.echo(f"⚠️  Warning: Google TTS pitch must be between -20.0 and 20.0, got {pitch}", err=True)
+        except ValueError:
+            click.echo(f"⚠️  Warning: Google TTS pitch must be a number, got '{kwargs['pitch']}'", err=True)
+
+
 def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str, 
                      clone: str, output_format: str, options: tuple, logger: logging.Logger, 
-                     json_output: bool = False, debug: bool = False) -> None:
+                     json_output: bool = False, debug: bool = False, rate: str = None, pitch: str = None) -> None:
     """Handle main synthesis command using the core TTS engine."""
     # Parse key=value options
     kwargs = {}
@@ -298,6 +435,27 @@ def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str
             sys.exit(1)
         key, value = opt.split("=", 1)
         kwargs[key] = value
+    
+    # Load default rate and pitch from config if not specified
+    from .config import load_config
+    config = load_config()
+    
+    # Use CLI options first, then kwargs, then config defaults
+    if rate is not None:
+        kwargs['rate'] = rate
+    elif 'rate' not in kwargs:
+        kwargs['rate'] = config.get('rate', '+0%')
+    
+    if pitch is not None:
+        kwargs['pitch'] = pitch
+    elif 'pitch' not in kwargs:
+        kwargs['pitch'] = config.get('pitch', '+0Hz')
+    
+    # Validate options against provider capabilities
+    _validate_provider_options(model, kwargs, logger, debug)
+    
+    if debug:
+        logger.info(f"Using rate: {kwargs.get('rate')}, pitch: {kwargs.get('pitch')}")
     
     # Default to streaming unless --save flag is used
     stream = not save
@@ -655,6 +813,97 @@ def handle_load_command(args: tuple) -> None:
             click.echo(f"❌ Failed to load {voice_file.name}: {e}", err=True)
 
 
+def handle_info_command(args: tuple) -> None:
+    """Show detailed provider information and available options"""
+    if len(args) == 0:
+        # Show all providers
+        from .core import get_tts_engine
+        tts_engine = get_tts_engine()
+        providers = list(tts_engine.providers_registry.keys())
+        
+        click.echo("🎤 Available Providers:")
+        for provider in providers:
+            try:
+                info = tts_engine.get_provider_info(provider)
+                if info:
+                    name = info.get('name', provider)
+                    desc = info.get('description', 'No description')
+                    click.echo(f"  • {provider}: {name} - {desc}")
+                else:
+                    click.echo(f"  • {provider}: Available")
+            except Exception as e:
+                click.echo(f"  • {provider}: Error loading ({str(e)[:50]}...)")
+        
+        click.echo()
+        click.echo("Use 'tts info <provider>' to see detailed options for a specific provider")
+        return
+    
+    # Show specific provider info
+    provider_name = args[0]
+    from .core import get_tts_engine
+    tts_engine = get_tts_engine()
+    
+    if provider_name not in tts_engine.providers_registry:
+        click.echo(f"Error: Unknown provider '{provider_name}'", err=True)
+        click.echo(f"Available providers: {', '.join(tts_engine.providers_registry.keys())}")
+        return
+    
+    try:
+        info = tts_engine.get_provider_info(provider_name)
+        if not info:
+            click.echo(f"Error: No info available for {provider_name}", err=True)
+            return
+        
+        # Display provider info in a nice format
+        click.echo(f"🎤 {info.get('name', provider_name)}")
+        click.echo(f"   {info.get('description', 'No description')}")
+        click.echo()
+        
+        # Show available options
+        options = info.get('options', {})
+        if options:
+            click.echo("📋 Available Options:")
+            for option_name, option_desc in options.items():
+                click.echo(f"   {option_name}={option_desc}")
+            click.echo()
+        
+        # Show additional info
+        if 'output_format' in info:
+            click.echo(f"🔊 Output Format: {info['output_format']}")
+        
+        if 'features' in info:
+            features = info['features']
+            click.echo("✨ Features:")
+            for feature, value in features.items():
+                if isinstance(value, bool):
+                    status = "✅" if value else "❌"
+                    click.echo(f"   {status} {feature.replace('_', ' ').title()}")
+                else:
+                    click.echo(f"   • {feature.replace('_', ' ').title()}: {value}")
+            click.echo()
+        
+        # Show sample voices
+        sample_voices = info.get('sample_voices', [])
+        if sample_voices:
+            click.echo(f"🎭 Sample Voices ({len(sample_voices)} available):")
+            # Show first 5 voices as examples
+            for voice in sample_voices[:5]:
+                click.echo(f"   • {voice}")
+            if len(sample_voices) > 5:
+                click.echo(f"   ... and {len(sample_voices) - 5} more")
+            click.echo()
+        
+        # Show usage examples
+        click.echo("💡 Usage Examples:")
+        click.echo(f'   tts "Hello world" --model {provider_name}')
+        if options:
+            first_option = list(options.keys())[0]
+            click.echo(f'   tts "Hello world" --model {provider_name} {first_option}=value')
+        
+    except Exception as e:
+        click.echo(f"Error getting provider info: {e}", err=True)
+
+
 def handle_status_command() -> None:
     """Show system status and loaded voices"""
     click.echo("🔍 TTS System Status")
@@ -787,9 +1036,11 @@ def handle_document_processing(
             # Remove timing markers: [500ms] or [1s]
             text = re.sub(r'\[\d+(?:\.\d+)?(?:ms|s)\]', '', text)
             # Remove markdown bold: **text** -> text
-            text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+            text = re.sub(r'\*\*([^\*]+?)\*\*', r'\1', text)
             # Remove markdown italic: *text* -> text (careful not to remove list markers)
-            text = re.sub(r'(?<!\n)\*([^*\n]+)\*', r'\1', text)
+            text = re.sub(r'(?<!\*)\*([^\*]+?)\*(?!\*)', r'\1', text)
+            # Remove inline code: `text` -> text
+            text = re.sub(r'`([^`]+)`', r'\1', text)
             # Remove bullet markers at start of lines but keep the line structure
             text = re.sub(r'^[\s]*[-*+]\s+', '', text, flags=re.MULTILINE)
             # Clean up extra spaces on each line, but preserve newlines
@@ -981,8 +1232,10 @@ def handle_unload_command(args: tuple) -> None:
 @click.option("--doc-format", "doc_format", type=click.Choice(['auto', 'markdown', 'html', 'json']), default='auto', help="Document format (auto-detect by default)")
 @click.option("--ssml-platform", type=click.Choice(['azure', 'google', 'amazon', 'generic']), default='generic', help="SSML platform for voice synthesis")
 @click.option("--emotion-profile", type=click.Choice(['technical', 'marketing', 'narrative', 'tutorial', 'auto']), default='auto', help="Emotion profile for document type")
+@click.option("--rate", help="Speech rate adjustment (e.g., +20%, -50%, 150%)")
+@click.option("--pitch", help="Pitch adjustment (e.g., +5Hz, -10Hz)")
 @click.argument("options", nargs=-1)
-def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, output_format: str, json_output: bool, debug: bool, document: str, doc_format: str, ssml_platform: str, emotion_profile: str) -> None:
+def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, output_format: str, json_output: bool, debug: bool, document: str, doc_format: str, ssml_platform: str, emotion_profile: str, rate: str, pitch: str) -> None:
     """🎤 Transform text into speech with AI-powered voices
     
     TTS CLI supports multiple providers with smart auto-selection and voice cloning.
@@ -1026,6 +1279,7 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
       • Google Cloud TTS: Neural voices with 40+ languages
       • ElevenLabs: Advanced voice synthesis and cloning
     """
+    
     
     # Check if no meaningful arguments provided (text is None and no flags set) and no stdin
     if not text and not list_models and not document and not any([model, output, voice, clone, save]) and sys.stdin.isatty():
@@ -1098,6 +1352,11 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
     # Handle load subcommand
     if text and text.lower() == "load":
         handle_load_command(options)
+        return
+    
+    # Handle info subcommand
+    if text and text.lower() == "info":
+        handle_info_command(options)
         return
     
     # Handle status subcommand
@@ -1222,17 +1481,11 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
     
     # In standard streaming mode, display the text being spoken
     if not save and not json_output and not debug:
-        # For document mode, show a clean version of the text
-        if document:
-            # Text is already clean from document processing
-            display_text = text[:500] + "..." if len(text) > 500 else text
-            click.echo(f"\n{display_text}\n")
-        else:
-            # For regular text, just display it
-            click.echo(f"\n{text}\n")
+        # Show exactly what's being sent to TTS
+        click.echo(f"\n{text}\n")
     
     # Handle main synthesis
-    handle_synthesize(text, model, output, save, voice, clone, output_format, options, logger, json_output, debug)
+    handle_synthesize(text, model, output, save, voice, clone, output_format, options, logger, json_output, debug, rate, pitch)
 
 
 def cli():
