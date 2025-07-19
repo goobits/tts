@@ -764,6 +764,25 @@ def handle_document_processing(
                 # Ignore cache errors
                 pass
         
+        # Helper function to strip speech markdown syntax
+        def _strip_speech_markdown(text: str) -> str:
+            """Remove speech markdown syntax while preserving document structure."""
+            import re
+            # Remove emotion markers: (emotion)[text] -> text
+            text = re.sub(r'\([^)]+\)\[([^\]]+)\]', r'\1', text)
+            # Remove timing markers: [500ms] or [1s]
+            text = re.sub(r'\[\d+(?:\.\d+)?(?:ms|s)\]', '', text)
+            # Remove markdown bold: **text** -> text
+            text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+            # Remove markdown italic: *text* -> text (careful not to remove list markers)
+            text = re.sub(r'(?<!\n)\*([^*\n]+)\*', r'\1', text)
+            # Remove bullet markers at start of lines but keep the line structure
+            text = re.sub(r'^[\s]*[-*+]\s+', '', text, flags=re.MULTILINE)
+            # Clean up extra spaces on each line, but preserve newlines
+            lines = text.split('\n')
+            cleaned_lines = [line.strip() for line in lines]
+            return '\n'.join(cleaned_lines)
+        
         # Read the document
         with open(document_path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -868,12 +887,14 @@ def handle_document_processing(
             return ssml_content
         
         # Return plain text for generic platform
+        # Strip speech markdown syntax for plain text output
+        plain_text = _strip_speech_markdown(speech_markdown)
         
         # Cache the final result
         if doc_config.get('cache_enabled', True):
-            _cache_result(cache_key, speech_markdown)
+            _cache_result(cache_key, plain_text)
         
-        return speech_markdown
+        return plain_text
         
     except FileNotFoundError:
         click.echo(f"Error: Document file not found: {document_path}", err=True)

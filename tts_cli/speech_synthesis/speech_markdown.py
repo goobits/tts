@@ -32,13 +32,39 @@ class SpeechMarkdownConverter:
     def convert_elements(self, elements: List[SemanticElement]) -> str:
         """Convert semantic elements to Speech Markdown syntax."""
         speech_parts = []
+        prev_type = None
         
-        for element in elements:
+        for i, element in enumerate(elements):
             speech_part = self._convert_element(element)
             if speech_part:
+                # Add appropriate spacing based on element types
+                if prev_type is not None:
+                    # Add spacing between different types of content
+                    if element.type == SemanticType.HEADING:
+                        speech_parts.append("\n\n")
+                    elif prev_type == SemanticType.HEADING:
+                        speech_parts.append("\n\n")
+                    elif element.type == SemanticType.CODE_BLOCK:
+                        speech_parts.append("\n\n")
+                    elif prev_type == SemanticType.CODE_BLOCK:
+                        speech_parts.append("\n\n")
+                    elif element.type == SemanticType.LIST_ITEM:
+                        if prev_type != SemanticType.LIST_ITEM:
+                            speech_parts.append("\n\n")
+                        else:
+                            speech_parts.append("\n")
+                    elif prev_type == SemanticType.LIST_ITEM and element.type != SemanticType.LIST_ITEM:
+                        speech_parts.append("\n\n")
+                    elif element.type == SemanticType.TEXT and prev_type == SemanticType.TEXT:
+                        # Separate paragraphs
+                        speech_parts.append("\n\n")
+                    else:
+                        speech_parts.append(" ")
+                
                 speech_parts.append(speech_part)
+                prev_type = element.type
         
-        return " ".join(speech_parts)
+        return "".join(speech_parts)
     
     def _convert_element(self, element: SemanticElement) -> str:
         """Convert a single semantic element to Speech Markdown."""
