@@ -161,7 +161,7 @@ class EdgeTTSProvider(TTSProvider):
                 # Close stdin and wait for ffplay to finish
                 try:
                     ffplay_process.stdin.close()
-                    exit_code = ffplay_process.wait(timeout=get_config_value('ffplay_timeout'))  # Add timeout
+                    exit_code = ffplay_process.wait()  # Let ffplay exit naturally with -autoexit
                     
                     # Calculate and log timing metrics
                     total_time = time.time() - start_time
@@ -170,8 +170,8 @@ class EdgeTTSProvider(TTSProvider):
                         self.logger.info(f"Streaming optimization: First audio in {latency:.1f}s, Total: {total_time:.1f}s")
                     
                     self.logger.debug(f"Audio streaming completed. Chunks: {chunk_count}, Bytes: {bytes_written}, Exit code: {exit_code}")
-                except subprocess.TimeoutExpired:
-                    self.logger.warning("FFplay process timeout, terminating")
+                except Exception as e:
+                    self.logger.error(f"FFplay process error: {e}")
                     ffplay_process.terminate()
                     
             except Exception as e:
