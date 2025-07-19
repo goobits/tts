@@ -104,7 +104,7 @@ def parse_input(text: str) -> Tuple[str, Dict]:
 
 def format_output(success: bool, provider: str = None, voice: str = None, action: str = None, 
                  duration: float = None, output_path: str = None, error: str = None, 
-                 error_code: str = None, json_output: bool = False) -> str:
+                 error_code: str = None, json_output: bool = False, debug: bool = False) -> str:
     """Format output as JSON or human-readable text"""
     if json_output:
         if success:
@@ -128,7 +128,18 @@ def format_output(success: bool, provider: str = None, voice: str = None, action
         return json.dumps(result)
     else:
         if success:
-            return f"Streaming with {provider}..." if provider else "Success"
+            # In standard mode (not debug), only show output for saves
+            if not debug and action == "stream":
+                return ""  # Silent for streaming in standard mode
+            elif action == "save" and output_path:
+                return f"Saved to: {output_path}"
+            elif debug:
+                if action == "stream":
+                    return f"✅ Streaming complete ({duration:.2f}s) with {provider}"
+                else:
+                    return f"✅ Saved to {output_path} ({duration:.2f}s) with {provider}"
+            else:
+                return ""  # Silent in standard mode
         else:
             return f"Error: {error}" if error else "Error occurred"
 
@@ -277,7 +288,7 @@ def handle_config_commands(action: str, key: str = None, value: str = None) -> N
 
 def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str, 
                      clone: str, output_format: str, options: tuple, logger: logging.Logger, 
-                     json_output: bool = False) -> None:
+                     json_output: bool = False, debug: bool = False) -> None:
     """Handle main synthesis command using the core TTS engine."""
     # Parse key=value options
     kwargs = {}
@@ -339,9 +350,11 @@ def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str
             action=action,
             duration=duration,
             output_path=result_path if result_path else None,
-            json_output=json_output
+            json_output=json_output,
+            debug=debug
         )
-        click.echo(output_msg)
+        if output_msg:  # Only echo if there's something to display
+            click.echo(output_msg)
         
     except TTSError as e:
         logger.error(f"Synthesis failed with {model}: {e}")
@@ -721,7 +734,8 @@ def handle_document_processing(
     document_path: str,
     doc_format: str = "auto",
     ssml_platform: str = "generic",
-    emotion_profile: str = "auto"
+    emotion_profile: str = "auto",
+    debug: bool = False
 ) -> Optional[str]:
     """Process a document file and return text suitable for TTS synthesis.
     
@@ -801,6 +815,9 @@ def handle_document_processing(
                     # Try to detect from content
                     doc_format = "markdown"  # Default fallback
         
+        if debug:
+            click.echo(f"  Detected format: {doc_format}")
+        
         # Generate cache key based on all processing parameters
         cache_key_data = f"{content}:{doc_format}:{ssml_platform}:{emotion_profile}"
         cache_key = hashlib.sha256(cache_key_data.encode()).hexdigest()
@@ -826,7 +843,8 @@ def handle_document_processing(
                     try:
                         with open(cache_file, 'rb') as f:
                             cached_result = pickle.load(f)
-                        logger.info(f"Using cached result for {document_path}")
+                        if debug:
+                            logger.info(f"Using cached result for {document_path}")
                         return cached_result
                     except Exception:
                         # Cache corrupted, continue with normal processing
@@ -849,6 +867,8 @@ def handle_document_processing(
         if emotion_profile == "auto" and doc_config.get('emotion_detection', True):
             detector = AdvancedEmotionDetector()
             emotion_profile = detector.detect_document_type(elements)
+            if debug:
+                click.echo(f"  Detected emotion profile: {emotion_profile}")
         
         # Skip formatting - pass elements directly to emotion detector
         # The SemanticFormatter's format_for_speech method returns text, not elements
@@ -956,12 +976,13 @@ def handle_unload_command(args: tuple) -> None:
 @click.option("-v", "--voice", help="Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
 @click.option("--clone", help="Audio file to clone voice from (deprecated: use --voice instead)")
 @click.option("--json", "json_output", is_flag=True, help="Output results as JSON")
+@click.option("--debug", is_flag=True, help="Show debug information during processing")
 @click.option("--document", type=click.Path(exists=True), help="Convert document to speech (HTML, JSON, Markdown)")
 @click.option("--doc-format", "doc_format", type=click.Choice(['auto', 'markdown', 'html', 'json']), default='auto', help="Document format (auto-detect by default)")
 @click.option("--ssml-platform", type=click.Choice(['azure', 'google', 'amazon', 'generic']), default='generic', help="SSML platform for voice synthesis")
 @click.option("--emotion-profile", type=click.Choice(['technical', 'marketing', 'narrative', 'tutorial', 'auto']), default='auto', help="Emotion profile for document type")
 @click.argument("options", nargs=-1)
-def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, output_format: str, json_output: bool, document: str, doc_format: str, ssml_platform: str, emotion_profile: str) -> None:
+def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, output_format: str, json_output: bool, debug: bool, document: str, doc_format: str, ssml_platform: str, emotion_profile: str) -> None:
     """🎤 Transform text into speech with AI-powered voices
     
     TTS CLI supports multiple providers with smart auto-selection and voice cloning.
@@ -1096,14 +1117,24 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
     
     # Handle document processing
     if document:
+        if debug:
+            click.echo(f"📄 Processing document: {document}")
+            click.echo(f"  Format: {doc_format}")
+            click.echo(f"  SSML Platform: {ssml_platform}")
+            click.echo(f"  Emotion Profile: {emotion_profile}")
+        
         text = handle_document_processing(
             document_path=document,
             doc_format=doc_format,
             ssml_platform=ssml_platform,
-            emotion_profile=emotion_profile
+            emotion_profile=emotion_profile,
+            debug=debug
         )
         if not text:
-            click.echo("Error: Failed to process document", err=True)
+            if not json_output:
+                click.echo("Error: Failed to process document", err=True)
+            else:
+                click.echo(json.dumps({"success": False, "error": "Failed to process document"}))
             sys.exit(1)
     
     # Apply configuration defaults where CLI args weren't provided
@@ -1189,8 +1220,19 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
             click.echo(f"Error: Cannot write to output path {output_path}: {e}", err=True)
             sys.exit(1)
     
+    # In standard streaming mode, display the text being spoken
+    if not save and not json_output and not debug:
+        # For document mode, show a clean version of the text
+        if document:
+            # Text is already clean from document processing
+            display_text = text[:500] + "..." if len(text) > 500 else text
+            click.echo(f"\n{display_text}\n")
+        else:
+            # For regular text, just display it
+            click.echo(f"\n{text}\n")
+    
     # Handle main synthesis
-    handle_synthesize(text, model, output, save, voice, clone, output_format, options, logger, json_output)
+    handle_synthesize(text, model, output, save, voice, clone, output_format, options, logger, json_output, debug)
 
 
 def cli():
