@@ -6,8 +6,8 @@ import time
 import os
 from typing import Optional, List, Dict, Any
 from pathlib import Path
-from src.document_parsing.base_parser import SemanticElement
-from src.document_parsing.parser_factory import DocumentParserFactory
+from tts_cli.document_processing.base_parser import SemanticElement
+from tts_cli.document_processing.parser_factory import DocumentParserFactory
 
 
 class DocumentCache:
@@ -309,11 +309,7 @@ class PerformanceOptimizer:
             # Process each chunk
             chunk_elements = self._parse_single_document(chunk, format_hint)
             
-            # Adjust element positions to account for chunk offset
-            for element in chunk_elements:
-                element.start += current_offset
-                element.end += current_offset
-            
+            # Elements don't have start/end attributes, just add them directly
             all_elements.extend(chunk_elements)
             current_offset += len(chunk)
         

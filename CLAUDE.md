@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TTS CLI is a Python text-to-speech command-line tool that supports multiple TTS providers with smart auto-selection and voice cloning capabilities. The project uses a pluggable provider architecture to support:
+TTS CLI is a Python text-to-speech command-line tool that supports multiple TTS providers with smart auto-selection, voice cloning capabilities, and intelligent document processing. The project uses a pluggable provider architecture to support:
 
 - **Edge TTS** (Microsoft Azure): Free, high-quality neural voices  
 - **Chatterbox**: Local voice cloning with GPU/CPU support
@@ -12,20 +12,31 @@ TTS CLI is a Python text-to-speech command-line tool that supports multiple TTS 
 - **Google Cloud TTS**: Google's neural voices via REST API
 - **ElevenLabs**: Advanced voice synthesis and cloning
 
+Additionally, TTS CLI now includes advanced document-to-speech capabilities:
+- **Multi-format support**: HTML, JSON, Markdown auto-conversion
+- **Emotion detection**: Context-aware emotion profiles (technical, marketing, narrative, tutorial)
+- **SSML generation**: Platform-optimized speech synthesis markup (Azure, Google, Amazon)
+- **Performance caching**: Optimized document processing for repeated conversions
+
 ## Installation & Development Setup
 
 **Use the setup script for installation**:
 
 ```bash
-# Production install
+# Production install (for end users)
 ./setup.sh install
 
-# Development install (editable) - USE THIS FOR DEVELOPMENT  
+# Development install (editable) - RECOMMENDED FOR DEVELOPMENT  
 ./setup.sh install --dev
+
+# Upgrade to latest version
+./setup.sh upgrade
 
 # Uninstall
 ./setup.sh uninstall
 ```
+
+**IMPORTANT FOR DEVELOPMENT**: Always use `./setup.sh install --dev` for development work. This creates an editable installation where code changes are immediately reflected without needing to reinstall or upgrade.
 
 ## Common Development Commands
 
@@ -57,6 +68,8 @@ make build              # Alternative build command
 3. **tts_cli/config.py** - Configuration management with XDG compliance
 4. **tts_cli/voice_manager.py** - Voice loading/caching for fast access
 5. **tts_cli/providers/** - Provider implementations
+6. **tts_cli/document_processing/** - Document parsing (HTML, JSON, Markdown)
+7. **tts_cli/speech_synthesis/** - Emotion detection and SSML generation
 
 ### Provider Architecture
 
@@ -90,6 +103,11 @@ tts config                    # Show/edit configuration
 tts doctor                    # System health check
 tts load voice.wav            # Preload voice for fast access
 tts install chatterbox gpu    # Install provider dependencies
+
+# Document processing commands
+tts --document report.html           # Convert HTML to speech
+tts --document api.json --emotion-profile technical --save
+tts --document README.md --ssml-platform azure
 ```
 
 ## Code Style & Standards
@@ -135,6 +153,10 @@ The `tts install` command handles complex dependency management, especially for 
 - Dual authentication for Google Cloud TTS (API key + service account)
 - Voice loading/caching system for performance
 - Interactive configuration editor
+- Document-to-speech processing with emotion detection
+- Multi-format document support (HTML, JSON, Markdown)
+- Platform-specific SSML generation (Azure, Google, Amazon)
+- Context-aware emotion profiles for different document types
 
 ## Important Files to Understand
 

@@ -1,7 +1,7 @@
 """Convert semantic elements to speech-ready text with basic emotion."""
 
 from typing import List
-from document_parsing.base_parser import SemanticElement, SemanticType
+from tts_cli.document_processing.base_parser import SemanticElement, SemanticType
 
 
 class SemanticFormatter:

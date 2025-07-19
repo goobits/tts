@@ -1,7 +1,7 @@
 """Content-based emotion detection for enhanced TTS expression."""
 
 from typing import Dict
-from document_parsing.base_parser import SemanticElement, SemanticType
+from tts_cli.document_processing.base_parser import SemanticElement, SemanticType
 
 
 class ContentEmotionDetector:

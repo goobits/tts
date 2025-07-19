@@ -44,11 +44,17 @@ messages:
 
   install_dev_success: |
     TTS CLI has been installed in development mode!
-    Your local changes will be reflected immediately.
+    ✅ Your local changes will be reflected immediately - no reinstalling needed!
 
-    Development tips:
+    Development workflow:
+      - Edit code in tts_cli/ directory
+      - Test immediately with: tts "test audio"
       - Run tests with: ./test.sh
       - Check audio: tts doctor
+      - Format code with: black tts_cli/
+      - Check types with: mypy tts_cli/
+      
+    💡 No need to run ./setup.sh upgrade after code changes!
 
   upgrade_success: |
     TTS CLI has been upgraded successfully!

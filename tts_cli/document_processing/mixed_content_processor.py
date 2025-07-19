@@ -2,9 +2,9 @@
 
 import re
 from typing import List, Dict, Optional, Union
-from src.document_parsing.base_parser import SemanticElement
-from src.document_parsing.parser_factory import DocumentParserFactory
-from src.text_formatting.formatter import TextFormatter
+from tts_cli.document_processing.base_parser import SemanticElement
+from tts_cli.document_processing.parser_factory import DocumentParserFactory
+# TextFormatter removed - not needed for document processing
 
 
 class MixedContentProcessor:
@@ -13,9 +13,6 @@ class MixedContentProcessor:
     def __init__(self, language: str = "en"):
         """Initialize with text formatting and document parsing components."""
         self.language = language
-        
-        # Import existing text formatting
-        self.text_formatter = TextFormatter(language=language)
         
         # Import document parsing
         self.document_factory = DocumentParserFactory()
@@ -161,8 +158,10 @@ class MixedContentProcessor:
             return "document"
 
     def _process_transcription(self, content: str) -> str:
-        """Process content as transcribed speech using existing formatter."""
-        return self.text_formatter.format_transcription(content, language=self.language)
+        """Process content as transcribed speech."""
+        # For document-focused TTS, we simply return the content
+        # The original TextFormatter was part of STT functionality
+        return content.strip()
 
     def _process_document(self, content: str, format_hint: str = "") -> str:
         """Process content as a document using document parsers."""
@@ -179,8 +178,8 @@ class MixedContentProcessor:
             return ""
         
         # Import speech synthesis components
-        from src.speech_synthesis.semantic_formatter import SemanticFormatter
-        from src.speech_synthesis.speech_markdown import SpeechMarkdownConverter
+        from tts_cli.speech_synthesis.semantic_formatter import SemanticFormatter
+        from tts_cli.speech_synthesis.speech_markdown import SpeechMarkdownConverter
         
         # Format elements semantically
         formatter = SemanticFormatter()

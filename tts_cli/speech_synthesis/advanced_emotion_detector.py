@@ -2,8 +2,8 @@
 
 import re
 from typing import List, Dict, Set
-from src.document_parsing.base_parser import SemanticElement, SemanticType
-from src.speech_synthesis.emotion_detector import ContentEmotionDetector
+from tts_cli.document_processing.base_parser import SemanticElement, SemanticType
+from tts_cli.speech_synthesis.emotion_detector import ContentEmotionDetector
 
 
 class AdvancedEmotionDetector(ContentEmotionDetector):

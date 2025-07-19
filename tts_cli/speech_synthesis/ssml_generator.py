@@ -3,7 +3,7 @@
 import re
 from enum import Enum
 from typing import Dict, List, Tuple
-from src.document_parsing.base_parser import SemanticElement
+from tts_cli.document_processing.base_parser import SemanticElement
 
 
 class SSMLPlatform(Enum):

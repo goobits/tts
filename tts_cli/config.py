@@ -126,7 +126,21 @@ DEFAULT_CONFIG = {
     "rate": "+0%",
     "pitch": "+0Hz",
     "output_dir": "~/Downloads",
-    "log_level": "info"
+    "log_level": "info",
+    "document_parsing": {
+        "default_format": "auto",
+        "emotion_detection": True,
+        "preserve_formatting": False,
+        "cache_enabled": True,
+        "cache_ttl": 3600
+    },
+    "speech_synthesis": {
+        "emotion_level": "moderate",
+        "timing_precision": "standard",
+        "ssml_platform": "generic",
+        "paragraph_pause": 1.0,
+        "sentence_pause": 0.5
+    }
 }
 
 _config_cache = None

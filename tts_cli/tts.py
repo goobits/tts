@@ -717,6 +717,174 @@ def handle_status_command() -> None:
         click.echo(f"  • Output directory: {config.get('output_dir')}")
 
 
+def handle_document_processing(
+    document_path: str,
+    doc_format: str = "auto",
+    ssml_platform: str = "generic",
+    emotion_profile: str = "auto"
+) -> Optional[str]:
+    """Process a document file and return text suitable for TTS synthesis.
+    
+    Args:
+        document_path: Path to the document file
+        doc_format: Document format (auto, html, json, markdown)
+        ssml_platform: Target SSML platform (azure, google, amazon, generic)
+        emotion_profile: Emotion profile to apply (technical, marketing, narrative, tutorial, auto)
+    
+    Returns:
+        Processed text ready for TTS synthesis, or None on error
+    """
+    try:
+        # Import document processing components
+        from .document_processing.parser_factory import DocumentParserFactory
+        from .document_processing.performance_cache import PerformanceOptimizer
+        from .speech_synthesis.advanced_emotion_detector import AdvancedEmotionDetector
+        from .speech_synthesis.ssml_generator import SSMLGenerator, SSMLPlatform
+        from .speech_synthesis.speech_markdown import SpeechMarkdownConverter
+        from .speech_synthesis.semantic_formatter import SemanticFormatter
+        from .config import load_config
+        import hashlib
+        
+        # Load configuration
+        user_config = load_config()
+        doc_config = user_config.get('document_parsing', {})
+        speech_config = user_config.get('speech_synthesis', {})
+        
+        # Helper function to cache results
+        def _cache_result(key: str, content: str) -> None:
+            try:
+                from pathlib import Path
+                import pickle
+                cache_dir = Path(".cache/documents")
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                cache_file = cache_dir / f"{key}.result"
+                with open(cache_file, 'wb') as f:
+                    pickle.dump(content, f)
+            except Exception:
+                # Ignore cache errors
+                pass
+        
+        # Read the document
+        with open(document_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Auto-detect format if needed
+        if doc_format == "auto":
+            doc_format = doc_config.get('default_format', 'auto')
+            if doc_format == "auto":
+                if document_path.endswith('.html'):
+                    doc_format = "html"
+                elif document_path.endswith('.json'):
+                    doc_format = "json"
+                elif document_path.endswith('.md'):
+                    doc_format = "markdown"
+                else:
+                    # Try to detect from content
+                    doc_format = "markdown"  # Default fallback
+        
+        # Generate cache key based on all processing parameters
+        cache_key_data = f"{content}:{doc_format}:{ssml_platform}:{emotion_profile}"
+        cache_key = hashlib.sha256(cache_key_data.encode()).hexdigest()
+        
+        # Try to use cached result if caching is enabled
+        if doc_config.get('cache_enabled', True):
+            optimizer = PerformanceOptimizer(enable_caching=True)
+            
+            # Check if we have a cached result for this exact configuration
+            from pathlib import Path
+            cache_dir = Path(".cache/documents")
+            cache_file = cache_dir / f"{cache_key}.result"
+            
+            if cache_file.exists():
+                import time
+                import pickle
+                
+                # Check cache age
+                file_age = time.time() - cache_file.stat().st_mtime
+                cache_ttl = doc_config.get('cache_ttl', 3600)
+                
+                if file_age <= cache_ttl:
+                    try:
+                        with open(cache_file, 'rb') as f:
+                            cached_result = pickle.load(f)
+                        logger.info(f"Using cached result for {document_path}")
+                        return cached_result
+                    except Exception:
+                        # Cache corrupted, continue with normal processing
+                        pass
+        
+        # Parse document to semantic elements
+        if doc_config.get('cache_enabled', True):
+            # Use performance optimizer for parsing
+            optimizer = PerformanceOptimizer(enable_caching=True)
+            elements = optimizer.process_document(content, doc_format)
+        else:
+            parser_factory = DocumentParserFactory()
+            elements = parser_factory.parse_document(content, doc_format)
+        
+        if not elements:
+            click.echo(f"Warning: No content extracted from {document_path}", err=True)
+            return None
+        
+        # Apply emotion detection if enabled
+        if emotion_profile == "auto" and doc_config.get('emotion_detection', True):
+            detector = AdvancedEmotionDetector()
+            emotion_profile = detector.detect_document_type(elements)
+        
+        # Skip formatting - pass elements directly to emotion detector
+        # The SemanticFormatter's format_for_speech method returns text, not elements
+        formatted_elements = elements
+        
+        # Convert to speech markdown
+        speech_converter = SpeechMarkdownConverter()
+        speech_markdown = speech_converter.convert_elements(elements)
+        
+        # Use configured SSML platform if not specified
+        if ssml_platform == "generic":
+            ssml_platform = speech_config.get('ssml_platform', 'generic')
+        
+        # Generate SSML if platform specified
+        if ssml_platform != "generic":
+            ssml_generator = SSMLGenerator()
+            platform_map = {
+                "azure": SSMLPlatform.AZURE,
+                "google": SSMLPlatform.GOOGLE,
+                "amazon": SSMLPlatform.AMAZON
+            }
+            ssml_generator = SSMLGenerator(platform=platform_map.get(ssml_platform, SSMLPlatform.AZURE))
+            
+            # Apply timing configuration
+            if speech_config.get('paragraph_pause'):
+                ssml_generator.paragraph_pause = speech_config['paragraph_pause']
+            if speech_config.get('sentence_pause'):
+                ssml_generator.sentence_pause = speech_config['sentence_pause']
+            
+            ssml_content = ssml_generator.convert_speech_markdown(speech_markdown)
+            
+            # Cache the final result
+            if doc_config.get('cache_enabled', True):
+                _cache_result(cache_key, ssml_content)
+            
+            return ssml_content
+        
+        # Return plain text for generic platform
+        
+        # Cache the final result
+        if doc_config.get('cache_enabled', True):
+            _cache_result(cache_key, speech_markdown)
+        
+        return speech_markdown
+        
+    except FileNotFoundError:
+        click.echo(f"Error: Document file not found: {document_path}", err=True)
+        return None
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Document processing error: {e}")
+        click.echo(f"Error processing document: {e}", err=True)
+        return None
+
+
 def handle_unload_command(args: tuple) -> None:
     """Unload voice files from memory"""
     voice_manager = VoiceManager()
@@ -767,8 +935,12 @@ def handle_unload_command(args: tuple) -> None:
 @click.option("-v", "--voice", help="Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
 @click.option("--clone", help="Audio file to clone voice from (deprecated: use --voice instead)")
 @click.option("--json", "json_output", is_flag=True, help="Output results as JSON")
+@click.option("--document", type=click.Path(exists=True), help="Convert document to speech (HTML, JSON, Markdown)")
+@click.option("--doc-format", "doc_format", type=click.Choice(['auto', 'markdown', 'html', 'json']), default='auto', help="Document format (auto-detect by default)")
+@click.option("--ssml-platform", type=click.Choice(['azure', 'google', 'amazon', 'generic']), default='generic', help="SSML platform for voice synthesis")
+@click.option("--emotion-profile", type=click.Choice(['technical', 'marketing', 'narrative', 'tutorial', 'auto']), default='auto', help="Emotion profile for document type")
 @click.argument("options", nargs=-1)
-def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, output_format: str, json_output: bool) -> None:
+def main(text: str, model: str, output: str, options: tuple, list_models: bool, save: bool, voice: str, clone: str, output_format: str, json_output: bool, document: str, doc_format: str, ssml_platform: str, emotion_profile: str) -> None:
     """🎤 Transform text into speech with AI-powered voices
     
     TTS CLI supports multiple providers with smart auto-selection and voice cloning.
@@ -779,6 +951,12 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
       tts "Hello world"                    # Stream with default voice
       tts "Hello" --save                   # Save to file
       tts "Hello" --voice edge_tts:en-US-JennyNeural
+    
+    \b
+    📄 Document Processing:
+      tts --document report.html           # Convert HTML to speech
+      tts --document api.json --emotion-profile technical
+      tts --document README.md --ssml-platform azure
     
     \b
     🎙️ Voice Management:
@@ -808,7 +986,7 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
     """
     
     # Check if no meaningful arguments provided (text is None and no flags set) and no stdin
-    if not text and not list_models and not any([model, output, voice, clone, save]) and sys.stdin.isatty():
+    if not text and not list_models and not document and not any([model, output, voice, clone, save]) and sys.stdin.isatty():
         ctx = click.get_current_context()
         click.echo(ctx.get_help())
         sys.exit(0)
@@ -895,6 +1073,18 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
         handle_models_command(())
         return
     
+    # Handle document processing
+    if document:
+        text = handle_document_processing(
+            document_path=document,
+            doc_format=doc_format,
+            ssml_platform=ssml_platform,
+            emotion_profile=emotion_profile
+        )
+        if not text:
+            click.echo("Error: Failed to process document", err=True)
+            sys.exit(1)
+    
     # Apply configuration defaults where CLI args weren't provided
     if not model:
         config_voice = user_config.get('voice', 'edge_tts:en-IE-EmilyNeural')
@@ -932,8 +1122,8 @@ def main(text: str, model: str, output: str, options: tuple, list_models: bool, 
     if not save and user_config.get('default_action') == 'save':
         save = True
     
-    # Check required arguments - try stdin if no text provided
-    if not text:
+    # Check required arguments - try stdin if no text provided and no document
+    if not text and not document:
         # Check if text is being piped in
         if not sys.stdin.isatty():
             # Read from stdin

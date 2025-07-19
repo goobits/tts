@@ -1,7 +1,7 @@
 """Speech Markdown converter for enhanced TTS with timing and emotion."""
 
 from typing import List
-from document_parsing.base_parser import SemanticElement, SemanticType
+from tts_cli.document_processing.base_parser import SemanticElement, SemanticType
 
 
 class SpeechMarkdownConverter:
