@@ -46,6 +46,7 @@ import os
 import json
 import time
 import subprocess  # Still needed for doctor command and other CLI operations
+import signal
 from pathlib import Path
 from typing import Dict, Type, List, Tuple, Optional
 from .base import TTSProvider
@@ -666,6 +667,9 @@ def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str
         if output_msg:  # Only echo if there's something to display
             click.echo(output_msg)
         
+    except KeyboardInterrupt:
+        # Don't log errors for Ctrl+C
+        raise
     except TTSError as e:
         logger.error(f"Synthesis failed with {model}: {e}")
         error_msg = format_output(
@@ -1838,8 +1842,15 @@ def providers() -> None:
     handle_providers_command()
 
 
+def handle_interrupt(signum, frame):
+    """Handle Ctrl+C gracefully without error spam."""
+    click.echo("\nInterrupted.", err=True)
+    sys.exit(130)  # Standard exit code for SIGINT
+
+
 def cli():
     """Direct entry point that just calls main."""
+    signal.signal(signal.SIGINT, handle_interrupt)
     main()
 
 
@@ -1849,6 +1860,9 @@ def cli_entry():
     This wrapper ensures that code changes work without reinstallation
     by providing a stable entry point that delegates to the main CLI.
     """
+    # Set up signal handler for clean Ctrl+C
+    signal.signal(signal.SIGINT, handle_interrupt)
+    
     # Simply delegate to main - the DefaultCommandGroup handles routing
     main()
 

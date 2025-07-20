@@ -34,6 +34,9 @@ class EdgeTTSProvider(TTSProvider):
         except RuntimeError:
             # No event loop running, safe to create new one
             return asyncio.run(coro)
+        except KeyboardInterrupt:
+            # Clean shutdown on Ctrl+C - propagate without logging
+            raise
     
     async def _synthesize_async(self, text: str, output_path: str, voice: str, rate: str, pitch: str, output_format: str = "mp3"):
         try:
@@ -170,10 +173,20 @@ class EdgeTTSProvider(TTSProvider):
                         self.logger.info(f"Streaming optimization: First audio in {latency:.1f}s, Total: {total_time:.1f}s")
                     
                     self.logger.debug(f"Audio streaming completed. Chunks: {chunk_count}, Bytes: {bytes_written}, Exit code: {exit_code}")
+                except KeyboardInterrupt:
+                    # Clean shutdown on Ctrl+C
+                    if ffplay_process.poll() is None:
+                        ffplay_process.terminate()
+                    raise
                 except Exception as e:
                     self.logger.error(f"FFplay process error: {e}")
                     ffplay_process.terminate()
                     
+            except KeyboardInterrupt:
+                # Clean shutdown without error logging
+                if ffplay_process.poll() is None:
+                    ffplay_process.terminate()
+                raise
             except Exception as e:
                 self.logger.error(f"Audio streaming failed: {e}")
                 # Ensure ffplay is terminated
@@ -190,6 +203,9 @@ class EdgeTTSProvider(TTSProvider):
                     raise AudioPlaybackError("Audio streaming failed: Audio device may not be available or configured properly.")
                 raise ProviderError(f"Audio streaming failed: {e}")
                 
+        except KeyboardInterrupt:
+            # Propagate without logging
+            raise
         except Exception as e:
             if "internet" in str(e).lower() or "network" in str(e).lower() or "connection" in str(e).lower():
                 self.logger.error(f"Network error during Edge TTS streaming: {e}")
