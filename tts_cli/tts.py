@@ -96,7 +96,7 @@ PROVIDER_SHORTCUTS: Dict[str, str] = {
 }
 
 
-class DefaultCommandGroup(click.Group):
+class DefaultCommandGroup(click.RichGroup):
     """
     A custom Click group that handles direct text synthesis when no subcommand is specified.
     """
