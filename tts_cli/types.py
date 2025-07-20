@@ -1,6 +1,6 @@
 """Type definitions for TTS CLI."""
 
-from typing import TypedDict, List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional, TypedDict
 
 
 class VoiceSettings(TypedDict):
@@ -59,24 +59,24 @@ class Config(TypedDict, total=False):
     default_provider: str
     output_format: str
     output_directory: str
-    
+
     # API Keys
     openai_api_key: Optional[str]
     elevenlabs_api_key: Optional[str]
     google_cloud_api_key: Optional[str]
     google_cloud_service_account_path: Optional[str]
-    
+
     # Feature flags
     auto_provider_selection: bool
     voice_loading_enabled: bool
-    
+
     # Performance settings
     http_streaming_chunk_size: int
     streaming_progress_interval: int
     ffmpeg_conversion_timeout: int
     ffplay_timeout: int
     thread_pool_max_workers: int
-    
+
     # Voice browser settings
     browser_page_size: int
     browser_preview_text: str

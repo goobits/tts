@@ -2,59 +2,59 @@
 
 import logging
 from pathlib import Path
-from typing import Dict, Optional, Any, Type
+from typing import Any, Dict, Optional, Type
 
 from .base import TTSProvider
 from .config import load_config, parse_voice_setting
-from .exceptions import ProviderNotFoundError, ProviderLoadError, TTSError
+from .exceptions import ProviderLoadError, ProviderNotFoundError, TTSError
 
 
 class TTSEngine:
     """Core TTS engine that handles synthesis without CLI dependencies."""
-    
+
     def __init__(self, providers_registry: Dict[str, str]) -> None:
         """Initialize TTS engine with provider registry.
-        
+
         Args:
             providers_registry: Dictionary mapping provider names to module paths
         """
         self.providers_registry = providers_registry
         self.logger = logging.getLogger(__name__)
         self._loaded_providers: Dict[str, Type[TTSProvider]] = {}
-    
+
     def load_provider(self, name: str) -> Type[TTSProvider]:
         """Load a TTS provider by name using the existing loader.
-        
+
         Args:
             name: Provider name (e.g., 'edge_tts', 'openai')
-            
+
         Returns:
             Provider class
-            
+
         Raises:
             ProviderNotFoundError: If provider not found in registry
             ProviderLoadError: If provider module cannot be loaded
         """
         if name in self._loaded_providers:
             return self._loaded_providers[name]
-        
+
         # Use the existing load_provider function from the tts module
         # We need to import it here to avoid circular imports
         from .tts import load_provider as main_load_provider
-        
+
         try:
             provider_class = main_load_provider(name)
             self._loaded_providers[name] = provider_class
             return provider_class
         except Exception as e:
-            raise ProviderLoadError(f"Failed to load provider {name}: {e}")
-    
+            raise ProviderLoadError(f"Failed to load provider {name}: {e}") from e
+
     def get_available_providers(self) -> list[str]:
         """Get list of available provider names."""
         return list(self.providers_registry.keys())
-    
-    def synthesize_text(self, 
-                       text: str, 
+
+    def synthesize_text(self,
+                       text: str,
                        output_path: Optional[str] = None,
                        provider_name: Optional[str] = None,
                        voice: Optional[str] = None,
@@ -62,7 +62,7 @@ class TTSEngine:
                        output_format: str = "wav",
                        **kwargs) -> Optional[str]:
         """Synthesize text to speech.
-        
+
         Args:
             text: Text to synthesize
             output_path: Path to save audio file (if None and stream=False, auto-generate)
@@ -71,17 +71,17 @@ class TTSEngine:
             stream: Whether to stream audio to speakers
             output_format: Audio output format
             **kwargs: Additional provider-specific options
-            
+
         Returns:
             Path to generated audio file if saved, None if streamed
-            
+
         Raises:
             TTSError: If synthesis fails
             ProviderNotFoundError: If specified provider not found
         """
         # Load configuration
         config = load_config()
-        
+
         # Determine voice and provider
         # If provider_name is explicitly provided, it takes precedence
         if provider_name:
@@ -109,19 +109,19 @@ class TTSEngine:
                 # Use default voice from config
                 default_voice = config.get('voice', 'edge_tts:en-US-JennyNeural')
                 provider_name, voice = parse_voice_setting(default_voice)
-        
+
         if not provider_name:
             # Fallback to edge_tts if no provider detected
             provider_name = 'edge_tts'
-        
+
         # Load and instantiate provider
         try:
             provider_class = self.load_provider(provider_name)
             provider = provider_class()
         except (ProviderNotFoundError, ProviderLoadError) as e:
             self.logger.error(f"Failed to load provider {provider_name}: {e}")
-            raise TTSError(f"Provider {provider_name} unavailable: {e}")
-        
+            raise TTSError(f"Provider {provider_name} unavailable: {e}") from e
+
         # Prepare synthesis parameters
         synthesis_kwargs = {
             'voice': voice,
@@ -129,14 +129,14 @@ class TTSEngine:
             'output_format': output_format,
             **kwargs
         }
-        
+
         # Generate output path if needed
         if not stream and not output_path:
             import tempfile
             suffix = f'.{output_format}' if output_format else '.wav'
             with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
                 output_path = tmp.name
-        
+
         # Perform synthesis
         try:
             if stream:
@@ -144,27 +144,31 @@ class TTSEngine:
                 provider.synthesize(text, None, **synthesis_kwargs)
                 return None
             else:
-                self.logger.info(f"Synthesizing audio to {output_path} with {provider_name} provider")
+                self.logger.info(
+                    f"Synthesizing audio to {output_path} with {provider_name} provider"
+                )
                 provider.synthesize(text, output_path, **synthesis_kwargs)
-                
+
                 # Verify output file was created
                 if output_path and Path(output_path).exists():
                     file_size = Path(output_path).stat().st_size
-                    self.logger.info(f"Synthesis completed. File: {output_path} ({file_size} bytes)")
+                    self.logger.info(
+                        f"Synthesis completed. File: {output_path} ({file_size} bytes)"
+                    )
                     return output_path
                 else:
                     raise TTSError("Synthesis completed but output file not found")
-                    
+
         except Exception as e:
             self.logger.error(f"Synthesis failed: {e}")
-            raise TTSError(f"Synthesis failed: {e}")
-    
+            raise TTSError(f"Synthesis failed: {e}") from e
+
     def get_provider_info(self, provider_name: str) -> Optional[Dict[str, Any]]:
         """Get information about a specific provider.
-        
+
         Args:
             provider_name: Name of the provider
-            
+
         Returns:
             Provider info dictionary or None if provider unavailable
         """
@@ -175,15 +179,15 @@ class TTSEngine:
         except (ProviderNotFoundError, ProviderLoadError, Exception) as e:
             self.logger.warning(f"Could not get info for provider {provider_name}: {e}")
             return None
-    
+
     def get_all_voices(self) -> Dict[str, list]:
         """Get all available voices from all providers.
-        
+
         Returns:
             Dictionary mapping provider names to lists of available voices
         """
         all_voices = {}
-        
+
         for provider_name in self.providers_registry.keys():
             try:
                 info = self.get_provider_info(provider_name)
@@ -195,42 +199,42 @@ class TTSEngine:
             except Exception as e:
                 self.logger.warning(f"Error getting voices for {provider_name}: {e}")
                 all_voices[provider_name] = []
-        
+
         return all_voices
-    
+
     def validate_voice(self, voice: str, provider_name: Optional[str] = None) -> bool:
         """Validate that a voice is available.
-        
+
         Args:
             voice: Voice name to validate
             provider_name: Specific provider to check (if None, parse from voice)
-            
+
         Returns:
             True if voice is available, False otherwise
         """
         if not provider_name:
             provider_name, voice = parse_voice_setting(voice)
-        
+
         if not provider_name:
             return False
-        
+
         try:
             info = self.get_provider_info(provider_name)
             if not info:
                 return False
-            
+
             voices = info.get('all_voices') or info.get('sample_voices', [])
             return voice in voices
-            
+
         except Exception:
             return False
-    
+
     def test_provider(self, provider_name: str) -> Dict[str, Any]:
         """Test a provider's availability and basic functionality.
-        
+
         Args:
             provider_name: Name of provider to test
-            
+
         Returns:
             Dictionary with test results
         """
@@ -241,12 +245,12 @@ class TTSEngine:
             'voice_count': 0,
             'sample_voices': []
         }
-        
+
         try:
             provider_class = self.load_provider(provider_name)
             provider = provider_class()
             info = provider.get_info()
-            
+
             if info:
                 voices = info.get('all_voices') or info.get('sample_voices', [])
                 result.update({
@@ -256,10 +260,10 @@ class TTSEngine:
                 })
             else:
                 result['error'] = 'No provider info available'
-                
+
         except Exception as e:
             result['error'] = str(e)
-        
+
         return result
 
 
@@ -269,10 +273,10 @@ _tts_engine: Optional[TTSEngine] = None
 
 def get_tts_engine() -> TTSEngine:
     """Get the global TTS engine instance.
-    
+
     Returns:
         TTS engine instance
-        
+
     Raises:
         RuntimeError: If engine not initialized
     """
@@ -283,10 +287,10 @@ def get_tts_engine() -> TTSEngine:
 
 def initialize_tts_engine(providers_registry: Dict[str, str]) -> TTSEngine:
     """Initialize the global TTS engine.
-    
+
     Args:
         providers_registry: Dictionary mapping provider names to module paths
-        
+
     Returns:
         Initialized TTS engine instance
     """

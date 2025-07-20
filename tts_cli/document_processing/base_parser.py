@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 
 class SemanticType(Enum):
@@ -27,7 +27,7 @@ class SemanticElement:
     content: str
     level: Optional[int] = None  # For headings (1-6), list nesting, etc.
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     def __str__(self) -> str:
         level_str = f" (level {self.level})" if self.level is not None else ""
         return f"{self.type.value}{level_str}: {self.content[:50]}..."
@@ -35,27 +35,27 @@ class SemanticElement:
 
 class BaseDocumentParser(ABC):
     """Abstract base class for document parsers."""
-    
+
     @abstractmethod
     def parse(self, content: str) -> List[SemanticElement]:
         """Parse document content and return semantic elements.
-        
+
         Args:
             content: Raw document content as string
-            
+
         Returns:
             List of semantic elements in document order
         """
         pass
-    
+
     @abstractmethod
     def can_parse(self, content: str, filename: Optional[str] = None) -> bool:
         """Check if this parser can handle the given content.
-        
+
         Args:
             content: Raw document content
             filename: Optional filename for extension-based detection
-            
+
         Returns:
             True if this parser can handle the content
         """

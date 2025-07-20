@@ -1,6 +1,5 @@
 """Custom exceptions for TTS CLI with standardized error hierarchy."""
 
-from typing import Optional
 from .config import get_config_value
 
 
@@ -26,7 +25,7 @@ class ProviderLoadError(TTSError):
 
 class AuthenticationError(TTSError):
     """Exception raised when API authentication fails.
-    
+
     This includes API key validation, credential issues, and authorization failures.
     """
     pass
@@ -34,7 +33,7 @@ class AuthenticationError(TTSError):
 
 class RateLimitError(TTSError):
     """Exception raised when API rate limits are exceeded.
-    
+
     Typically occurs with HTTP 429 responses from TTS providers.
     """
     pass
@@ -42,7 +41,7 @@ class RateLimitError(TTSError):
 
 class QuotaError(TTSError):
     """Exception raised when API quota or billing issues occur.
-    
+
     This includes monthly usage limits, insufficient credits, or billing problems.
     """
     pass
@@ -50,7 +49,7 @@ class QuotaError(TTSError):
 
 class ServerError(TTSError):
     """Exception raised when provider servers return 5xx errors.
-    
+
     Indicates issues on the provider's side that are temporary or systemic.
     """
     pass
@@ -58,7 +57,7 @@ class ServerError(TTSError):
 
 class TimeoutError(TTSError):
     """Exception raised when operations timeout.
-    
+
     This includes network timeouts, synthesis timeouts, or streaming timeouts.
     """
     pass
@@ -66,8 +65,8 @@ class TimeoutError(TTSError):
 
 class ConfigurationError(TTSError):
     """Exception raised when provider configuration is invalid.
-    
-    This includes missing required settings, invalid parameter values, or 
+
+    This includes missing required settings, invalid parameter values, or
     configuration conflicts.
     """
     pass
@@ -75,7 +74,7 @@ class ConfigurationError(TTSError):
 
 class VoiceNotFoundError(TTSError):
     """Exception raised when a requested voice is not available.
-    
+
     This includes invalid voice names, unavailable voices for a provider,
     or language-specific voice limitations.
     """
@@ -84,7 +83,7 @@ class VoiceNotFoundError(TTSError):
 
 class AudioConversionError(TTSError):
     """Exception raised when audio format conversion fails.
-    
+
     This includes FFmpeg conversion errors or unsupported format combinations.
     """
     pass
@@ -92,7 +91,7 @@ class AudioConversionError(TTSError):
 
 class AudioPlaybackError(TTSError):
     """Exception raised when audio playback fails.
-    
+
     This includes missing audio devices, driver issues, or streaming problems.
     """
     pass
@@ -100,7 +99,7 @@ class AudioPlaybackError(TTSError):
 
 class NetworkError(TTSError):
     """Exception raised when network-related errors occur.
-    
+
     This includes connection failures, DNS issues, and general connectivity problems.
     """
     pass
@@ -108,7 +107,7 @@ class NetworkError(TTSError):
 
 class DependencyError(TTSError):
     """Exception raised when required dependencies are missing.
-    
+
     This includes missing Python packages, system libraries, or external tools.
     """
     pass
@@ -116,17 +115,17 @@ class DependencyError(TTSError):
 
 def map_http_error(status_code: int, response_text: str = "", provider: str = "") -> TTSError:
     """Map HTTP status codes to appropriate exception types.
-    
+
     Args:
         status_code: HTTP status code from provider response
         response_text: Optional response body text for context
         provider: Optional provider name for error context
-        
+
     Returns:
         Appropriate TTSError subclass instance
     """
     provider_prefix = f"{provider}: " if provider else ""
-    
+
     if status_code == get_config_value('http_unauthorized'):
         return AuthenticationError(f"{provider_prefix}API authentication failed. Check your API key.")
     elif status_code == get_config_value('http_forbidden'):
