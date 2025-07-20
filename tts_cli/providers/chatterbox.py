@@ -45,7 +45,12 @@ class ChatterboxProvider(TTSProvider):
     
     def synthesize(self, text: str, output_path: str, **kwargs) -> None:
         # Extract options
-        stream = kwargs.get("stream", "false").lower() in ("true", "1", "yes")
+        # Handle stream parameter as boolean or string
+        stream_param = kwargs.get("stream", False)
+        if isinstance(stream_param, bool):
+            stream = stream_param
+        else:
+            stream = str(stream_param).lower() in ("true", "1", "yes")
         audio_prompt_path = kwargs.get("voice")  # Optional voice cloning
         exaggeration = float(kwargs.get("exaggeration", "0.5"))
         cfg_weight = float(kwargs.get("cfg_weight", "0.5"))

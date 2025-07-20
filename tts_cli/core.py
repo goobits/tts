@@ -83,15 +83,32 @@ class TTSEngine:
         config = load_config()
         
         # Determine voice and provider
-        if voice:
-            detected_provider, voice_name = parse_voice_setting(voice)
-            if detected_provider:
-                provider_name = detected_provider
-                voice = voice_name
+        # If provider_name is explicitly provided, it takes precedence
+        if provider_name:
+            # Extract just the voice part if it contains a provider prefix
+            if voice:
+                _, voice_name = parse_voice_setting(voice)
+                if voice_name:
+                    voice = voice_name
+            elif not voice:
+                # No voice specified - use provider's default or None
+                # Don't use config default if it's for a different provider
+                default_voice = config.get('voice', 'edge_tts:en-US-JennyNeural')
+                default_provider, default_voice_name = parse_voice_setting(default_voice)
+                if default_provider == provider_name:
+                    voice = default_voice_name
+                # else: voice remains None, provider will use its own default
         else:
-            # Use default voice from config
-            default_voice = config.get('voice', 'edge_tts:en-US-JennyNeural')
-            provider_name, voice = parse_voice_setting(default_voice)
+            # No explicit provider, auto-detect from voice
+            if voice:
+                detected_provider, voice_name = parse_voice_setting(voice)
+                if detected_provider:
+                    provider_name = detected_provider
+                    voice = voice_name
+            else:
+                # Use default voice from config
+                default_voice = config.get('voice', 'edge_tts:en-US-JennyNeural')
+                provider_name, voice = parse_voice_setting(default_voice)
         
         if not provider_name:
             # Fallback to edge_tts if no provider detected
