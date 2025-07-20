@@ -23,14 +23,14 @@ def test_cli_missing_text():
 
 def test_cli_unknown_model():
     runner = CliRunner()
-    result = runner.invoke(cli, ['Hello world', '-m', 'unknown_model'])
+    result = runner.invoke(cli, ['@unknown_model', 'Hello world'])
     assert result.exit_code == 1
-    assert 'Unknown provider: unknown_model' in result.output
+    assert 'Unknown provider' in result.output
 
 
 def test_cli_list_models():
     runner = CliRunner()
-    result = runner.invoke(cli, ['-l'])
+    result = runner.invoke(cli, ['providers'])
     assert result.exit_code == 0
     assert 'edge_tts' in result.output
     assert 'chatterbox' in result.output
@@ -49,8 +49,8 @@ def test_cli_default_model():
 
 def test_cli_save_mode():
     runner = CliRunner()
-    # This should save to file when --save flag is used
-    result = runner.invoke(cli, ['Hello world', '--save', '-o', 'test.mp3'])
+    # Test the new save subcommand
+    result = runner.invoke(cli, ['save', 'Hello world', '-o', 'test.mp3'])
     # We expect it to try to use edge_tts (the error will be about edge-tts not being installed)
     assert 'edge-tts not installed' in result.output or result.exit_code == 0
 
@@ -62,48 +62,9 @@ def test_cli_save_mode():
 class TestPhase1BackwardCompatibility:
     """Tests for Phase 1 backward compatibility requirements"""
     
-    def test_legacy_save_flag_works(self):
-        """Test that --save flag continues to work (backward compatibility)"""
-        runner = CliRunner()
-        result = runner.invoke(cli, ['Hello world', '--save'])
-        # Should show "Saving with..." indicating it's using the save handler
-        assert ('Saving with' in result.output or 
-                'edge-tts not installed' in result.output or
-                result.exit_code == 0)
-    
-    def test_legacy_document_flag_works(self):
-        """Test that --document flag continues to work"""
-        runner = CliRunner()
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
-            f.write("# Test Document\nThis is a test.")
-            temp_path = f.name
-        
-        try:
-            result = runner.invoke(cli, ['--document', temp_path])
-            # Should process the document (may fail on synthesis due to missing providers)
-            assert (result.exit_code == 0 or 
-                    'edge-tts not installed' in result.output or
-                    'Detected format: markdown' in result.output)
-        finally:
-            os.unlink(temp_path)
-    
-    def test_legacy_model_flag_works(self):
-        """Test that --model flag continues to work"""
-        runner = CliRunner()
-        result = runner.invoke(cli, ['Hello world', '--model', 'chatterbox'])
-        # Should use chatterbox provider
-        assert (result.exit_code == 0 or
-                'chatterbox' in result.output.lower() or
-                'Hello world' in result.output)
-    
     def test_legacy_subcommands_still_work(self):
-        """Test that legacy subcommands like 'models', 'info' still work"""
+        """Test that essential subcommands like 'info', 'providers' still work"""
         runner = CliRunner()
-        
-        # Test models command
-        result = runner.invoke(cli, ['models'])
-        assert result.exit_code == 0
-        assert 'Available models/providers' in result.output
         
         # Test info command  
         result = runner.invoke(cli, ['info'])
@@ -223,25 +184,21 @@ class TestPhase1OptionPrecedence:
 
 
 class TestPhase1CommandParity:
-    """Tests for Phase 1 command parity (old vs new syntax should be equivalent)"""
+    """Tests for Phase 1 command parity (new syntax verification)"""
     
-    def test_save_command_parity(self):
-        """Test that 'tts --save' and 'tts save' have equivalent behavior"""
+    def test_save_command_works(self):
+        """Test that 'tts save' command works correctly"""
         runner = CliRunner()
         
-        # Old syntax
-        old_result = runner.invoke(cli, ['Hello world', '--save', '--debug'])
-        
         # New syntax  
-        new_result = runner.invoke(cli, ['save', 'Hello world', '--debug'])
+        result = runner.invoke(cli, ['save', 'Hello world', '--debug'])
         
-        # Both should either succeed or fail with the same provider error
-        # (Since edge-tts might not be installed, both should fail the same way)
-        assert (('edge-tts not installed' in old_result.output and 'edge-tts not installed' in new_result.output) or
-                (old_result.exit_code == new_result.exit_code == 0))
+        # Should either succeed or fail with provider error
+        # (Since edge-tts might not be installed, should fail gracefully)
+        assert ('edge-tts not installed' in result.output or result.exit_code == 0)
     
-    def test_document_command_parity(self):
-        """Test that '--document' flag and 'document' subcommand have equivalent behavior"""
+    def test_document_command_works(self):
+        """Test that 'document' subcommand works correctly"""
         runner = CliRunner()
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
@@ -249,17 +206,13 @@ class TestPhase1CommandParity:
             temp_path = f.name
         
         try:
-            # Old syntax
-            old_result = runner.invoke(cli, ['--document', temp_path])
-            
             # New syntax
-            new_result = runner.invoke(cli, ['document', temp_path])
+            result = runner.invoke(cli, ['document', temp_path])
             
-            # Both should process the document similarly
-            # Look for similar processing indicators
-            assert (old_result.exit_code == new_result.exit_code or
-                    ('markdown' in old_result.output and 'markdown' in new_result.output) or
-                    ('edge-tts not installed' in old_result.output and 'edge-tts not installed' in new_result.output))
+            # Should process the document properly
+            assert (result.exit_code == 0 or
+                    'markdown' in result.output or
+                    'edge-tts not installed' in result.output)
         finally:
             os.unlink(temp_path)
 
@@ -270,9 +223,9 @@ class TestPhase1ErrorHandling:
     def test_unknown_provider_error(self):
         """Test error handling for unknown providers"""
         runner = CliRunner()
-        result = runner.invoke(cli, ['Hello world', '--model', 'nonexistent'])
+        result = runner.invoke(cli, ['@nonexistent', 'Hello world'])
         assert result.exit_code == 1
-        assert 'Unknown provider: nonexistent' in result.output
+        assert 'Unknown provider' in result.output
     
     def test_invalid_shortcut_error(self):
         """Test error handling for invalid @provider shortcuts"""
@@ -304,10 +257,8 @@ class TestPhase1Integration:
         # Test all legacy commands work
         legacy_commands = [
             (['--help'], 0),
-            (['models'], 0), 
             (['providers'], 0),
             (['info'], 0),
-            (['--list'], 0),
         ]
         
         for cmd, expected_code in legacy_commands:
@@ -339,3 +290,123 @@ class TestPhase1Integration:
         for shortcut in PROVIDER_SHORTCUTS.keys():
             result = runner.invoke(cli, ['info', f'@{shortcut}'])
             assert result.exit_code == 0, f"Provider shortcut @{shortcut} failed: {result.output}"
+
+
+class TestPhase3LegacyRejection:
+    """Tests for Phase 3 legacy flag rejection"""
+    
+    def test_save_flag_rejected(self):
+        """Test that --save flag is now rejected with unknown option error"""
+        runner = CliRunner()
+        result = runner.invoke(cli, ['--save'])
+        
+        # Should fail with unknown option error
+        assert result.exit_code != 0
+        assert "no such option" in result.output.lower() or "unknown option" in result.output.lower()
+    
+    def test_document_flag_rejected(self):
+        """Test that --document flag is now rejected with unknown option error"""
+        runner = CliRunner()
+        
+        # Create a test file
+        test_file = '/tmp/test_doc.txt'
+        with open(test_file, 'w') as f:
+            f.write('Test document content')
+        
+        result = runner.invoke(cli, ['--document', test_file])
+        
+        # Should fail with unknown option error
+        assert result.exit_code != 0
+        assert "no such option" in result.output.lower() or "unknown option" in result.output.lower()
+    
+    def test_model_flag_rejected(self):
+        """Test that --model flag is now rejected with unknown option error"""
+        runner = CliRunner()
+        result = runner.invoke(cli, ['--model', 'edge_tts'])
+        
+        # Should fail with unknown option error
+        assert result.exit_code != 0
+        assert "no such option" in result.output.lower() or "unknown option" in result.output.lower()
+    
+    def test_list_flag_rejected(self):
+        """Test that --list flag is now rejected with unknown option error"""
+        runner = CliRunner()
+        result = runner.invoke(cli, ['--list'])
+        
+        # Should fail with unknown option error
+        assert result.exit_code != 0
+        assert "no such option" in result.output.lower() or "unknown option" in result.output.lower()
+    
+    def test_models_subcommand_rejected(self):
+        """Test that 'models' subcommand is now rejected"""
+        runner = CliRunner()
+        result = runner.invoke(cli, ['models'])
+        
+        # Should fail - models is no longer a valid subcommand
+        assert result.exit_code != 0
+        # The text "models" will be treated as text to synthesize, but should fail since there's no actual text processing
+    
+    def test_legacy_save_in_speak_rejected(self):
+        """Test that legacy --save flag in speak command is rejected"""
+        runner = CliRunner()
+        result = runner.invoke(cli, ['speak', 'test text', '--save'])
+        
+        # Should fail with unknown option error
+        assert result.exit_code != 0
+        assert "no such option" in result.output.lower() or "unknown option" in result.output.lower()
+
+
+class TestPhase2MigrationHelper:
+    """Tests for Phase 2 migration helper command"""
+    
+    def test_migrate_command_exists(self):
+        """Test that migrate command is available"""
+        runner = CliRunner()
+        result = runner.invoke(cli, ['migrate', '--help'])
+        assert result.exit_code == 0
+        assert "Migration helper" in result.output
+    
+    def test_migrate_check_legacy_script(self):
+        """Test migrate --check finds legacy usage"""
+        runner = CliRunner()
+        
+        # Create a script with legacy usage
+        script_content = '''#!/bin/bash
+tts "hello" --save
+tts --document file.txt --model edge_tts
+'''
+        script_file = '/tmp/legacy_test.sh'
+        with open(script_file, 'w') as f:
+            f.write(script_content)
+        
+        result = runner.invoke(cli, ['migrate', '--check', script_file])
+        assert result.exit_code == 0
+        assert "Found 2 lines with legacy TTS usage" in result.output
+        assert "--save" in result.output
+        assert "--document" in result.output
+        assert "--model" in result.output
+    
+    def test_migrate_check_modern_script(self):
+        """Test migrate --check with modern syntax"""
+        runner = CliRunner()
+        
+        # Create a script with modern usage
+        script_content = '''#!/bin/bash
+tts save "hello"
+tts document file.txt @edge
+'''
+        script_file = '/tmp/modern_test.sh'
+        with open(script_file, 'w') as f:
+            f.write(script_content)
+        
+        result = runner.invoke(cli, ['migrate', '--check', script_file])
+        assert result.exit_code == 0
+        assert "No legacy TTS usage found" in result.output
+        assert "already using modern TTS syntax" in result.output
+    
+    def test_migrate_without_arguments(self):
+        """Test migrate command without arguments shows usage"""
+        runner = CliRunner()
+        result = runner.invoke(cli, ['migrate'])
+        assert result.exit_code == 0
+        assert "Usage: tts migrate --check <script_file>" in result.output

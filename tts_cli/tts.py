@@ -337,46 +337,6 @@ def handle_providers_command() -> None:
         click.echo(provider_name)
 
 
-def handle_models_command(args: tuple) -> None:
-    """Handle models subcommand"""
-    if len(args) == 0:
-        # tts models - list all available providers
-        click.echo("Available models/providers:")
-        for name in PROVIDERS.keys():
-            click.echo(f"  - {name}")
-    
-    elif len(args) == 1:
-        # tts models edge_tts - show info about specific provider
-        provider_name = args[0]
-        if provider_name not in PROVIDERS:
-            click.echo(f"Error: Unknown provider '{provider_name}'", err=True)
-            click.echo(f"Available providers: {', '.join(PROVIDERS.keys())}", err=True)
-            sys.exit(1)
-        
-        try:
-            provider_class = load_provider(provider_name)
-            provider = provider_class()
-            info = provider.get_info()
-            
-            click.echo(f"Provider info for {provider_name}:")
-            if info:
-                for key, value in info.items():
-                    if key == 'sample_voices':
-                        click.echo(f"  {key}: {len(value)} voices available")
-                    else:
-                        click.echo(f"  {key}: {value}")
-            else:
-                click.echo(f"  No detailed info available for {provider_name}")
-        except TTSError as e:
-            click.echo(f"Error loading provider {provider_name}: {e}", err=True)
-        except Exception as e:
-            click.echo(f"Unexpected error loading provider {provider_name}: {e}", err=True)
-    
-    else:
-        click.echo("Error: Invalid models command", err=True)
-        click.echo("Usage: tts models [provider]", err=True)
-        sys.exit(1)
-
 
 
 def handle_config_commands(action: str, key: str = None, value: str = None) -> None:
@@ -1410,12 +1370,8 @@ def handle_unload_command(args: tuple) -> None:
 
 @click.group(cls=DefaultCommandGroup, invoke_without_command=True)
 @click.version_option(version=__version__, prog_name="tts")
-@click.option("-l", "--list", "list_models", is_flag=True, help="List available models")
-@click.option("-s", "--save", is_flag=True, help="Save to file instead of streaming to speakers (default: stream)")
-@click.option("-m", "--model", help="TTS model to use")
-@click.option("--document", type=click.Path(exists=True), help="Convert document to speech (HTML, JSON, Markdown)")
 @click.pass_context
-def main(ctx: click.Context, list_models: bool, save: bool, model: str, document: str) -> None:
+def main(ctx: click.Context) -> None:
     """🎤 Transform text into speech with AI-powered voices
     
     TTS CLI supports multiple providers with smart auto-selection and voice cloning.
@@ -1424,12 +1380,12 @@ def main(ctx: click.Context, list_models: bool, save: bool, model: str, document
     \b
     📝 Basic Usage:
       tts "Hello world"                    # Stream with default voice
-      tts "Hello" --save                   # Save to file
+      tts save "Hello" -o output.mp3       # Save to file
       tts @edge "Hello"                    # Use Edge TTS provider
-      tts save "Hello" -o output.mp3       # New save subcommand
+      tts @openai "Hello" --voice nova     # OpenAI with specific voice
     
     \b
-    🚀 Provider Shortcuts (New):
+    🚀 Provider Shortcuts:
       tts @edge "text"                     # Edge TTS
       tts @openai "text"                   # OpenAI TTS 
       tts @elevenlabs "text"               # ElevenLabs
@@ -1438,15 +1394,15 @@ def main(ctx: click.Context, list_models: bool, save: bool, model: str, document
     
     \b
     📄 Document Processing:
-      tts document file.html               # New document subcommand
-      tts --document report.html           # Legacy flag (still supported)
+      tts document file.html               # Convert documents to speech
       tts document api.json --emotion-profile technical
+      tts document report.md --save        # Save document audio
     
     \b
     🎙️ Voice Management:
-      tts voice load voice.wav             # New voice subcommand group
-      tts voice unload voice.wav           # Grouped voice operations
-      tts voice status                     # Voice status
+      tts voice load voice.wav             # Load voice for fast synthesis
+      tts voice unload voice.wav           # Unload voice from memory
+      tts voice status                     # Show loaded voices
       tts voices                           # Interactive voice browser
     
     \b
@@ -1464,52 +1420,106 @@ def main(ctx: click.Context, list_models: bool, save: bool, model: str, document
       • Google Cloud TTS: Neural voices with 40+ languages
       • ElevenLabs: Advanced voice synthesis and cloning
     """
-    # Handle legacy list command
-    if list_models:
-        handle_models_command(())
-        return
-    
-    # If we reach here with no subcommand but have legacy options, invoke the speak command
+    # If no subcommand is invoked, show help
     if ctx.invoked_subcommand is None:
-        # Check if any legacy options that should trigger speak command are provided
-        has_legacy_options = any([save, model, document])
-        
-        if has_legacy_options:
-            # Invoke the speak command with these parameters
-            ctx.invoke(speak, list_models=False, save=save, model=model, output=None, output_format=None, 
-                      voice=None, clone=None, json_output=False, debug=False, 
-                      document=document, doc_format='auto', ssml_platform='generic', 
-                      emotion_profile='auto', rate=None, pitch=None, 
-                      text=None, options=())
-        else:
-            # Show help
-            click.echo(ctx.get_help())
-            sys.exit(0)
+        click.echo(ctx.get_help())
+        sys.exit(0)
 
 
 @main.command()
-@click.option("-l", "--list", "list_models", is_flag=True, help="List available models")
-@click.option("-s", "--save", is_flag=True, help="Save to file instead of streaming to speakers (default: stream)")
-@click.option("-m", "--model", help="TTS model to use")
+@click.option("--check", type=click.Path(exists=True), help="Check script file for legacy TTS usage")
+@click.pass_context
+def migrate(ctx: click.Context, check: str) -> None:
+    """Migration helper for updating legacy TTS commands.
+    
+    Scans shell scripts and suggests modern replacements for legacy flags.
+    """
+    if not check:
+        click.echo("Usage: tts migrate --check <script_file>")
+        click.echo("\nAnalyze a shell script for legacy TTS usage and suggest modernized commands.")
+        return
+    
+    try:
+        with open(check, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        issues_found = []
+        line_num = 0
+        
+        for line in content.split('\n'):
+            line_num += 1
+            line_stripped = line.strip()
+            
+            # Skip comments and empty lines
+            if not line_stripped or line_stripped.startswith('#'):
+                continue
+            
+            # Look for tts commands with legacy flags
+            if 'tts ' in line_stripped:
+                suggestions = []
+                
+                # Check for --save flag
+                if '--save' in line_stripped:
+                    suggestions.append("Replace '--save' with 'tts save' subcommand")
+                
+                # Check for --document flag
+                if '--document ' in line_stripped:
+                    suggestions.append("Replace '--document <file>' with 'tts document <file>'")
+                
+                # Check for --model flag
+                if '--model ' in line_stripped:
+                    suggestions.append("Replace '--model <provider>' with '@<provider>' shortcut")
+                
+                if suggestions:
+                    issues_found.append({
+                        'line': line_num,
+                        'content': line_stripped,
+                        'suggestions': suggestions
+                    })
+        
+        if not issues_found:
+            click.echo(f"✅ No legacy TTS usage found in {check}")
+            click.echo("🎉 Your script is already using modern TTS syntax!")
+        else:
+            click.echo(f"📋 Migration Analysis for {check}")
+            click.echo(f"Found {len(issues_found)} lines with legacy TTS usage:\n")
+            
+            for issue in issues_found:
+                click.echo(f"Line {issue['line']}: {issue['content']}")
+                for suggestion in issue['suggestions']:
+                    click.echo(f"  💡 {suggestion}")
+                click.echo()
+            
+            click.echo("📖 Migration Guide:")
+            click.echo("• '--save' flag → 'tts save \"text\"'")
+            click.echo("• '--document file' → 'tts document file'")
+            click.echo("• '--model provider' → 'tts @provider \"text\"'")
+            click.echo("• '--voice voice.wav' → 'tts @chatterbox \"text\" --clone voice.wav'")
+            
+    except FileNotFoundError:
+        click.echo(f"❌ File not found: {check}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Error reading file: {e}", err=True)
+        sys.exit(1)
+
+
+@main.command()
 @click.option("-o", "--output", help="Output file path")
 @click.option("-f", "--format", "output_format", type=click.Choice(['mp3', 'wav', 'ogg', 'flac']), help="Audio output format")
 @click.option("-v", "--voice", help="Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
 @click.option("--clone", help="Audio file to clone voice from (deprecated: use --voice instead)")
 @click.option("--json", "json_output", is_flag=True, help="Output results as JSON")
 @click.option("--debug", is_flag=True, help="Show debug information during processing")
-@click.option("--document", type=click.Path(exists=True), help="Convert document to speech (HTML, JSON, Markdown)")
-@click.option("--doc-format", "doc_format", type=click.Choice(['auto', 'markdown', 'html', 'json']), default='auto', help="Document format (auto-detect by default)")
-@click.option("--ssml-platform", type=click.Choice(['azure', 'google', 'amazon', 'generic']), default='generic', help="SSML platform for voice synthesis")
-@click.option("--emotion-profile", type=click.Choice(['technical', 'marketing', 'narrative', 'tutorial', 'auto']), default='auto', help="Emotion profile for document type")
 @click.option("--rate", help="Speech rate adjustment (e.g., +20%, -50%, 150%)")
 @click.option("--pitch", help="Pitch adjustment (e.g., +5Hz, -10Hz)")
 @click.argument("text", required=False)
 @click.argument("options", nargs=-1)
 @click.pass_context
-def speak(ctx: click.Context, list_models: bool, save: bool, model: str, output: str, output_format: str, voice: str, clone: str, json_output: bool, debug: bool, document: str, doc_format: str, ssml_platform: str, emotion_profile: str, rate: str, pitch: str, text: str, options: tuple) -> None:
+def speak(ctx: click.Context, output: str, output_format: str, voice: str, clone: str, json_output: bool, debug: bool, rate: str, pitch: str, text: str, options: tuple) -> None:
     """Synthesize text to speech (default command).
     
-    This command handles the main TTS functionality and maintains full backward compatibility.
+    Streams audio directly to speakers. Use 'tts save' to save to file instead.
     """
     # Parse provider shortcuts from the arguments  
     provider_from_shortcut = None
@@ -1529,86 +1539,9 @@ def speak(ctx: click.Context, list_models: bool, save: bool, model: str, output:
         provider_from_shortcut, remaining_args = parse_provider_shortcut(list(options))
         final_options = remaining_args
         
-    # Handle legacy subcommands that are passed as text argument
-    if text and text.lower() in ["config", "voices", "voices-snapshot", "models", "doctor", "install", "load", "info", "status", "unload", "providers"]:
-        # Setup logging and initialize TTS engine for commands that need it
-        if text.lower() in ["voices", "voices-snapshot", "models", "info", "status", "load", "unload"]:
-            logger = setup_logging()
-            tts_engine = initialize_tts_engine(PROVIDERS)
-        
-        if text.lower() == "config":
-            if len(options) == 0:
-                handle_config_commands("show")
-            elif len(options) == 1:
-                action = options[0]
-                if action in ["show", "reset", "edit"]:
-                    handle_config_commands(action)
-                else:
-                    click.echo("Error: Invalid config command", err=True)
-                    click.echo("Usage: tts config [show|reset|edit] or tts config <key> <value>", err=True)
-                    sys.exit(1)
-            elif len(options) == 2:
-                key = options[0]
-                value = options[1]
-                handle_config_commands("set", key, value)
-            elif len(options) >= 3 and options[0] == "set":
-                key = options[1]
-                value = " ".join(options[2:])
-                handle_config_commands("set", key, value)
-            else:
-                click.echo("Error: Invalid config command format", err=True)
-                click.echo("Usage: tts config [show|reset|edit] or tts config <key> <value>", err=True)
-                sys.exit(1)
-            return
-        elif text.lower() == "voices":
-            handle_voices_command(options, PROVIDERS, load_provider)
-            return
-        elif text.lower() == "voices-snapshot":
-            show_browser_snapshot(PROVIDERS, load_provider)
-            return
-        elif text.lower() == "models":
-            handle_models_command(options)
-            return
-        elif text.lower() == "providers":
-            handle_providers_command()
-            return
-        elif text.lower() == "doctor":
-            handle_doctor_command()
-            return
-        elif text.lower() == "install":
-            handle_install_command(options)
-            return
-        elif text.lower() == "load":
-            handle_load_command(options)
-            return
-        elif text.lower() == "info":
-            # Handle @provider shortcuts in info command
-            if options and options[0].startswith('@'):
-                shortcut = options[0][1:]
-                if shortcut in PROVIDER_SHORTCUTS:
-                    provider = PROVIDER_SHORTCUTS[shortcut]
-                    handle_info_command((provider,))
-                else:
-                    click.echo(f"Error: Unknown provider shortcut '@{shortcut}'", err=True)
-                    click.echo(f"Available providers: {', '.join('@' + s for s in PROVIDER_SHORTCUTS.keys())}", err=True)
-                    sys.exit(1)
-            else:
-                handle_info_command(options)
-            return
-        elif text.lower() == "status":
-            handle_status_command()
-            return
-        elif text.lower() == "unload":
-            handle_unload_command(options)
-            return
-    
-    # Handle legacy list command (redirect to models subcommand)
-    if list_models:
-        handle_models_command(())
-        return
     
     # Check if no meaningful arguments provided and no stdin
-    if not final_text and not document and not any([model, output, voice, clone, save]) and sys.stdin.isatty():
+    if not final_text and not any([output, voice, clone]) and sys.stdin.isatty():
         click.echo(ctx.get_help())
         sys.exit(0)
     
@@ -1621,29 +1554,8 @@ def speak(ctx: click.Context, list_models: bool, save: bool, model: str, output:
     # Load configuration first
     user_config = load_config()
 
-    # Handle legacy --document flag by calling the new document handler
-    if document:
-        handle_document_command(
-            document_path=document,
-            provider=provider_from_shortcut,
-            save=save,
-            output=output,
-            voice=voice,
-            clone=clone,
-            output_format=output_format,
-            options=tuple(final_options),
-            json_output=json_output,
-            debug=debug,
-            doc_format=doc_format,
-            ssml_platform=ssml_platform,
-            emotion_profile=emotion_profile,
-            rate=rate,
-            pitch=pitch
-        )
-        return
-    
-    # Use provider from shortcut if detected, otherwise fall back to model option or config
-    final_model = provider_from_shortcut or model
+    # Use provider from shortcut if detected, otherwise fall back to config
+    final_model = provider_from_shortcut
     
     # Apply configuration defaults where CLI args weren't provided
     if not final_model:
@@ -1671,38 +1583,14 @@ def speak(ctx: click.Context, list_models: bool, save: bool, model: str, output:
         sys.exit(1)
 
     if not output:
-        if user_config.get('default_action') == 'save':
-            output_dir = Path(user_config.get('output_dir', '~/Downloads')).expanduser()
-            output = str(output_dir / "output.wav")
-        else:
-            output = "output.wav"
+        output = "output.wav"
     
     if not output_format:
         output_format = user_config.get('format', 'mp3')
     
-    # Override save flag based on config default_action if not explicitly set
-    if not save and user_config.get('default_action') == 'save':
-        save = True
     
-    # Handle legacy --save flag by calling the new save handler
-    if save and final_text:
-        handle_save_command(
-            text=final_text,
-            provider=provider_from_shortcut or model,
-            output=output,
-            voice=final_voice,
-            clone=clone,
-            output_format=output_format,
-            options=tuple(final_options),
-            json_output=json_output,
-            debug=debug,
-            rate=rate,
-            pitch=pitch
-        )
-        return
-    
-    # Check required arguments - try stdin if no text provided and no document
-    if not final_text and not document:
+    # Check required arguments - try stdin if no text provided
+    if not final_text:
         # Check if text is being piped in
         if not sys.stdin.isatty():
             # Read from stdin
@@ -1727,32 +1615,16 @@ def speak(ctx: click.Context, list_models: bool, save: bool, model: str, output:
     if json_params:
         # Override CLI parameters with JSON values
         final_voice = json_params.get('voice', final_voice)
-        save = json_params.get('action') == 'save' if 'action' in json_params else save
         output = json_params.get('output_path', output)
         output_format = json_params.get('format', output_format)
     
-    # Check output file permissions only if saving to file
-    if save:
-        output_path = Path(output)
-        try:
-            # Check if output directory exists and is writable
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            # Test write permissions by creating a temporary file
-            test_file = output_path.parent / ".tts_write_test"
-            test_file.touch()
-            test_file.unlink()
-        except (PermissionError, OSError) as e:
-            logger.error(f"Cannot write to output path {output_path}: {e}")
-            click.echo(f"Error: Cannot write to output path {output_path}: {e}", err=True)
-            sys.exit(1)
-    
-    # In standard streaming mode, display the text being spoken
-    if not save and not json_output and not debug:
+    # In streaming mode, display the text being spoken
+    if not json_output and not debug:
         # Show exactly what's being sent to TTS
         click.echo(f"\n{final_text}\n")
     
-    # Handle main synthesis
-    handle_synthesize(final_text, final_model, output, save, final_voice, clone, output_format, tuple(final_options), logger, json_output, debug, rate, pitch)
+    # Handle main synthesis - speak command is always streaming (save=False)
+    handle_synthesize(final_text, final_model, output, False, final_voice, clone, output_format, tuple(final_options), logger, json_output, debug, rate, pitch)
 
 
 @main.command()

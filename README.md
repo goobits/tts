@@ -48,10 +48,18 @@ tts install chatterbox gpu  # Add voice cloning (optional)
 ## 🎯 Basic Usage
 
 ```bash
+# New recommended syntax
 tts "Hello world"                    # Stream with default voice
-tts "Hello world" --save             # Save to file instead
-tts "Hello world" --voice en-IE-EmilyNeural  # Use specific voice
-tts "Hello world" --voice voice.wav  # Voice cloning
+tts save "Hello world"               # Save to file
+tts @edge "Hello world"              # Use Edge TTS provider
+tts @openai "Hello world" --voice nova  # OpenAI with specific voice
+
+# Provider shortcuts (recommended)
+tts @edge "text"                     # Edge TTS
+tts @openai "text"                   # OpenAI TTS
+tts @elevenlabs "text"               # ElevenLabs
+tts @google "text"                   # Google TTS
+tts @chatterbox "text"               # Voice cloning
 ```
 
 ## ⚙️ Configuration
@@ -68,23 +76,23 @@ tts config edit                      # Interactive editor
 Convert documents to natural-sounding speech with intelligent formatting:
 
 ```bash
-# Basic document conversion
-tts --document report.html           # Convert HTML to speech
-tts --document README.md --save      # Save markdown as audio file
-tts --document api.json --voice edge_tts:en-US-AriaNeural
+# New recommended syntax
+tts document report.html             # Convert HTML to speech
+tts document README.md --save        # Save markdown as audio file
+tts document api.json @edge          # Use specific provider
 
-# Advanced features
-tts --document manual.pdf --emotion-profile technical
-tts --document story.html --emotion-profile narrative
-tts --document tutorial.md --emotion-profile tutorial
+# Advanced features  
+tts document manual.pdf --emotion-profile technical
+tts document story.html --emotion-profile narrative
+tts document tutorial.md --emotion-profile tutorial
 
 # Platform-specific SSML
-tts --document doc.html --ssml-platform azure    # Azure-optimized
-tts --document doc.html --ssml-platform google   # Google Cloud TTS
-tts --document doc.html --ssml-platform amazon   # Amazon Polly
+tts document doc.html --ssml-platform azure    # Azure-optimized
+tts document doc.html --ssml-platform google   # Google Cloud TTS
+tts document doc.html --ssml-platform amazon   # Amazon Polly
 
 # Auto-detection
-tts --document file.html --doc-format auto       # Auto-detect format
+tts document file.html --doc-format auto       # Auto-detect format
 ```
 
 **Features:**
@@ -106,10 +114,11 @@ tts models                           # List providers and capabilities
 ## 🚀 Voice Loading (Performance)
 
 ```bash
-tts load voice.wav voice2.wav        # Load voices into memory
-tts status                           # Show loaded voices and system status
-tts unload voice.wav                 # Remove specific voice from memory
-tts unload all                       # Remove all voices
+# New recommended syntax
+tts voice load voice.wav voice2.wav  # Load voices into memory
+tts voice status                     # Show loaded voices and system status
+tts voice unload voice.wav           # Remove specific voice from memory
+tts voice unload all                 # Remove all voices
 ```
 
 **Performance:** First call 13s (loading), subsequent calls <1s (cached).
@@ -121,10 +130,10 @@ tts unload all                       # Remove all voices
 arecord -f cd -t wav -d 30 ~/my_voice.wav
 
 # 2. Load for fast access
-tts load ~/my_voice.wav
+tts voice load ~/my_voice.wav
 
 # 3. Use instantly
-tts "This sounds like me!" --voice ~/my_voice.wav
+tts @chatterbox "This sounds like me!" --clone ~/my_voice.wav
 ```
 
 ## 🔧 System Management
