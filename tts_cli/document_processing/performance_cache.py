@@ -189,7 +189,8 @@ class DocumentCache:
 
         if total_files > 0:
             avg_file_size = self.metadata["total_size"] / total_files
-            avg_processing_time = sum(f["processing_time"] for f in self.metadata["files"].values()) / total_files
+            total_time = sum(f["processing_time"] for f in self.metadata["files"].values())
+            avg_processing_time = total_time / total_files
 
             # Calculate hit rate (approximate based on access patterns)
             recent_accesses = sum(1 for f in self.metadata["files"].values()

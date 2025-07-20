@@ -61,7 +61,10 @@ def analyze_voice(provider: str, voice: str) -> Tuple[int, str, str]:
 
     # Gender detection
     gender = "U"  # Unknown
-    female_indicators = ['emily', 'jenny', 'aria', 'davis', 'jane', 'sarah', 'amy', 'emma', 'female', 'woman', 'libby', 'clara', 'natasha']
+    female_indicators = [
+        'emily', 'jenny', 'aria', 'davis', 'jane', 'sarah', 'amy', 'emma',
+        'female', 'woman', 'libby', 'clara', 'natasha'
+    ]
     male_indicators = ['guy', 'tony', 'brandon', 'christopher', 'eric', 'male', 'man', 'boy']
 
     # Check for gender indicators with smart boundary detection
@@ -118,7 +121,10 @@ class VoiceBrowser:
 
         # Filter state
         self.filters = {
-            'providers': {'edge_tts': True, 'google': True, 'openai': True, 'elevenlabs': True, 'chatterbox': True},
+            'providers': {
+                'edge_tts': True, 'google': True, 'openai': True,
+                'elevenlabs': True, 'chatterbox': True
+            },
             'quality': {3: True, 2: True, 1: False},  # High, Medium, Low
             'regions': {
                 'Irish': True, 'British': True, 'American': True, 'Australian': True,
@@ -209,7 +215,10 @@ class VoiceBrowser:
         search_display = f"Search: [{self.search_text:<15}] 🔍"
         filtered_voices = self.filter_voices()
         status = f"Showing: {len(filtered_voices)}/{len(self.all_voices)}"
-        playing_status = f"Playing: ♪ {self.playing_voice}" if self.is_playing and self.playing_voice else ""
+        if self.is_playing and self.playing_voice:
+            playing_status = f"Playing: ♪ {self.playing_voice}"
+        else:
+            playing_status = ""
 
         header = f"{title:<30} {search_display:<25} {status:<20} {playing_status}"
         stdscr.addstr(0, 0, header[:width-1], curses.color_pair(2) | curses.A_BOLD)
@@ -247,7 +256,8 @@ class VoiceBrowser:
             if row >= start_row + height:
                 break
             check = "☑" if self.filters['providers'].get(provider, False) else "☐"
-            color = curses.color_pair(5) if self.filters['providers'].get(provider, False) else curses.color_pair(6)
+            enabled = self.filters['providers'].get(provider, False)
+            color = curses.color_pair(5) if enabled else curses.color_pair(6)
             display_name = provider.replace('_', ' ').title()
             stdscr.addstr(row, start_col + 1, f"{check} {display_name}"[:width-1], color)
             row += 1
@@ -263,7 +273,8 @@ class VoiceBrowser:
                 if row >= start_row + height:
                     break
                 check = "☑" if self.filters['quality'].get(quality, False) else "☐"
-                color = curses.color_pair(5) if self.filters['quality'].get(quality, False) else curses.color_pair(6)
+                enabled = self.filters['quality'].get(quality, False)
+                color = curses.color_pair(5) if enabled else curses.color_pair(6)
                 stdscr.addstr(row, start_col + 1, f"{check} {label}"[:width-1], color)
                 row += 1
 
@@ -547,7 +558,8 @@ class VoiceBrowser:
                     stdscr.refresh()
 
                     # Check if background playback finished
-                    if self.current_playback_process and self.current_playback_process.poll() is not None:
+                    process = self.current_playback_process
+                    if process and process.poll() is not None:
                         self.is_playing = False
                         self.playing_voice = None
                         self.current_playback_process = None
@@ -606,7 +618,8 @@ class VoiceBrowser:
                     elif key in (ord('\n'), ord('\r'), curses.KEY_ENTER):
                         # Set as default voice
                         if filtered_voices and self.current_pos < len(filtered_voices):
-                            provider, voice, quality, region, gender = filtered_voices[self.current_pos]
+                            voice_data = filtered_voices[self.current_pos]
+                            provider, voice, quality, region, gender = voice_data
                             voice_setting = f"{provider}:{voice}"
                             if set_setting("voice", voice_setting):
                                 # Show confirmation briefly
@@ -619,13 +632,15 @@ class VoiceBrowser:
                     elif key == ord(' '):
                         # Play voice preview
                         if filtered_voices and self.current_pos < len(filtered_voices):
-                            provider, voice, quality, region, gender = filtered_voices[self.current_pos]
+                            voice_data = filtered_voices[self.current_pos]
+                            provider, voice, quality, region, gender = voice_data
                             self.start_voice_preview(provider, voice)
 
                     elif key in (ord('f'), ord('F')):
                         # Toggle favorite
                         if filtered_voices and self.current_pos < len(filtered_voices):
-                            provider, voice, quality, region, gender = filtered_voices[self.current_pos]
+                            voice_data = filtered_voices[self.current_pos]
+                            provider, voice, quality, region, gender = voice_data
                             voice_key = f"{provider}:{voice}"
                             if voice_key in self.favorites:
                                 self.favorites.remove(voice_key)
@@ -634,7 +649,8 @@ class VoiceBrowser:
 
                     elif key in (ord('q'), ord('Q'), 27):  # q, Q, or Escape
                         # Stop any background playback before exiting
-                        if self.current_playback_process and self.current_playback_process.poll() is None:
+                        process = self.current_playback_process
+                        if process and process.poll() is None:
                             self.current_playback_process.terminate()
                         break
 
@@ -704,7 +720,10 @@ def show_browser_snapshot(providers_registry: Dict[str, str], load_provider_func
 
     # Default filters from browser
     filters = {
-        'providers': {'edge_tts': True, 'google': True, 'openai': True, 'elevenlabs': True, 'chatterbox': True},
+        'providers': {
+            'edge_tts': True, 'google': True, 'openai': True,
+            'elevenlabs': True, 'chatterbox': True
+        },
         'quality': {3: True, 2: True, 1: False},
         'regions': {
             'Irish': True, 'British': True, 'American': True, 'Australian': True,
@@ -729,9 +748,15 @@ def show_browser_snapshot(providers_registry: Dict[str, str], load_provider_func
 
     # Show active filters
     click.echo("ACTIVE FILTERS:")
-    click.echo("  Providers: " + ", ".join([p for p, enabled in filters['providers'].items() if enabled]))
-    click.echo("  Quality: " + ", ".join([f"★{'★' if q >= 2 else '☆'}{'★' if q >= 3 else '☆'}" for q, enabled in filters['quality'].items() if enabled]))
-    click.echo("  Regions: " + ", ".join([r for r, enabled in filters['regions'].items() if enabled]))
+    enabled_providers = [p for p, enabled in filters['providers'].items() if enabled]
+    click.echo("  Providers: " + ", ".join(enabled_providers))
+    quality_stars = [
+        f"★{'★' if q >= 2 else '☆'}{'★' if q >= 3 else '☆'}"
+        for q, enabled in filters['quality'].items() if enabled
+    ]
+    click.echo("  Quality: " + ", ".join(quality_stars))
+    enabled_regions = [r for r, enabled in filters['regions'].items() if enabled]
+    click.echo("  Regions: " + ", ".join(enabled_regions))
     click.echo()
 
     # Group by provider
@@ -756,10 +781,14 @@ def show_browser_snapshot(providers_registry: Dict[str, str], load_provider_func
             click.echo(f"\n🔹 {provider_name.upper()}: No voices (filtered out)")
 
     click.echo(f"\nTOTAL VISIBLE: {len(filtered_voices)} voices")
-    click.echo("If you don't see these in the browser, try: pipx uninstall tts-cli && pipx install -e .")
+    install_msg = "If you don't see these in the browser, try: "
+    install_msg += "pipx uninstall tts-cli && pipx install -e ."
+    click.echo(install_msg)
 
 
-def handle_voices_command(args: tuple, providers_registry: Dict[str, str], load_provider_func: Callable) -> None:
+def handle_voices_command(
+    args: tuple, providers_registry: Dict[str, str], load_provider_func: Callable
+) -> None:
     """Handle voices subcommand"""
     # Check for snapshot option
     if len(args) > 0 and args[0] == "--snapshot":
@@ -800,7 +829,8 @@ def handle_voices_command(args: tuple, providers_registry: Dict[str, str], load_
                     continue
                 except Exception as e:
                     # Log unexpected errors but continue with other providers
-                    logging.getLogger(__name__).warning(f"Unexpected error loading provider {provider_name}: {e}")
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Unexpected error loading provider {provider_name}: {e}")
                     continue
     else:
         # Language filtering mode: tts voices en, tts voices english, etc.
@@ -879,7 +909,8 @@ def handle_voices_command(args: tuple, providers_registry: Dict[str, str], load_
                     continue
                 except Exception as e:
                     # Log unexpected errors but continue with other providers
-                    logging.getLogger(__name__).warning(f"Unexpected error loading provider {provider_name}: {e}")
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Unexpected error loading provider {provider_name}: {e}")
                     continue
         else:
             # Generic language filtering
@@ -902,5 +933,6 @@ def handle_voices_command(args: tuple, providers_registry: Dict[str, str], load_
                     continue
                 except Exception as e:
                     # Log unexpected errors but continue with other providers
-                    logging.getLogger(__name__).warning(f"Unexpected error loading provider {provider_name}: {e}")
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Unexpected error loading provider {provider_name}: {e}")
                     continue

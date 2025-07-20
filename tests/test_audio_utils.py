@@ -13,8 +13,6 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-import pytest
-
 from tts_cli.audio_utils import cleanup_file
 
 

@@ -7,8 +7,6 @@ from tts_cli.tts import PROVIDER_SHORTCUTS
 from tts_cli.tts import main as cli
 
 
-
-
 def test_cli_unknown_model():
     runner = CliRunner()
     result = runner.invoke(cli, ['@unknown_model', 'Hello world'])

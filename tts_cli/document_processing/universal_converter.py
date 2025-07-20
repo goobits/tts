@@ -55,20 +55,25 @@ class UniversalDocumentConverter:
         html = re.sub(r'<h6[^>]*>(.*?)</h6>', r'###### \1', html, flags=re.IGNORECASE|re.DOTALL)
 
         # Bold/Strong
-        html = re.sub(r'<(strong|b)[^>]*>(.*?)</\1>', r'**\2**', html, flags=re.IGNORECASE|re.DOTALL)
+        html = re.sub(
+            r'<(strong|b)[^>]*>(.*?)</\1>', r'**\2**', html, flags=re.IGNORECASE|re.DOTALL
+        )
 
         # Italic/Em
         html = re.sub(r'<(em|i)[^>]*>(.*?)</\1>', r'*\2*', html, flags=re.IGNORECASE|re.DOTALL)
 
         # Links
-        html = re.sub(r'<a[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)</a>', r'[\2](\1)', html, flags=re.IGNORECASE|re.DOTALL)
+        link_pattern = r'<a[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)</a>'
+        html = re.sub(link_pattern, r'[\2](\1)', html, flags=re.IGNORECASE|re.DOTALL)
 
         # Lists
         html = re.sub(r'<li[^>]*>(.*?)</li>', r'- \1', html, flags=re.IGNORECASE|re.DOTALL)
 
         # Code
         html = re.sub(r'<code[^>]*>(.*?)</code>', r'`\1`', html, flags=re.IGNORECASE|re.DOTALL)
-        html = re.sub(r'<pre[^>]*>(.*?)</pre>', r'```\n\1\n```', html, flags=re.IGNORECASE|re.DOTALL)
+        html = re.sub(
+            r'<pre[^>]*>(.*?)</pre>', r'```\n\1\n```', html, flags=re.IGNORECASE|re.DOTALL
+        )
 
         # Paragraphs (convert to line breaks)
         html = re.sub(r'<p[^>]*>', '\n', html, flags=re.IGNORECASE)

@@ -96,7 +96,9 @@ class DefaultCommandGroup(click.Group):
     A custom Click group that invokes a default command ('speak') if no other
     subcommand is specified.
     """
-    def resolve_command(self, ctx: click.Context, args: List[str]) -> Tuple[Optional[str], Optional[click.Command], List[str]]:
+    def resolve_command(
+        self, ctx: click.Context, args: List[str]
+    ) -> Tuple[Optional[str], Optional[click.Command], List[str]]:
         # If no args, check if we have stdin input
         if not args:
             # If stdin has data (not connected to terminal), route to speak command
@@ -106,7 +108,8 @@ class DefaultCommandGroup(click.Group):
             # Otherwise, let default handling take over (will invoke callback)
             return super().resolve_command(ctx, args)
 
-        # If the first arg is a known option (like --help or --list), let default handling take over.
+        # If the first arg is a known option (like --help or --list),
+        # let default handling take over.
         if args[0].startswith('-'):
             return super().resolve_command(ctx, args)
 
