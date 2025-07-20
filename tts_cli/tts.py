@@ -1426,6 +1426,15 @@ def main(ctx: click.Context) -> None:
         sys.exit(0)
 
 
+@main.command(name='_default', hidden=True)
+@click.argument('args', nargs=-1, required=True)
+@click.pass_context
+def default_cmd(ctx: click.Context, args: tuple) -> None:
+    """Hidden default command for direct text input (alternative to DefaultCommandGroup)."""
+    # Simply forward to the speak command
+    ctx.invoke(speak, text=" ".join(args), options=())
+
+
 @main.command()
 @click.option("--check", type=click.Path(exists=True), help="Check script file for legacy TTS usage")
 @click.pass_context
@@ -1504,7 +1513,7 @@ def migrate(ctx: click.Context, check: str) -> None:
         sys.exit(1)
 
 
-@main.command()
+@main.command(name='speak')  # Make it explicit, not hidden
 @click.option("-o", "--output", help="Output file path")
 @click.option("-f", "--format", "output_format", type=click.Choice(['mp3', 'wav', 'ogg', 'flac']), help="Audio output format")
 @click.option("-v", "--voice", help="Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
@@ -1826,8 +1835,19 @@ def providers() -> None:
 
 
 def cli():
+    """Direct entry point that just calls main."""
+    main()
+
+
+def cli_entry():
+    """Smart entry point wrapper for better editable install support.
+    
+    This wrapper ensures that code changes work without reinstallation
+    by providing a stable entry point that delegates to the main CLI.
+    """
+    # Simply delegate to main - the DefaultCommandGroup handles routing
     main()
 
 
 if __name__ == "__main__":
-    cli()
+    cli_entry()

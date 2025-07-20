@@ -74,8 +74,8 @@ dev = [
 ]
 
 [project.scripts]
-goobits-tts = "tts_cli.tts:cli"  # TTS - Text-to-Speech synthesis (branded name)
-tts = "tts_cli.tts:cli"          # TTS - Text-to-Speech synthesis (convenient alias)
+goobits-tts = "tts_cli.tts:cli_entry"  # TTS - Text-to-Speech synthesis (branded name)
+tts = "tts_cli.tts:cli_entry"          # TTS - Text-to-Speech synthesis (convenient alias)
 
 [project.urls]
 "Homepage" = "https://github.com/mudcube/tts-cli"
