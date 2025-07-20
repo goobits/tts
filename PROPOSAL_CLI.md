@@ -113,11 +113,16 @@ tts voice status                              # Show loaded voices only
 ### 🔧 Provider and System Commands
 
 #### Provider Information (Enhanced)
+`tts info` is the primary command for provider discovery. `tts providers` is a simplified alias for scripting.
+
+- **`tts info`**: When run without arguments, shows a human-readable list of providers with descriptions.
+- **`tts info @<provider>`**: Shows detailed information, options, and usage examples for a specific provider.
+- **`tts providers`**: A script-friendly alias that outputs a simple, newline-delimited list of available provider names (e.g., `edge_tts`, `openai_tts`).
+
 ```bash
-tts providers                                 # List all providers (renamed)
-tts info                                      # Show providers with descriptions
-tts info edge_tts                            # Detailed Edge TTS information
-tts info @edge                               # Alternative with shortcut
+tts info                                      # Show all providers with descriptions
+tts info @edge                                # Detailed Edge TTS information
+tts providers                                 # Simple, script-friendly list of provider names
 ```
 
 #### System Commands
@@ -208,11 +213,18 @@ $ tts @edge "text" --rate +100% rate=+75%
 ```
 
 ### Command Parsing Logic
+To avoid ambiguity with user text (e.g., `tts "email me at @user"`), the `@provider` shortcut is only recognized when it immediately follows the primary command or subcommand.
+- **Correct:** `tts @edge "..."`, `tts save @edge "..."`
+- **Incorrect:** `tts "..." @edge`
+
+Error messages for deprecated or removed commands must guide the user to the new syntax. For example, if a user runs `tts "text" --save` in v3.0, the error should say: `Error: Unknown option '--save'. Did you mean to use the 'tts save "text"' command?`.
+
 ```python
 def parse_command(args):
     provider = None
     
-    # Check for @provider shortcuts anywhere in args
+    # Check for @provider shortcut in a specific position to avoid ambiguity.
+    # This logic is simplified for the proposal.
     for i, arg in enumerate(args):
         if arg.startswith('@'):
             shortcut = arg[1:]
@@ -278,6 +290,8 @@ $ tts info @elevenlabs
 - [ ] Implement option precedence warnings for conflicts
 
 #### Real Testing Strategy (No Mocks)
+The testing philosophy is to avoid mocks wherever possible. Tests should validate the real-world behavior of the CLI, including interactions with filesystems and external APIs. Mocks should only be considered for simulating API failures that are hard to reproduce, and never for standard success cases with well-defined APIs (e.g., OpenAI, Google).
+
 ```bash
 # Test actual command execution and file outputs
 ./test.sh phase1                           # Run Phase 1 test suite
@@ -399,12 +413,13 @@ tts save --help | grep -c "save"                # Subcommand help works
 - [ ] Update CI/CD to focus on new syntax
 
 ### Phase 3: Legacy Removal & Final Cleanup (v3.0) - 1 week
+The goal of this phase is the complete eradication of the legacy command structure to simplify the codebase and eliminate technical debt.
 
 #### Implementation
-- [ ] Remove all deprecated flags and options
-- [ ] Remove old command parsing paths  
-- [ ] Remove deprecation warning system
-- [ ] Final code consolidation
+- [ ] Remove all deprecated flags and options (`--save`, `--document`, `--model`, etc.)
+- [ ] Remove the internal logic and command parsing paths that handled legacy syntax.
+- [ ] Remove the deprecation warning system itself.
+- [ ] Final code consolidation and refactoring to use only the new, unified command structure.
 
 #### Real Cleanup Testing
 ```bash
@@ -416,17 +431,12 @@ tts "text" --save 2>&1 | grep -i "unknown.*option"   # Must reject --save
 tts --document file.html 2>&1 | grep -i "unknown"    # Must reject --document
 tts -l 2>&1 | grep -i "unknown"                       # Must reject -l
 
-# 2. Codebase Cleanup Verification - No legacy references
-grep -r "save.*flag" tts_cli/ && exit 1               # No --save references
-grep -r "document.*flag" tts_cli/ && exit 1           # No --document references  
-grep -r "models.*command" tts_cli/ && exit 1          # No old "models" command
+# 2. Codebase Cleanup Verification - Zero legacy traces
+# The build should fail if any legacy code or documentation remains.
+! grep -r -E "save.*flag|document.*flag|models.*command" tts_cli/
+! grep -r -E "\-\-save|\-\-document|tts models" docs/ README.md
 
-# 3. Documentation Cleanup - No old syntax examples
-grep -r "\-\-save" docs/ README.md && exit 1          # No --save in docs
-grep -r "\-\-document" docs/ README.md && exit 1      # No --document in docs
-grep -r "tts models" docs/ README.md && exit 1        # No old models command
-
-# 4. Final Integration Tests - Real end-to-end workflows
+# 3. Final Integration Tests - Real end-to-end workflows
 tts save @edge "hello world" -o final_test.wav        # Core functionality works
 tts document README.md @google --save                  # Document processing works
 tts voice load test.wav && tts voice status           # Voice management works
@@ -450,8 +460,11 @@ tts voice load test.wav && tts voice status           # Voice management works
 ### Testing Infrastructure Requirements
 
 #### Real Test Environment Setup
+The CI/CD environment must be configured to perform end-to-end tests against live APIs.
+
 ```bash
-# Tests must run against real providers when available
+# Tests must run against real providers. The test suite should skip
+# tests for providers where an API key is not configured.
 export OPENAI_API_KEY="${OPENAI_API_KEY:-skip}"       # Skip if no key
 export GOOGLE_API_KEY="${GOOGLE_API_KEY:-skip}"       # Skip if no key
 export ELEVENLABS_API_KEY="${ELEVENLABS_API_KEY:-skip}" # Skip if no key
