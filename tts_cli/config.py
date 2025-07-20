@@ -115,7 +115,7 @@ CONFIG_DEFAULTS = {
     'memory_gb_conversion_factor': 1024,
 }
 
-# Legacy JSON configuration defaults for backwards compatibility
+# Default configuration for JSON compatibility (minimal)
 DEFAULT_CONFIG = {
     "version": "1.0",
     "default_action": "stream",
@@ -214,7 +214,7 @@ def reload_config() -> None:
     global _config_cache
     _config_cache = None
 
-# Legacy functions for backwards compatibility
+# Configuration file management
 def get_config_path() -> Path:
     """Get the configuration file path, using XDG standard with fallback."""
     xdg_config = os.environ.get('XDG_CONFIG_HOME')
@@ -239,7 +239,7 @@ def get_default_config() -> Dict[str, Any]:
     return DEFAULT_CONFIG.copy()
 
 def load_config() -> Dict[str, Any]:
-    """Load legacy JSON configuration from file.
+    """Load JSON configuration from file.
 
     Returns defaults if file doesn't exist or is corrupt.
     """
@@ -396,7 +396,7 @@ def get_api_key(provider: str) -> Optional[str]:
 
     Search order:
     1. Environment variables (PROVIDER_API_KEY)
-    2. Legacy JSON configuration (provider_api_key)
+    2. JSON configuration (provider_api_key)
 
     Args:
         provider: Provider name (e.g., 'elevenlabs', 'openai', 'google')
@@ -404,7 +404,7 @@ def get_api_key(provider: str) -> Optional[str]:
     Returns:
         API key string if found and valid, None otherwise
     """
-    # Check legacy JSON config
+    # Check JSON config
     config_key = f"{provider}_api_key"
     json_api_key = get_setting(config_key)
     if json_api_key and validate_api_key(provider, str(json_api_key)):

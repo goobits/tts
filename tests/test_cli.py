@@ -52,7 +52,7 @@ def test_cli_save_mode():
 class TestPhase1BackwardCompatibility:
     """Tests for Phase 1 backward compatibility requirements"""
 
-    def test_legacy_subcommands_still_work(self):
+    def test_essential_subcommands_work(self):
         """Test that essential subcommands like 'info', 'providers' still work"""
         runner = CliRunner()
 
@@ -243,17 +243,17 @@ class TestPhase1Integration:
     """Integration tests for Phase 1 complete functionality"""
 
     def test_full_backward_compatibility(self):
-        """Test that all legacy functionality still works"""
+        """Test that all backward compatible functionality still works"""
         runner = CliRunner()
 
-        # Test all legacy commands work
-        legacy_commands = [
+        # Test all backward compatible commands work
+        backward_compatible_commands = [
             (['--help'], 0),
             (['providers'], 0),
             (['info'], 0),
         ]
 
-        for cmd, expected_code in legacy_commands:
+        for cmd, expected_code in backward_compatible_commands:
             result = runner.invoke(cli, cmd)
             assert result.exit_code == expected_code, f"Command {cmd} failed: {result.output}"
 
@@ -284,8 +284,8 @@ class TestPhase1Integration:
             assert result.exit_code == 0, f"Provider shortcut @{shortcut} failed: {result.output}"
 
 
-class TestPhase3LegacyRejection:
-    """Tests for Phase 3 legacy flag rejection"""
+class TestPhase3DeprecatedCommandRejection:
+    """Tests for Phase 3 deprecated command rejection"""
 
     def test_save_flag_rejected(self):
         """Test that --save flag is now rejected with unknown option error"""
@@ -344,7 +344,7 @@ class TestPhase3LegacyRejection:
         # but should fail since there's no actual text processing
 
     def test_speak_command_rejected(self):
-        """Test that legacy speak command is completely removed"""
+        """Test that deprecated speak command is completely removed"""
         runner = CliRunner()
         result = runner.invoke(cli, ['speak', 'test text'])
 

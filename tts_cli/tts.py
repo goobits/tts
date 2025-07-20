@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+
+import rich_click as click
+
+# Configure rich-click to enable markup - MUST be first!
+click.rich_click.USE_RICH_MARKUP = True
+
 """TTS CLI - Text-to-Speech Command Line Interface.
 
 This module provides the main CLI entry point for the TTS CLI application,
@@ -38,6 +44,7 @@ tts config voice edge_tts:en-US-AriaNeural
 The CLI uses a pluggable provider architecture with dynamic loading,
 centralized configuration, and comprehensive error handling.
 """
+
 import importlib
 import json
 import logging
@@ -47,8 +54,6 @@ import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type
-
-import click
 
 from .__version__ import __version__
 from .base import TTSProvider
@@ -194,8 +199,7 @@ def parse_input(text: str) -> Tuple[str, Dict]:
 def handle_direct_synthesis(args: List[str]) -> None:
     """Handle direct text synthesis without a subcommand.
     
-    This function incorporates the logic from the removed speak command
-    to handle direct text synthesis like: tts "Hello world"
+    Enables commands like: tts "Hello world"
     """
     # Parse provider shortcuts from the arguments
     provider_from_shortcut = None
@@ -1867,62 +1871,53 @@ def handle_unload_command(args: tuple) -> None:
 
 
 @click.group(cls=DefaultCommandGroup, invoke_without_command=True)
-@click.version_option(version=__version__, prog_name="tts")
+@click.version_option(version=__version__, prog_name="TTS CLI")
 @click.pass_context
 def main(ctx: click.Context) -> None:
-    """🎤 Transform text into speech with AI-powered voices
-
-    TTS CLI supports multiple providers with smart auto-selection and voice cloning.
-    Stream directly to speakers or save high-quality audio files.
-
+    """🔮 TTS CLI 1.0-rc2 - AI-powered text-to-speech synthesis
+    
     \b
-    📝 Basic Usage:
-      tts "Hello world"                    # Stream with default voice
-      tts save "Hello" -o output.mp3       # Save to file
-      tts @edge "Hello"                    # Use Edge TTS provider
-      tts @openai "Hello" --voice nova     # OpenAI with specific voice
-
+    
     \b
-    🚀 Provider Shortcuts:
-      tts @edge "text"                     # Edge TTS
-      tts @openai "text"                   # OpenAI TTS
-      tts @elevenlabs "text"               # ElevenLabs
-      tts @google "text"                   # Google TTS
-      tts @chatterbox "text"               # Chatterbox
-
+    Transform text into speech using multiple AI providers with smart auto-selection,
+    voice cloning capabilities, and real-time streaming. Support for 400+ voices
+    across Edge TTS, OpenAI, ElevenLabs, Google Cloud TTS, and local voice cloning.
+    
     \b
-    📄 Document Processing:
-      tts document file.html               # Convert documents to speech
-      tts document api.json --emotion-profile technical
-      tts document report.md --save        # Save document audio
-
+    [bold]💡 Quick Examples:[/bold]
+        tts "Hello world"                        [italic]# Stream with default voice[/italic]
+        tts save "Hello" -o output.mp3           [italic]# Save to file[/italic]
+        tts @edge "Hello"                        [italic]# Use Edge TTS provider[/italic]
+        echo "Hello" | tts @openai               [italic]# Pipeline with OpenAI[/italic]
+    
     \b
-    🎙️ Voice Management:
-      tts voice load voice.wav             # Load voice for fast synthesis
-      tts voice unload voice.wav           # Unload voice from memory
-      tts voice status                     # Show loaded voices
-      tts voices                           # Interactive voice browser
-
+    [bold]🎯 Core Commands:[/bold]
+        save     💾 Save text as audio file
+        voices   🔍 Interactive voice browser
+        config   🔧 Configuration management
+        status   🩺 System health check
+    
     \b
-    ⚙️ System Information:
-      tts info                             # Show all providers
-      tts info @edge                       # Detailed provider info
-      tts providers                        # Simple provider list
-      tts status                           # System health check
-
+    [bold]📊 Provider Management:[/bold]
+        providers    📋 List available providers with status
+        install      📦 Install provider dependencies
+        info         👀 Detailed provider information
+    
     \b
-    🔗 Pipeline Examples:
-      echo "Hello world" | tts             # Pipe text to speech
-      ttt "Fix grammar" < essay.txt | tts  # Fix then speak
-      stt recording.wav | tts @edge        # Transcribe and speak
-
+    [bold]🎙️ Voice & Document Processing:[/bold]
+        voice        🎤 Voice loading and management
+        document     📖 Convert documents to speech
+        version      📚 Show version information
+    
     \b
-    🚀 Supported Providers:
-      • Edge TTS (Microsoft): Free, 400+ neural voices
-      • Chatterbox: Local voice cloning with GPU support
-      • OpenAI TTS: Premium voices (alloy, echo, fable, nova, onyx, shimmer)
-      • Google Cloud TTS: Neural voices with 40+ languages
-      • ElevenLabs: Advanced voice synthesis and cloning
+    [bold]🔑 Quick Setup:[/bold]
+        1. Choose a provider: tts providers
+        2. Configure API keys: tts config set openai_api_key YOUR_KEY
+        3. Browse voices: tts voices
+        4. Start speaking: tts "Hello world"
+    
+    \b
+    📚 For detailed command help: tts COMMAND --help
     """
     # Check if this is a direct synthesis call (detected by DefaultCommandGroup)
     if ctx.meta.get('direct_synthesis', False):
@@ -1945,26 +1940,31 @@ def main(ctx: click.Context) -> None:
 
 
 @main.command()
-@click.option("-o", "--output", help="Output file path")
-@click.option("-f", "--format", "output_format", type=click.Choice(['mp3', 'wav', 'ogg', 'flac']), help="Audio output format")
-@click.option("-v", "--voice", help="Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
-@click.option("--clone", help="Audio file to clone voice from (deprecated: use --voice instead)")
-@click.option("--json", "json_output", is_flag=True, help="Output results as JSON")
-@click.option("--debug", is_flag=True, help="Show debug information during processing")
-@click.option("--rate", help="Speech rate adjustment (e.g., +20%, -50%, 150%)")
-@click.option("--pitch", help="Pitch adjustment (e.g., +5Hz, -10Hz)")
+@click.option("-o", "--output", help="💾 Output file path")
+@click.option("-f", "--format", "output_format", type=click.Choice(['mp3', 'wav', 'ogg', 'flac']), help="🔧 Audio output format")
+@click.option("-v", "--voice", help="🎤 Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
+@click.option("--clone", help="🎭 Audio file to clone voice from (deprecated: use --voice instead)")
+@click.option("--json", "json_output", is_flag=True, help="🔧 Output results as JSON")
+@click.option("--debug", is_flag=True, help="🔍 Show debug information during processing")
+@click.option("--rate", help="⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)")
+@click.option("--pitch", help="🎵 Pitch adjustment (e.g., +5Hz, -10Hz)")
 @click.argument("text", required=False)
 @click.argument("options", nargs=-1)
 def save(
     output: str, output_format: str, voice: str, clone: str, json_output: bool,
     debug: bool, rate: str, pitch: str, text: str, options: tuple
 ) -> None:
-    """Save text as audio file.
-
-    Examples:
-      tts save "Hello world"
-      tts save @edge "Hello" -o output.mp3
-      tts save "Hello" voice=en-US-JennyNeural
+    """💾 Save text as audio file
+    
+    \b
+    Save synthesized speech to a file in various formats with provider shortcuts
+    and advanced voice options.
+    
+    \b
+    [bold]Examples:[/bold]
+        tts save "Hello world"                   [italic]# Save with default settings[/italic]
+        tts save @edge "Hello" -o output.mp3    [italic]# Edge TTS with custom output[/italic]
+        tts save "Hello" voice=en-US-JennyNeural [italic]# Specific voice[/italic]
     """
     # Parse provider shortcut from text or options
     provider_from_shortcut = None
@@ -1986,6 +1986,10 @@ def save(
     if not final_text:
         click.echo("❌ Error: You must provide text to synthesize", err=True)
         sys.exit(1)
+
+    # Show deprecation warning for --clone option
+    if clone:
+        click.echo("⚠️  Warning: --clone option is deprecated. Use --voice instead.", err=True)
 
     # Setup logging
     setup_logging()
@@ -2011,39 +2015,43 @@ def save(
 
 @main.command()
 @click.argument("document_path", type=click.Path(exists=True))
-@click.option("--save", is_flag=True, help="Save processed audio to file")
-@click.option("-o", "--output", help="Output file path")
-@click.option("-f", "--format", "output_format", type=click.Choice(['mp3', 'wav', 'ogg', 'flac']), help="Audio output format")
-@click.option("-v", "--voice", help="Voice to use")
-@click.option("--clone", help="Audio file to clone voice from")
-@click.option("--json", "json_output", is_flag=True, help="Output results as JSON")
-@click.option("--debug", is_flag=True, help="Show debug information during processing")
+@click.option("--save", is_flag=True, help="💾 Save processed audio to file")
+@click.option("-o", "--output", help="📁 Output file path")
+@click.option("-f", "--format", "output_format", type=click.Choice(['mp3', 'wav', 'ogg', 'flac']), help="🔧 Audio output format")
+@click.option("-v", "--voice", help="🎤 Voice to use")
+@click.option("--clone", help="🎭 Audio file to clone voice from (deprecated: use --voice instead)")
+@click.option("--json", "json_output", is_flag=True, help="🔧 Output results as JSON")
+@click.option("--debug", is_flag=True, help="🔍 Show debug information during processing")
 @click.option(
     "--doc-format", "doc_format", type=click.Choice(['auto', 'markdown', 'html', 'json']),
-    default='auto', help="Document format"
+    default='auto', help="📄 Document format"
 )
 @click.option(
     "--ssml-platform", type=click.Choice(['azure', 'google', 'amazon', 'generic']),
-    default='generic', help="SSML platform"
+    default='generic', help="🏗️ SSML platform"
 )
 @click.option(
     "--emotion-profile", type=click.Choice(['technical', 'marketing', 'narrative', 'tutorial', 'auto']),
-    default='auto', help="Emotion profile"
+    default='auto', help="🎭 Emotion profile"
 )
-@click.option("--rate", help="Speech rate adjustment")
-@click.option("--pitch", help="Pitch adjustment")
+@click.option("--rate", help="⚡ Speech rate adjustment")
+@click.option("--pitch", help="🎵 Pitch adjustment")
 @click.argument("options", nargs=-1)
 def document(
     document_path: str, save: bool, output: str, output_format: str, voice: str, clone: str,
     json_output: bool, debug: bool, doc_format: str, ssml_platform: str, emotion_profile: str,
     rate: str, pitch: str, options: tuple
 ) -> None:
-    """Process and convert documents to speech.
-
+    """📖 Process and convert documents to speech
+    
+    Convert HTML, JSON, and Markdown documents to speech with emotion detection
+    and platform-optimized SSML generation.
+    
+    \b
     Examples:
-      tts document file.html
-      tts document @edge file.md --save
-      tts document file.json --emotion-profile technical
+        tts document file.html                    [italic]# Process HTML document[/italic]
+        tts document @edge file.md --save        [italic]# Markdown with Edge TTS[/italic]
+        tts document file.json --emotion-profile technical [italic]# Technical content[/italic]
     """
     # Parse provider shortcut from options
     provider_from_shortcut = None
@@ -2053,6 +2061,10 @@ def document(
     if options and options[0].startswith('@'):
         provider_from_shortcut, remaining_args = parse_provider_shortcut(list(options))
         final_options = remaining_args
+
+    # Show deprecation warning for --clone option
+    if clone:
+        click.echo("⚠️  Warning: --clone option is deprecated. Use --voice instead.", err=True)
 
     # Setup logging
     setup_logging()
@@ -2082,31 +2094,46 @@ def document(
 
 @main.group()
 def voice() -> None:
-    """Voice management commands."""
+    """🎤 Voice loading and management
+    
+    Load voice files into memory for fast synthesis and manage voice cache.
+    
+    \b
+    Commands:
+        load     📥 Load voice files into memory
+        unload   📤 Remove voice files from memory
+        status   📊 Show loaded voices and system status
+    """
     pass
 
 
 @voice.command()
 @click.argument("voice_files", nargs=-1, required=True)
 def load(voice_files: tuple) -> None:
-    """Load voice files into memory for fast access.
-
+    """📥 Load voice files into memory for fast access
+    
+    Preload voice files to improve synthesis speed with Chatterbox provider.
+    
+    \b
     Examples:
-      tts voice load voice.wav
-      tts voice load ~/my_voice.wav ~/narrator.wav
+        tts voice load voice.wav                 [italic]# Load single voice[/italic]
+        tts voice load ~/my_voice.wav ~/narrator.wav [italic]# Load multiple voices[/italic]
     """
     handle_load_command(voice_files)
 
 
 @voice.command()
 @click.argument("voice_files", nargs=-1)
-@click.option("--all", is_flag=True, help="Unload all voices")
+@click.option("--all", is_flag=True, help="🧹 Unload all voices")
 def unload(voice_files: tuple, all: bool) -> None:
-    """Unload voice files from memory.
-
+    """📤 Unload voice files from memory
+    
+    Remove voice files from memory to free up resources.
+    
+    \b
     Examples:
-      tts voice unload voice.wav
-      tts voice unload --all
+        tts voice unload voice.wav               [italic]# Unload specific voice[/italic]
+        tts voice unload --all                   [italic]# Unload all voices[/italic]
     """
     if all:
         handle_unload_command(("--all",))
@@ -2119,19 +2146,27 @@ def unload(voice_files: tuple, all: bool) -> None:
 
 @voice.command()
 def status() -> None:
-    """Show loaded voices and system status."""
+    """📊 Show loaded voices and system status
+    
+    Display information about currently loaded voices, memory usage,
+    and provider availability.
+    """
     handle_status_command()
 
 
 @main.command()
 @click.argument("provider", required=False)
 def info(provider: str) -> None:
-    """Show provider information and capabilities.
-
+    """👀 Show provider information and capabilities
+    
+    Display detailed information about TTS providers including available
+    options, features, and sample voices.
+    
+    \b
     Examples:
-      tts info                 # Show all providers
-      tts info @edge           # Show Edge TTS details
-      tts info edge_tts        # Show Edge TTS details
+        tts info                             [italic]# Show all providers[/italic]
+        tts info @edge                       [italic]# Show Edge TTS details[/italic]
+        tts info edge_tts                    [italic]# Show Edge TTS details[/italic]
     """
     # Setup logging and initialize TTS engine
     setup_logging()
@@ -2155,12 +2190,16 @@ def info(provider: str) -> None:
 @main.command()
 @click.argument("provider_name", required=False)
 def providers(provider_name: str) -> None:
-    """Show available TTS providers with status and configuration.
+    """📋 Show available TTS providers with status
     
+    List all TTS providers with their current status, configuration requirements,
+    and setup instructions.
+    
+    \b
     Examples:
-      tts providers              # Show all providers
-      tts providers edge         # Setup instructions for Edge TTS
-      tts providers @openai      # Setup instructions for OpenAI
+        tts providers                        [italic]# Show all providers[/italic]
+        tts providers edge                   [italic]# Setup instructions for Edge TTS[/italic]
+        tts providers @openai                [italic]# Setup instructions for OpenAI[/italic]
     """
     if provider_name:
         handle_provider_setup_instructions(provider_name)
@@ -2170,32 +2209,54 @@ def providers(provider_name: str) -> None:
 
 @main.command()
 def status() -> None:
-    """Check system health and provider availability."""
+    """🩺 Check system health and provider availability
+    
+    Perform comprehensive system diagnostics including Python version,
+    dependencies, provider status, and configuration validation.
+    """
     handle_status_diagnostics()
 
 
 @main.command()
 @click.argument("args", nargs=-1)
 def install(args: tuple) -> None:
-    """Install provider dependencies.
-
+    """📦 Install provider dependencies
+    
+    Install and configure dependencies for TTS providers, including
+    PyTorch for Chatterbox with optional GPU support.
+    
+    \b
     Examples:
-      tts install chatterbox        # Install with CPU support
-      tts install chatterbox gpu    # Install with GPU support
+        tts install chatterbox               [italic]# Install with CPU support[/italic]
+        tts install chatterbox gpu           [italic]# Install with GPU support[/italic]
     """
     handle_install_command(args)
 
 
 @main.command()
 def version() -> None:
-    """Show version information and suite branding."""
+    """📚 Show version information and suite branding
+    
+    Display current TTS CLI version and branding information.
+    """
     click.echo(f"TTS {__version__} - Goobits Audio Suite")
 
 
 @main.command()
 @click.argument("args", nargs=-1)
 def voices(args: tuple) -> None:
-    """Browse and search available voices interactively."""
+    """🔍 Browse and search available voices interactively
+    
+    Launch an interactive voice browser with three-panel layout,
+    filtering capabilities, and real-time voice preview.
+    
+    \b
+    Features:
+        • Filter by provider, language, gender
+        • Real-time voice preview
+        • Mouse and keyboard navigation
+        • Quality analysis and metadata
+    """
     handle_voices_command(args, PROVIDERS, load_provider)
 
 
@@ -2204,15 +2265,19 @@ def voices(args: tuple) -> None:
 @click.argument("key", required=False)
 @click.argument("value", required=False)
 def config(action: str, key: str, value: str) -> None:
-    """Manage TTS configuration.
-
-    Examples:
-      tts config                    # Show current configuration
-      tts config show               # Show current configuration
-      tts config voice en-US-JennyNeural  # Set default voice
-      tts config get voice          # Get specific setting
-      tts config set rate +20%      # Set custom setting
-      tts config edit               # Open config in editor
+    """🔧 Manage TTS configuration
+    
+    \b
+    Configure API keys, default voices, audio settings, and paths with
+    interactive editing and validation.
+    
+    \b
+    [bold]Examples:[/bold]
+        tts config                           [italic]# Show current configuration[/italic]
+        tts config voice en-US-JennyNeural   [italic]# Set default voice[/italic]
+        tts config get voice                 [italic]# Get specific setting[/italic]
+        tts config set rate +20%             [italic]# Set custom setting[/italic]
+        tts config edit                      [italic]# Interactive editor[/italic]
     """
     if not action:
         action = "show"
