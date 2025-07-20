@@ -265,27 +265,214 @@ $ tts info @elevenlabs
    tts @elevenlabs "text" voice=rachel stability=0.75
 ```
 
-## 🚦 Implementation Timeline
+## 🚦 Implementation Timeline & Testing Strategy
 
-### Immediate Wins (1-2 days)
+### Phase 1: Foundation & Real Testing (v2.0) - 1 week
+
+#### Implementation
 - [ ] Add @provider shortcut parsing with validation
-- [ ] Remove legacy flags (-l, --list) entirely  
-- [ ] Add `tts providers` command (rename from `tts models`)
-- [ ] Implement option precedence warnings for conflicts
-- [ ] Update error messages to reference new syntax
-
-### Medium Term (1 week)
 - [ ] Add `tts save` subcommand (alongside --save)
 - [ ] Add `tts document` subcommand (alongside --document)
 - [ ] Add `tts voice` subcommand group
-- [ ] Enhanced help text and error messages
-- [ ] Comprehensive tab completion
+- [ ] Add `tts providers` command (rename from `tts models`)
+- [ ] Implement option precedence warnings for conflicts
 
-### Long Term (1-2 months)
-- [ ] Deprecation warnings for old syntax
-- [ ] Migration guide and tooling
-- [ ] Performance optimization
-- [ ] Community feedback integration
+#### Real Testing Strategy (No Mocks)
+```bash
+# Test actual command execution and file outputs
+./test.sh phase1                           # Run Phase 1 test suite
+
+# 1. Command Parity Tests - Both syntaxes produce identical results
+tts "hello world" --save -o old.wav
+tts save "hello world" -o new.wav
+diff old.wav new.wav                       # Must be identical
+
+tts "text" --model edge_tts --save -o old.wav  
+tts save @edge "text" -o new.wav
+diff old.wav new.wav                       # Must be identical
+
+# 2. Provider Shortcut Tests - Real provider calls
+tts @edge "test" --save -o edge.wav        # Must create valid audio
+tts @openai "test" --save -o openai.wav    # Must create valid audio (if API key set)
+file edge.wav openai.wav                   # Verify actual audio files
+
+# 3. Document Processing Tests - Real file processing  
+echo "# Test" > test.md
+tts document test.md --save -o doc.wav     # Process real markdown
+tts --document test.md --save -o old_doc.wav  # Old syntax
+diff doc.wav old_doc.wav                   # Must be identical
+
+# 4. Error Handling Tests - Real error conditions
+tts @invalid "text" 2>&1 | grep "Unknown provider"  # Must show proper error
+tts save "text" -o /invalid/path.wav 2>&1 | grep -i "permission\|error"
+
+# 5. Voice Commands Tests - Real voice operations
+cp /path/to/test/voice.wav test_voice.wav
+tts voice load test_voice.wav              # Must load successfully
+tts voice status | grep test_voice.wav     # Must show in status
+tts voice unload test_voice.wav            # Must unload
+tts voice status | grep -v test_voice.wav  # Must not show in status
+```
+
+#### Phase 1 Completion Criteria
+- [ ] ✅ All command pairs produce bit-identical output files
+- [ ] ✅ All provider shortcuts work with real providers 
+- [ ] ✅ Error messages reference new syntax appropriately
+- [ ] ✅ Help system updated and functional
+- [ ] ✅ Performance within 5% of baseline (time actual commands)
+- [ ] ✅ Zero regressions in existing functionality
+
+#### Phase 1 Cleanup
+- [ ] Remove duplicate code paths where possible
+- [ ] Consolidate command handlers internally
+- [ ] Update internal documentation
+- [ ] Archive old test cases that are now redundant
+
+### Phase 1.5: Validation & Metrics (v2.0.1) - 3 days
+
+#### Real Usage Analysis
+```bash
+# Add telemetry to track real usage patterns (opt-in)
+tts config telemetry enable               # Optional usage tracking
+
+# Analyze which commands users actually run
+grep "old syntax used" logs/tts.log | wc -l   # Track old syntax usage
+grep "new syntax used" logs/tts.log | wc -l   # Track new syntax adoption
+```
+
+#### Performance Testing
+```bash
+# Real performance benchmarks - no synthetic tests
+time tts "long text here..." --save -o old.wav     # Baseline timing
+time tts save "long text here..." -o new.wav       # New syntax timing
+# New syntax must be within 5% of old syntax
+
+# Memory usage testing
+/usr/bin/time -v tts save @edge "text" -o test.wav 2>&1 | grep "Maximum resident"
+```
+
+#### Phase 1.5 Completion Criteria  
+- [ ] ✅ Usage metrics collected from real users
+- [ ] ✅ Performance regressions fixed
+- [ ] ✅ Critical bugs resolved
+- [ ] ✅ Documentation gaps filled
+
+### Phase 2: Deprecation & Migration (v2.1) - 2 weeks
+
+#### Implementation
+- [ ] Add deprecation warnings for old syntax
+- [ ] Create migration scanner tool
+- [ ] Update all documentation to show new syntax first
+- [ ] Add migration helpers
+
+#### Real Migration Testing
+```bash
+# Test actual user scripts and workflows
+./test.sh migration                        # Run migration test suite
+
+# 1. Migration Tool Tests - Real script scanning
+echo 'tts "hello" --save' > old_script.sh
+tts migrate --check old_script.sh          # Must detect old syntax
+tts migrate --convert old_script.sh > new_script.sh  # Auto-convert
+bash new_script.sh                         # Must work identically
+
+# 2. Warning System Tests - Real deprecation warnings  
+tts "text" --save 2>&1 | grep -i "deprecat"     # Must show warning
+tts save "text" 2>&1 | grep -v "deprecat"       # Must not show warning
+
+# 3. Help System Tests - Real help output prioritizes new syntax
+tts --help | head -20 | grep -c "@"             # New syntax examples prominent
+tts save --help | grep -c "save"                # Subcommand help works
+```
+
+#### Phase 2 Completion Criteria
+- [ ] ✅ <20% of commands use old syntax (real telemetry data)
+- [ ] ✅ Migration tool tested on 50+ real user scripts
+- [ ] ✅ All documentation updated and verified
+- [ ] ✅ Community feedback addressed
+- [ ] ✅ Zero critical bugs in deprecation system
+
+#### Phase 2 Cleanup  
+- [ ] Remove redundant internal command paths
+- [ ] Simplify option parsing logic
+- [ ] Clean up test suites (remove old syntax tests)
+- [ ] Update CI/CD to focus on new syntax
+
+### Phase 3: Legacy Removal & Final Cleanup (v3.0) - 1 week
+
+#### Implementation
+- [ ] Remove all deprecated flags and options
+- [ ] Remove old command parsing paths  
+- [ ] Remove deprecation warning system
+- [ ] Final code consolidation
+
+#### Real Cleanup Testing
+```bash
+# Test that old syntax is completely removed
+./test.sh cleanup                          # Run cleanup verification
+
+# 1. Old Syntax Rejection Tests - Must fail cleanly
+tts "text" --save 2>&1 | grep -i "unknown.*option"   # Must reject --save
+tts --document file.html 2>&1 | grep -i "unknown"    # Must reject --document
+tts -l 2>&1 | grep -i "unknown"                       # Must reject -l
+
+# 2. Codebase Cleanup Verification - No legacy references
+grep -r "save.*flag" tts_cli/ && exit 1               # No --save references
+grep -r "document.*flag" tts_cli/ && exit 1           # No --document references  
+grep -r "models.*command" tts_cli/ && exit 1          # No old "models" command
+
+# 3. Documentation Cleanup - No old syntax examples
+grep -r "\-\-save" docs/ README.md && exit 1          # No --save in docs
+grep -r "\-\-document" docs/ README.md && exit 1      # No --document in docs
+grep -r "tts models" docs/ README.md && exit 1        # No old models command
+
+# 4. Final Integration Tests - Real end-to-end workflows
+tts save @edge "hello world" -o final_test.wav        # Core functionality works
+tts document README.md @google --save                  # Document processing works
+tts voice load test.wav && tts voice status           # Voice management works
+```
+
+#### Phase 3 Completion Criteria
+- [ ] ✅ Codebase 25%+ smaller (measured lines of code)
+- [ ] ✅ Zero references to old syntax in code/docs/tests
+- [ ] ✅ All functionality accessible through new syntax only
+- [ ] ✅ Performance improved by 10%+ (measured on real commands)
+- [ ] ✅ Test suite 100% focused on new syntax
+- [ ] ✅ Documentation completely updated
+
+#### Phase 3 Final Cleanup
+- [ ] Remove all deprecation-related code
+- [ ] Archive old documentation versions
+- [ ] Remove legacy test files and fixtures
+- [ ] Final performance optimization pass
+- [ ] Update changelog with breaking changes summary
+
+### Testing Infrastructure Requirements
+
+#### Real Test Environment Setup
+```bash
+# Tests must run against real providers when available
+export OPENAI_API_KEY="${OPENAI_API_KEY:-skip}"       # Skip if no key
+export GOOGLE_API_KEY="${GOOGLE_API_KEY:-skip}"       # Skip if no key
+export ELEVENLABS_API_KEY="${ELEVENLABS_API_KEY:-skip}" # Skip if no key
+
+# Always test Edge TTS (free, no API key required)
+# Always test Chatterbox (local, no API required)
+# Test others only when API keys available
+
+# Create real test fixtures
+mkdir -p test_fixtures/
+echo "Test content" > test_fixtures/test.txt
+echo "# Markdown Test" > test_fixtures/test.md
+echo '{"text": "JSON test"}' > test_fixtures/test.json
+```
+
+#### Success Metrics - Real Data Only
+- **File size comparisons**: `diff` and `wc -c` on actual audio files
+- **Performance timing**: `time` command on real TTS operations  
+- **Memory usage**: `/usr/bin/time -v` on actual command execution
+- **Error rate**: Count actual failed commands vs successful ones
+- **Usage analytics**: Real telemetry from opt-in users only
 
 ## 🎯 Benefits Summary
 
