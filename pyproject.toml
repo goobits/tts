@@ -86,11 +86,11 @@ packages = ["tts_cli", "tts_cli.providers"]
 package-dir = {"" = "."}
 
 [tool.black]
-line-length = 100
+line-length = 128
 target-version = ['py38']
 
 [tool.ruff]
-line-length = 100
+line-length = 128
 target-version = "py38"
 
 [tool.ruff.lint]

@@ -224,12 +224,19 @@ class VoiceBrowser:
         stdscr.addstr(0, 0, header[:width-1], curses.color_pair(2) | curses.A_BOLD)
 
         # Draw borders
-        stdscr.addstr(1, 0, "├" + "─" * (filter_width-1) + "┬" + "─" * (voice_width-1) + "┬" + "─" * (preview_width-1) + "┤")
+        border_line = (
+            "├" + "─" * (filter_width-1) + "┬" + "─" * (voice_width-1) +
+            "┬" + "─" * (preview_width-1) + "┤"
+        )
+        stdscr.addstr(1, 0, border_line)
 
         # Panel headers
         stdscr.addstr(1, 2, " FILTERS ", curses.color_pair(3) | curses.A_BOLD)
         stdscr.addstr(1, filter_width + 2, " VOICES ", curses.color_pair(3) | curses.A_BOLD)
-        stdscr.addstr(1, filter_width + voice_width + 2, " PREVIEW ", curses.color_pair(3) | curses.A_BOLD)
+        stdscr.addstr(
+            1, filter_width + voice_width + 2, " PREVIEW ",
+            curses.color_pair(3) | curses.A_BOLD
+        )
 
         # Draw vertical borders for panels
         for row in range(2, height-1):
@@ -238,14 +245,22 @@ class VoiceBrowser:
                 stdscr.addstr(row, filter_width + voice_width, "│")
 
         # Bottom border
-        stdscr.addstr(height-1, 0, "└" + "─" * (filter_width-1) + "┴" + "─" * (voice_width-1) + "┴" + "─" * (preview_width-1) + "┘")
+        bottom_border = (
+            "└" + "─" * (filter_width-1) + "┴" + "─" * (voice_width-1) +
+            "┴" + "─" * (preview_width-1) + "┘"
+        )
+        stdscr.addstr(height-1, 0, bottom_border)
 
         # Draw panels
         self.draw_filters_panel(stdscr, 2, 0, filter_width-1, height-3)
         self.draw_voices_panel(stdscr, 2, filter_width+1, voice_width-1, height-3, filtered_voices)
-        self.draw_preview_panel(stdscr, 2, filter_width + voice_width + 1, preview_width-1, height-3, filtered_voices)
+        self.draw_preview_panel(
+            stdscr, 2, filter_width + voice_width + 1, preview_width-1, height-3, filtered_voices
+        )
 
-    def draw_filters_panel(self, stdscr, start_row: int, start_col: int, width: int, height: int) -> None:
+    def draw_filters_panel(
+        self, stdscr, start_row: int, start_col: int, width: int, height: int
+    ) -> None:
         """Draw the filters panel."""
         row = start_row
 
@@ -285,12 +300,18 @@ class VoiceBrowser:
             row += 1
 
             # Show only most common regions to fit in panel
-            common_regions = ['Irish', 'British', 'American', 'Australian', 'Canadian', 'Indian', 'General', 'Chatterbox']
+            common_regions = [
+                'Irish', 'British', 'American', 'Australian', 'Canadian',
+                'Indian', 'General', 'Chatterbox'
+            ]
             for region in common_regions:
                 if row >= start_row + height:
                     break
                 check = "☑" if self.filters['regions'].get(region, False) else "☐"
-                color = curses.color_pair(5) if self.filters['regions'].get(region, False) else curses.color_pair(6)
+                color = (
+                    curses.color_pair(5) if self.filters['regions'].get(region, False)
+                    else curses.color_pair(6)
+                )
                 stdscr.addstr(row, start_col + 1, f"{check} {region}"[:width-1], color)
                 row += 1
 
@@ -368,7 +389,10 @@ class VoiceBrowser:
             stdscr.addstr(row, start_col + 1, "Controls:", curses.color_pair(7) | curses.A_BOLD)
             row += 1
 
-            controls = ["Click = Select", "Dbl-Click = Play", "Space = Play", "Enter = Set", "/ = Search", "Q = Quit"]
+            controls = [
+                "Click = Select", "Dbl-Click = Play", "Space = Play",
+                "Enter = Set", "/ = Search", "Q = Quit"
+            ]
             for control in controls:
                 if row >= start_row + height:
                     break
@@ -378,7 +402,9 @@ class VoiceBrowser:
         # Favorites count
         if row < start_row + height - 1:
             row = start_row + height - 2
-            stdscr.addstr(row, start_col + 1, f"Favorites: {len(self.favorites)}", curses.color_pair(5))
+            stdscr.addstr(
+                row, start_col + 1, f"Favorites: {len(self.favorites)}", curses.color_pair(5)
+            )
 
     def start_voice_preview(self, provider: str, voice: str) -> None:
         """Start playing a voice preview in background thread."""
@@ -451,7 +477,9 @@ class VoiceBrowser:
             provider_idx = my - provider_start_row
             if provider_idx < len(providers):
                 provider = providers[provider_idx]
-                self.filters['providers'][provider] = not self.filters['providers'].get(provider, False)
+                self.filters['providers'][provider] = not self.filters['providers'].get(
+                    provider, False
+                )
 
         # Quality filters start after providers + 2 (spacing + header)
         quality_start_row = provider_start_row + len(providers) + 2
@@ -466,7 +494,10 @@ class VoiceBrowser:
 
         # Region filters start after quality + 2 (spacing + header)
         region_start_row = quality_start_row + len(quality_items) + 2
-        regions = ['Irish', 'British', 'American', 'Australian', 'Canadian', 'Indian', 'General', 'Chatterbox']
+        regions = [
+            'Irish', 'British', 'American', 'Australian', 'Canadian',
+            'Indian', 'General', 'Chatterbox'
+        ]
 
         if region_start_row <= my < region_start_row + len(regions):
             # Clicked on a region filter
@@ -487,8 +518,10 @@ class VoiceBrowser:
             if 0 <= voice_idx < len(filtered_voices):
                 if is_double_click:
                     # Double-click detected - trigger preview
-                    stdscr.addstr(0, 0, f"DOUBLE-CLICK! Playing {filtered_voices[voice_idx][1][:20]}..."[:width-1],
-                                curses.color_pair(5) | curses.A_BOLD)
+                    message = f"DOUBLE-CLICK! Playing {filtered_voices[voice_idx][1][:20]}..."
+                    stdscr.addstr(
+                        0, 0, message[:width-1], curses.color_pair(5) | curses.A_BOLD
+                    )
                     stdscr.refresh()
                     curses.napms(1000)  # Show for 1 second
 
@@ -506,8 +539,10 @@ class VoiceBrowser:
 
                     # Show click feedback
                     voice_name = filtered_voices[voice_idx][1]
-                    stdscr.addstr(0, 0, f"CLICK! Selected {voice_name[:25]}... (double-click to play)"[:width-1],
-                                curses.color_pair(7))
+                    click_message = f"CLICK! Selected {voice_name[:25]}... (double-click to play)"
+                    stdscr.addstr(
+                        0, 0, click_message[:width-1], curses.color_pair(7)
+                    )
                     stdscr.refresh()
                     curses.napms(500)  # Show for 0.5 seconds
 
@@ -525,7 +560,7 @@ class VoiceBrowser:
             # Color scheme
             curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_MAGENTA)  # Selection highlight
             curses.init_pair(2, curses.COLOR_MAGENTA, curses.COLOR_BLACK)  # Title/brand
-            curses.init_pair(3, curses.COLOR_CYAN, curses.COLOR_BLACK)     # Provider/section headers
+            curses.init_pair(3, curses.COLOR_CYAN, curses.COLOR_BLACK)  # Provider headers
             curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLACK)   # Quality stars/keys
             curses.init_pair(5, curses.COLOR_GREEN, curses.COLOR_BLACK)    # Success/checked items
             curses.init_pair(6, curses.COLOR_RED, curses.COLOR_BLACK)      # Error/unchecked
@@ -576,8 +611,10 @@ class VoiceBrowser:
                             native_double_click = bool(bstate & curses.BUTTON1_DOUBLE_CLICKED)
                             current_time = time.time()
                             voice_idx = my - 2 + self.scroll_offset  # Voice start row is 2
-                            manual_double_click = (voice_idx == self.last_click_pos and
-                                                  current_time - self.last_click_time < self.DOUBLE_CLICK_TIME)
+                            manual_double_click = (
+                                voice_idx == self.last_click_pos and
+                                current_time - self.last_click_time < self.DOUBLE_CLICK_TIME
+                            )
 
                             is_double_click = native_double_click or manual_double_click
                             self.handle_mouse_click(stdscr, mx, my, is_double_click)

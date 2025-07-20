@@ -81,13 +81,17 @@ class EdgeTTSProvider(TTSProvider):
             raise ProviderError(f"Edge TTS file operation failed: {e}") from e
         except Exception as e:
             error_msg = str(e).lower()
-            if any(keyword in error_msg for keyword in ["internet", "network", "connection", "dns", "timeout"]):
+            if any(keyword in error_msg for keyword in [
+                "internet", "network", "connection", "dns", "timeout"
+            ]):
                 self.logger.error(f"Network-related error during Edge TTS synthesis: {e}")
                 raise NetworkError(
                     f"Edge TTS network error: {e}. Check your internet connection and try again."
                 ) from e
             else:
-                self.logger.error(f"Edge TTS synthesis failed with unexpected error: {type(e).__name__}: {e}")
+                self.logger.error(
+                    f"Edge TTS synthesis failed with unexpected error: {type(e).__name__}: {e}"
+                )
                 raise ProviderError(f"Edge TTS synthesis failed: {type(e).__name__}: {e}") from e
 
     async def _stream_async(self, text: str, voice: str, rate: str, pitch: str) -> None:
@@ -134,7 +138,9 @@ class EdgeTTSProvider(TTSProvider):
                 )
             except FileNotFoundError:
                 self.logger.error("FFplay not found for audio streaming")
-                raise DependencyError("ffplay not found. Please install ffmpeg to use audio streaming.") from None
+                raise DependencyError(
+                    "ffplay not found. Please install ffmpeg to use audio streaming."
+                ) from None
 
             try:
                 # Stream audio data with improved error handling
@@ -154,31 +160,43 @@ class EdgeTTSProvider(TTSProvider):
                         if chunk_count == 1:
                             import time
                             first_chunk_time = time.time()
-                            self.logger.debug("First audio chunk received - starting immediate playback")
+                            self.logger.debug(
+                                "First audio chunk received - starting immediate playback"
+                            )
 
                         try:
                             # Write chunk immediately to start playback ASAP
                             if ffplay_process.stdin:
                                 ffplay_process.stdin.write(chunk['data'])
-                                ffplay_process.stdin.flush()  # Force immediate write for low latency
+                                ffplay_process.stdin.flush()  # Force immediate write
                             bytes_written += len(chunk['data'])
 
                             # Mark playback as started after first few chunks
-                            if chunk_count == get_config_value('streaming_playback_start_threshold') and not playback_started:
+                            threshold = get_config_value('streaming_playback_start_threshold')
+                            if chunk_count == threshold and not playback_started:
                                 playback_started = True
-                                self.logger.debug("Optimized streaming: Playback should have started")
+                                self.logger.debug(
+                                    "Optimized streaming: Playback should have started"
+                                )
 
                             # Log progress every N chunks
                             if chunk_count % get_config_value('streaming_progress_interval') == 0:
-                                self.logger.debug(f"Streamed {chunk_count} chunks, {bytes_written} bytes")
+                                self.logger.debug(
+                                    f"Streamed {chunk_count} chunks, {bytes_written} bytes"
+                                )
 
                         except BrokenPipeError:
                             # Check if ffplay process ended early
                             if ffplay_process.poll() is not None:
                                 stderr_output = ""
                                 if ffplay_process.stderr:
-                                    stderr_output = ffplay_process.stderr.read().decode('utf-8', errors='ignore')
-                                self.logger.warning(f"FFplay ended early (exit code: {ffplay_process.returncode}): {stderr_output}")
+                                    stderr_output = ffplay_process.stderr.read().decode(
+                                        'utf-8', errors='ignore'
+                                    )
+                                self.logger.warning(
+                                    f"FFplay ended early (exit code: {ffplay_process.returncode}): "
+                                    f"{stderr_output}"
+                                )
                                 break
                             else:
                                 raise
@@ -193,9 +211,15 @@ class EdgeTTSProvider(TTSProvider):
                     total_time = time.time() - start_time
                     if first_chunk_time:
                         latency = first_chunk_time - start_time
-                        self.logger.info(f"Streaming optimization: First audio in {latency:.1f}s, Total: {total_time:.1f}s")
+                        self.logger.info(
+                            f"Streaming optimization: First audio in {latency:.1f}s, "
+                            f"Total: {total_time:.1f}s"
+                        )
 
-                    self.logger.debug(f"Audio streaming completed. Chunks: {chunk_count}, Bytes: {bytes_written}, Exit code: {exit_code}")
+                    self.logger.debug(
+                        f"Audio streaming completed. Chunks: {chunk_count}, "
+                        f"Bytes: {bytes_written}, Exit code: {exit_code}"
+                    )
                 except KeyboardInterrupt:
                     # Clean shutdown on Ctrl+C
                     if ffplay_process.poll() is None:
@@ -221,18 +245,26 @@ class EdgeTTSProvider(TTSProvider):
                         ffplay_process.kill()
 
                 if "internet" in str(e).lower() or "network" in str(e).lower():
-                    raise NetworkError("Network error during streaming. Check your internet connection.") from e
+                    raise NetworkError(
+                        "Network error during streaming. Check your internet connection."
+                    ) from e
                 elif isinstance(e, BrokenPipeError):
-                    raise AudioPlaybackError("Audio streaming failed: Audio device may not be available or configured properly.") from e
+                    raise AudioPlaybackError(
+                        "Audio streaming failed: Audio device may not be available or "
+                        "configured properly."
+                    ) from e
                 raise ProviderError(f"Audio streaming failed: {e}") from e
 
         except KeyboardInterrupt:
             # Propagate without logging
             raise
         except Exception as e:
-            if "internet" in str(e).lower() or "network" in str(e).lower() or "connection" in str(e).lower():
+            error_str = str(e).lower()
+            if "internet" in error_str or "network" in error_str or "connection" in error_str:
                 self.logger.error(f"Network error during Edge TTS streaming: {e}")
-                raise NetworkError("Edge TTS requires internet connection. Check your network and try again.") from e
+                raise NetworkError(
+                    "Edge TTS requires internet connection. Check your network and try again."
+                ) from e
             else:
                 self.logger.error(f"Edge TTS streaming failed: {e}")
                 raise ProviderError(f"Edge TTS streaming failed: {e}") from e
@@ -280,7 +312,9 @@ class EdgeTTSProvider(TTSProvider):
         if stream:
             self._run_async_safely(self._stream_async(text, voice, rate, pitch))
         else:
-            self._run_async_safely(self._synthesize_async(text, output_path, voice, rate, pitch, output_format))
+            self._run_async_safely(
+                self._synthesize_async(text, output_path, voice, rate, pitch, output_format)
+            )
 
     def get_info(self) -> Optional[ProviderInfo]:
         self._lazy_load()

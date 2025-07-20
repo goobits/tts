@@ -204,9 +204,15 @@ class OpenAITTSProvider(TTSProvider):
                     total_time = time.time() - start_time
                     if first_chunk_time:
                         latency = first_chunk_time - start_time
-                        self.logger.info(f"OpenAI streaming optimization: First audio in {latency:.1f}s, Total: {total_time:.1f}s")
+                        self.logger.info(
+                            f"OpenAI streaming optimization: First audio in {latency:.1f}s, "
+                            f"Total: {total_time:.1f}s"
+                        )
 
-                    self.logger.debug(f"Audio streaming completed. Chunks: {chunk_count}, Bytes: {bytes_written}, Exit code: {exit_code}")
+                    self.logger.debug(
+                        f"Audio streaming completed. Chunks: {chunk_count}, Bytes: {bytes_written}, "
+                        f"Exit code: {exit_code}"
+                    )
                 except subprocess.TimeoutExpired:
                     self.logger.warning("FFplay process timeout, terminating")
                     ffplay_process.terminate()
@@ -222,7 +228,9 @@ class OpenAITTSProvider(TTSProvider):
                         ffplay_process.kill()
 
                 if isinstance(e, BrokenPipeError):
-                    raise AudioPlaybackError("Audio streaming failed: Audio device may not be available or configured properly.") from e
+                    raise AudioPlaybackError(
+                        "Audio streaming failed: Audio device may not be available or configured properly."
+                    ) from e
                 raise ProviderError(f"Audio streaming failed: {e}") from e
 
         except Exception as e:

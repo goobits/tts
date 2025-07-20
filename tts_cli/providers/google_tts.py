@@ -72,7 +72,9 @@ class GoogleTTSProvider(TTSProvider):
                     self._client = texttospeech.TextToSpeechClient.from_service_account_info(credentials_info)
                     self._auth_method = "service_account"
                 except ImportError:
-                    raise DependencyError("Google Cloud TTS library not installed. Install with: pip install tts-cli[google]") from None
+                    raise DependencyError(
+                        "Google Cloud TTS library not installed. Install with: pip install tts-cli[google]"
+                    ) from None
                 except json.JSONDecodeError as e:
                     raise ProviderError(f"Invalid service account JSON: {e}") from e
             elif len(api_key) > 100:
@@ -85,7 +87,9 @@ class GoogleTTSProvider(TTSProvider):
                     self._client = texttospeech.TextToSpeechClient.from_service_account_info(credentials_info)
                     self._auth_method = "service_account"
                 except ImportError:
-                    raise DependencyError("Google Cloud TTS library not installed. Install with: pip install tts-cli[google]") from None
+                    raise DependencyError(
+                        "Google Cloud TTS library not installed. Install with: pip install tts-cli[google]"
+                    ) from None
                 except json.JSONDecodeError as e:
                     raise ProviderError(f"Invalid service account JSON: {e}") from e
             else:

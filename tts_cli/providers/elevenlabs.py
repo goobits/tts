@@ -138,8 +138,12 @@ class ElevenLabsProvider(TTSProvider):
         voice = kwargs.get("voice", "rachel")  # Default voice
         stream = kwargs.get("stream", "false").lower() in ("true", "1", "yes")
         output_format = kwargs.get("output_format", "wav")
-        stability = float(kwargs.get("stability", str(get_config_value('elevenlabs_default_stability'))))
-        similarity_boost = float(kwargs.get("similarity_boost", str(get_config_value('elevenlabs_default_similarity_boost'))))
+        stability = float(kwargs.get(
+            "stability", str(get_config_value('elevenlabs_default_stability'))
+        ))
+        similarity_boost = float(kwargs.get(
+            "similarity_boost", str(get_config_value('elevenlabs_default_similarity_boost'))
+        ))
         style = float(kwargs.get("style", str(get_config_value('elevenlabs_default_style'))))
 
         # Handle SSML (ElevenLabs doesn't support SSML, so strip tags)
@@ -320,7 +324,9 @@ class ElevenLabsProvider(TTSProvider):
                             # Check if ffplay process ended early
                             if ffplay_process.poll() is not None:
                                 stderr_output = ffplay_process.stderr.read().decode('utf-8', errors='ignore')
-                                self.logger.warning(f"FFplay ended early (exit code: {ffplay_process.returncode}): {stderr_output}")
+                                self.logger.warning(
+                                    f"FFplay ended early (exit code: {ffplay_process.returncode}): {stderr_output}"
+                                )
                                 break
                             else:
                                 raise
@@ -334,9 +340,15 @@ class ElevenLabsProvider(TTSProvider):
                     total_time = time.time() - start_time
                     if first_chunk_time:
                         latency = first_chunk_time - start_time
-                        self.logger.info(f"ElevenLabs streaming optimization: First audio in {latency:.1f}s, Total: {total_time:.1f}s")
+                        self.logger.info(
+                            f"ElevenLabs streaming optimization: First audio in {latency:.1f}s, "
+                            f"Total: {total_time:.1f}s"
+                        )
 
-                    self.logger.debug(f"Audio streaming completed. Chunks: {chunk_count}, Bytes: {bytes_written}, Exit code: {exit_code}")
+                    self.logger.debug(
+                        f"Audio streaming completed. Chunks: {chunk_count}, Bytes: {bytes_written}, "
+                        f"Exit code: {exit_code}"
+                    )
                 except subprocess.TimeoutExpired:
                     self.logger.warning("FFplay process timeout, terminating")
                     ffplay_process.terminate()
@@ -352,7 +364,9 @@ class ElevenLabsProvider(TTSProvider):
                         ffplay_process.kill()
 
                 if isinstance(e, BrokenPipeError):
-                    raise AudioPlaybackError("Audio streaming failed: Audio device may not be available or configured properly.") from e
+                    raise AudioPlaybackError(
+                        "Audio streaming failed: Audio device may not be available or configured properly."
+                    ) from e
                 raise ProviderError(f"Audio streaming failed: {e}") from e
 
         except Exception as e:
@@ -435,11 +449,17 @@ class ElevenLabsProvider(TTSProvider):
 
         return {
             "name": "ElevenLabs",
-            "description": f"Premium voice cloning with {len(all_voices) if 'all_voices' in locals() else '10+'} voices",
+            "description": (
+                f"Premium voice cloning with "
+                f"{len(all_voices) if 'all_voices' in locals() else '10+'} voices"
+            ),
             "api_status": api_status,
             "sample_voices": list(self.DEFAULT_VOICES.keys()),
             "all_voices": voice_names if 'voice_names' in locals() else list(self.DEFAULT_VOICES.keys()),
-            "all_voices_display": voice_list if 'voice_list' in locals() else [f"{name}: {desc}" for name, desc in self.DEFAULT_VOICES.items()],
+            "all_voices_display": (
+                voice_list if 'voice_list' in locals()
+                else [f"{name}: {desc}" for name, desc in self.DEFAULT_VOICES.items()]
+            ),
             "voice_descriptions": self.DEFAULT_VOICES,
             "custom_voices": len(custom_voices) if custom_voices else "Unknown",
             "options": {

@@ -299,7 +299,7 @@ def handle_save_command(text: str, provider: Optional[str] = None, **kwargs: Any
 
     # Call the existing synthesis handler with save=True
     handle_synthesize(
-        text, provider, output, save, voice or "", clone or "", 
+        text, provider, output, save, voice or "", clone or "",
         output_format or "wav", options, logger, json_output, debug, rate, pitch
     )
 
@@ -350,7 +350,7 @@ def handle_document_command(document_path: str, provider: str = None, **kwargs) 
 
         # Call synthesis handler
         handle_synthesize(
-            text, provider, output, save, voice, clone, output_format, 
+            text, provider, output, save, voice, clone, output_format,
             options, logger, json_output, debug, rate, pitch
         )
     else:
@@ -413,7 +413,7 @@ def handle_config_commands(action: str, key: str = None, value: str = None) -> N
                         )
                     elif provider == "google":
                         click.echo(
-                            "   Google keys start with 'AIza' (39 chars) or 'ya29.' (OAuth)", 
+                            "   Google keys start with 'AIza' (39 chars) or 'ya29.' (OAuth)",
                             err=True
                         )
                     elif provider == "elevenlabs":
@@ -582,7 +582,10 @@ def _validate_elevenlabs_options(kwargs: dict) -> None:
             if not 0.0 <= similarity <= 1.0:
                 click.echo(f"⚠️  Warning: ElevenLabs similarity_boost must be between 0.0 and 1.0, got {similarity}", err=True)
         except ValueError:
-            click.echo(f"⚠️  Warning: ElevenLabs similarity_boost must be a number, got '{kwargs['similarity_boost']}'", err=True)
+            click.echo(
+                f"⚠️  Warning: ElevenLabs similarity_boost must be a number, got '{kwargs['similarity_boost']}'",
+                err=True
+            )
 
     # Validate style (0.0-1.0)
     if 'style' in kwargs:
@@ -636,7 +639,7 @@ def check_option_precedence(cli_rate: str, cli_pitch: str, options: tuple, logge
 def handle_synthesize(
     text: str, model: str, output: str, save: bool, voice: str,
     clone: str, output_format: str, options: tuple, logger: logging.Logger,
-    json_output: bool = False, debug: bool = False, 
+    json_output: bool = False, debug: bool = False,
     rate: str = None, pitch: str = None
 ) -> None:
     """Handle main synthesis command using the core TTS engine."""
@@ -943,7 +946,10 @@ def handle_install_command(args: tuple) -> None:
                         click.echo("✅ PyTorch with CUDA installed successfully!")
                     except subprocess.CalledProcessError as e:
                         click.echo(f"❌ Failed to install PyTorch with CUDA: {e}")
-                        click.echo("💡 Try manually: pipx inject --index-url https://download.pytorch.org/whl/cu121 goobits-tts torch torchvision torchaudio")
+                        click.echo(
+                            "💡 Try manually: pipx inject --index-url https://download.pytorch.org/whl/cu121 "
+                            "goobits-tts torch torchvision torchaudio"
+                        )
                         return
                 else:
                     click.echo("📦 Installing PyTorch (CPU)...")
@@ -970,13 +976,17 @@ def handle_install_command(args: tuple) -> None:
                 click.echo("💡 This may take 5-10 minutes to download large packages...")
             try:
                 subprocess.run([
-                    'pipx', 'inject', '--index-url', 'https://download.pytorch.org/whl/cu121',
+                    'pipx', 'inject', '--index-url',
+                    'https://download.pytorch.org/whl/cu121',
                     'goobits-tts', 'torch', 'torchvision', 'torchaudio'
                 ], check=True, timeout=600)  # 10 minute timeout
                 click.echo("✅ PyTorch with CUDA installed!")
             except subprocess.CalledProcessError as e:
                 click.echo(f"❌ Failed to install PyTorch with CUDA: {e}")
-                click.echo("💡 Try manually: pipx inject --index-url https://download.pytorch.org/whl/cu121 goobits-tts torch torchvision torchaudio")
+                click.echo(
+                    "💡 Try manually: pipx inject --index-url https://download.pytorch.org/whl/cu121 "
+                    "goobits-tts torch torchvision torchaudio"
+                )
                 return
 
             # Install chatterbox-tts
@@ -984,12 +994,12 @@ def handle_install_command(args: tuple) -> None:
             try:
                 subprocess.run(['pipx', 'inject', 'goobits-tts', 'chatterbox-tts'], check=True, capture_output=True)
                 click.echo("✅ Chatterbox TTS installed successfully!")
-                
+
                 # Set chatterbox-compatible voice config
                 set_setting('voice', 'chatterbox:')
                 save_config()
                 click.echo("🔧 Updated voice config to be compatible with Chatterbox")
-                
+
                 click.echo("🎉 Installation complete! You can now use Chatterbox with voice cloning.")
                 click.echo("💡 Usage: tts @chatterbox \"Hello world\"")
                 click.echo("💡 Voice cloning: tts @chatterbox --voice your_voice.wav \"Hello world\"")
@@ -1520,7 +1530,10 @@ def default_cmd(ctx: click.Context, args: tuple) -> None:
 @click.argument("text", required=False)
 @click.argument("options", nargs=-1)
 @click.pass_context
-def speak(ctx: click.Context, output: str, output_format: str, voice: str, clone: str, json_output: bool, debug: bool, rate: str, pitch: str, text: str, options: tuple) -> None:
+def speak(
+    ctx: click.Context, output: str, output_format: str, voice: str, clone: str,
+    json_output: bool, debug: bool, rate: str, pitch: str, text: str, options: tuple
+) -> None:
     """Synthesize text to speech (default command).
 
     Streams audio directly to speakers. Use 'tts save' to save to file instead.
@@ -1654,7 +1667,10 @@ def speak(ctx: click.Context, output: str, output_format: str, voice: str, clone
         click.echo(final_text)
 
     # Handle main synthesis - speak command is always streaming (save=False)
-    handle_synthesize(final_text, final_model, output, False, final_voice, clone, output_format, tuple(final_options), logger, json_output, debug, rate, pitch)
+    handle_synthesize(
+        final_text, final_model, output, False, final_voice, clone, output_format,
+        tuple(final_options), logger, json_output, debug, rate, pitch
+    )
 
 
 @main.command()
@@ -1668,7 +1684,10 @@ def speak(ctx: click.Context, output: str, output_format: str, voice: str, clone
 @click.option("--pitch", help="Pitch adjustment (e.g., +5Hz, -10Hz)")
 @click.argument("text", required=False)
 @click.argument("options", nargs=-1)
-def save(output: str, output_format: str, voice: str, clone: str, json_output: bool, debug: bool, rate: str, pitch: str, text: str, options: tuple) -> None:
+def save(
+    output: str, output_format: str, voice: str, clone: str, json_output: bool,
+    debug: bool, rate: str, pitch: str, text: str, options: tuple
+) -> None:
     """Save text as audio file.
 
     Examples:
@@ -1728,13 +1747,26 @@ def save(output: str, output_format: str, voice: str, clone: str, json_output: b
 @click.option("--clone", help="Audio file to clone voice from")
 @click.option("--json", "json_output", is_flag=True, help="Output results as JSON")
 @click.option("--debug", is_flag=True, help="Show debug information during processing")
-@click.option("--doc-format", "doc_format", type=click.Choice(['auto', 'markdown', 'html', 'json']), default='auto', help="Document format")
-@click.option("--ssml-platform", type=click.Choice(['azure', 'google', 'amazon', 'generic']), default='generic', help="SSML platform")
-@click.option("--emotion-profile", type=click.Choice(['technical', 'marketing', 'narrative', 'tutorial', 'auto']), default='auto', help="Emotion profile")
+@click.option(
+    "--doc-format", "doc_format", type=click.Choice(['auto', 'markdown', 'html', 'json']),
+    default='auto', help="Document format"
+)
+@click.option(
+    "--ssml-platform", type=click.Choice(['azure', 'google', 'amazon', 'generic']),
+    default='generic', help="SSML platform"
+)
+@click.option(
+    "--emotion-profile", type=click.Choice(['technical', 'marketing', 'narrative', 'tutorial', 'auto']),
+    default='auto', help="Emotion profile"
+)
 @click.option("--rate", help="Speech rate adjustment")
 @click.option("--pitch", help="Pitch adjustment")
 @click.argument("options", nargs=-1)
-def document(document_path: str, save: bool, output: str, output_format: str, voice: str, clone: str, json_output: bool, debug: bool, doc_format: str, ssml_platform: str, emotion_profile: str, rate: str, pitch: str, options: tuple) -> None:
+def document(
+    document_path: str, save: bool, output: str, output_format: str, voice: str, clone: str,
+    json_output: bool, debug: bool, doc_format: str, ssml_platform: str, emotion_profile: str,
+    rate: str, pitch: str, options: tuple
+) -> None:
     """Process and convert documents to speech.
 
     Examples:
