@@ -149,7 +149,8 @@ def parse_provider_shortcut(args: List[str]) -> Tuple[Optional[str], List[str]]:
         else:
             # Unknown shortcut - show error
             click.echo(f"Error: Unknown provider shortcut '@{shortcut}'", err=True)
-            click.echo(f"Available providers: {', '.join('@' + s for s in PROVIDER_SHORTCUTS.keys())}", err=True)
+            shortcuts = [f"@{s}" for s in PROVIDER_SHORTCUTS.keys()]
+            click.echo(f"Available providers: {', '.join(shortcuts)}", err=True)
             click.echo("Use 'tts providers' to see detailed information.", err=True)
             sys.exit(1)
 
@@ -165,11 +166,12 @@ def setup_logging() -> logging.Logger:
     # Configure logging
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.WARNING)  # Only show warnings and errors on console
-    console_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    console_handler.setFormatter(formatter)
 
     file_handler = logging.FileHandler(logs_dir / "tts.log")
     file_handler.setLevel(logging.INFO)  # Log everything to file
-    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    file_handler.setFormatter(formatter)
 
     logging.basicConfig(
         level=logging.DEBUG,  # Capture everything
@@ -192,9 +194,18 @@ def parse_input(text: str) -> Tuple[str, Dict]:
     return text, {}  # Plain text input
 
 
-def format_output(success: bool, provider: Optional[str] = None, voice: Optional[str] = None, action: Optional[str] = None,
-                 duration: Optional[float] = None, output_path: Optional[str] = None, error: Optional[str] = None,
-                 error_code: Optional[str] = None, json_output: bool = False, debug: bool = False) -> str:
+def format_output(
+    success: bool,
+    provider: Optional[str] = None,
+    voice: Optional[str] = None,
+    action: Optional[str] = None,
+    duration: Optional[float] = None,
+    output_path: Optional[str] = None,
+    error: Optional[str] = None,
+    error_code: Optional[str] = None,
+    json_output: bool = False,
+    debug: bool = False
+) -> str:
     """Format output as JSON or human-readable text"""
     if json_output:
         if success:
@@ -287,7 +298,10 @@ def handle_save_command(text: str, provider: Optional[str] = None, **kwargs: Any
     logger = setup_logging()
 
     # Call the existing synthesis handler with save=True
-    handle_synthesize(text, provider, output, save, voice or "", clone or "", output_format or "wav", options, logger, json_output, debug, rate, pitch)
+    handle_synthesize(
+        text, provider, output, save, voice or "", clone or "", 
+        output_format or "wav", options, logger, json_output, debug, rate, pitch
+    )
 
 
 def handle_document_command(document_path: str, provider: str = None, **kwargs) -> None:
@@ -335,7 +349,10 @@ def handle_document_command(document_path: str, provider: str = None, **kwargs) 
         logger = setup_logging()
 
         # Call synthesis handler
-        handle_synthesize(text, provider, output, save, voice, clone, output_format, options, logger, json_output, debug, rate, pitch)
+        handle_synthesize(
+            text, provider, output, save, voice, clone, output_format, 
+            options, logger, json_output, debug, rate, pitch
+        )
     else:
         # Just output the processed text
         click.echo(text)
@@ -391,9 +408,14 @@ def handle_config_commands(action: str, key: str = None, value: str = None) -> N
                 else:
                     click.echo(f"❌ Invalid {provider} API key format", err=True)
                     if provider == "openai":
-                        click.echo("   OpenAI keys start with 'sk-' and are ~50 characters", err=True)
+                        click.echo(
+                            "   OpenAI keys start with 'sk-' and are ~50 characters", err=True
+                        )
                     elif provider == "google":
-                        click.echo("   Google keys start with 'AIza' (39 chars) or 'ya29.' (OAuth)", err=True)
+                        click.echo(
+                            "   Google keys start with 'AIza' (39 chars) or 'ya29.' (OAuth)", 
+                            err=True
+                        )
                     elif provider == "elevenlabs":
                         click.echo("   ElevenLabs keys are 32-character hex strings", err=True)
                     sys.exit(1)
@@ -611,9 +633,12 @@ def check_option_precedence(cli_rate: str, cli_pitch: str, options: tuple, logge
         click.echo(f"⚠️  Both --pitch and pitch= specified. Using --pitch {cli_pitch}", err=True)
 
 
-def handle_synthesize(text: str, model: str, output: str, save: bool, voice: str,
-                     clone: str, output_format: str, options: tuple, logger: logging.Logger,
-                     json_output: bool = False, debug: bool = False, rate: str = None, pitch: str = None) -> None:
+def handle_synthesize(
+    text: str, model: str, output: str, save: bool, voice: str,
+    clone: str, output_format: str, options: tuple, logger: logging.Logger,
+    json_output: bool = False, debug: bool = False, 
+    rate: str = None, pitch: str = None
+) -> None:
     """Handle main synthesis command using the core TTS engine."""
     # Check for option precedence conflicts
     check_option_precedence(rate, pitch, options, logger)
@@ -938,37 +963,36 @@ def handle_install_command(args: tuple) -> None:
             click.echo(f"📦 Chatterbox not available: {e}")
             click.echo("📦 Installing dependencies...")
 
-            # Install PyTorch first
-            if gpu_flag:
-                click.echo("📦 Installing PyTorch with CUDA support...")
-                try:
-                    subprocess.run([
-                        'pipx', 'inject', '--index-url', 'https://download.pytorch.org/whl/cu121',
-                        'goobits-tts', 'torch', 'torchvision', 'torchaudio'
-                    ], check=True)
-                    click.echo("✅ PyTorch with CUDA installed!")
-                except subprocess.CalledProcessError as e:
-                    click.echo(f"❌ Failed to install PyTorch with CUDA: {e}")
-                    click.echo("💡 Try manually: pipx inject --index-url https://download.pytorch.org/whl/cu121 tts-cli torch torchvision torchaudio")
-                    return
-            else:
-                click.echo("📦 Installing PyTorch (CPU)...")
-                try:
-                    subprocess.run([
-                        'pipx', 'inject', 'tts-cli', 'torch', 'torchvision', 'torchaudio'
-                    ], check=True, capture_output=True)
-                    click.echo("✅ PyTorch (CPU) installed!")
-                except subprocess.CalledProcessError as e:
-                    click.echo(f"❌ Failed to install PyTorch: {e}")
-                    click.echo("💡 Try manually: pipx inject goobits-tts torch torchvision torchaudio")
-                    return
+            # Install PyTorch with CUDA (required even for CPU usage with chatterbox-tts)
+            click.echo("📦 Installing PyTorch with CUDA support...")
+            click.echo("💡 Note: Chatterbox requires CUDA PyTorch even for CPU usage")
+            if not gpu_flag:
+                click.echo("💡 This may take 5-10 minutes to download large packages...")
+            try:
+                subprocess.run([
+                    'pipx', 'inject', '--index-url', 'https://download.pytorch.org/whl/cu121',
+                    'goobits-tts', 'torch', 'torchvision', 'torchaudio'
+                ], check=True, timeout=600)  # 10 minute timeout
+                click.echo("✅ PyTorch with CUDA installed!")
+            except subprocess.CalledProcessError as e:
+                click.echo(f"❌ Failed to install PyTorch with CUDA: {e}")
+                click.echo("💡 Try manually: pipx inject --index-url https://download.pytorch.org/whl/cu121 goobits-tts torch torchvision torchaudio")
+                return
 
             # Install chatterbox-tts
             click.echo("📦 Installing Chatterbox TTS...")
             try:
                 subprocess.run(['pipx', 'inject', 'goobits-tts', 'chatterbox-tts'], check=True, capture_output=True)
                 click.echo("✅ Chatterbox TTS installed successfully!")
+                
+                # Set chatterbox-compatible voice config
+                set_setting('voice', 'chatterbox:')
+                save_config()
+                click.echo("🔧 Updated voice config to be compatible with Chatterbox")
+                
                 click.echo("🎉 Installation complete! You can now use Chatterbox with voice cloning.")
+                click.echo("💡 Usage: tts @chatterbox \"Hello world\"")
+                click.echo("💡 Voice cloning: tts @chatterbox --voice your_voice.wav \"Hello world\"")
             except subprocess.CalledProcessError as e:
                 click.echo(f"❌ Failed to install Chatterbox TTS: {e}")
                 click.echo("💡 Try manually: pipx inject goobits-tts chatterbox-tts")
@@ -1482,83 +1506,6 @@ def default_cmd(ctx: click.Context, args: tuple) -> None:
     # Simply forward to the speak command
     ctx.invoke(speak, text=" ".join(args), options=())
 
-
-@main.command()
-@click.option("--check", type=click.Path(exists=True), help="Check script file for legacy TTS usage")
-@click.pass_context
-def migrate(ctx: click.Context, check: str) -> None:
-    """Migration helper for updating legacy TTS commands.
-
-    Scans shell scripts and suggests modern replacements for legacy flags.
-    """
-    if not check:
-        click.echo("Usage: tts migrate --check <script_file>")
-        click.echo("\nAnalyze a shell script for legacy TTS usage and suggest modernized commands.")
-        return
-
-    try:
-        with open(check, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-        issues_found = []
-        line_num = 0
-
-        for line in content.split('\n'):
-            line_num += 1
-            line_stripped = line.strip()
-
-            # Skip comments and empty lines
-            if not line_stripped or line_stripped.startswith('#'):
-                continue
-
-            # Look for tts commands with legacy flags
-            if 'tts ' in line_stripped:
-                suggestions = []
-
-                # Check for --save flag
-                if '--save' in line_stripped:
-                    suggestions.append("Replace '--save' with 'tts save' subcommand")
-
-                # Check for --document flag
-                if '--document ' in line_stripped:
-                    suggestions.append("Replace '--document <file>' with 'tts document <file>'")
-
-                # Check for --model flag
-                if '--model ' in line_stripped:
-                    suggestions.append("Replace '--model <provider>' with '@<provider>' shortcut")
-
-                if suggestions:
-                    issues_found.append({
-                        'line': line_num,
-                        'content': line_stripped,
-                        'suggestions': suggestions
-                    })
-
-        if not issues_found:
-            click.echo(f"✅ No legacy TTS usage found in {check}")
-            click.echo("🎉 Your script is already using modern TTS syntax!")
-        else:
-            click.echo(f"📋 Migration Analysis for {check}")
-            click.echo(f"Found {len(issues_found)} lines with legacy TTS usage:\n")
-
-            for issue in issues_found:
-                click.echo(f"Line {issue['line']}: {issue['content']}")
-                for suggestion in issue['suggestions']:
-                    click.echo(f"  💡 {suggestion}")
-                click.echo()
-
-            click.echo("📖 Migration Guide:")
-            click.echo("• '--save' flag → 'tts save \"text\"'")
-            click.echo("• '--document file' → 'tts document file'")
-            click.echo("• '--model provider' → 'tts @provider \"text\"'")
-            click.echo("• '--voice voice.wav' → 'tts @chatterbox \"text\" --clone voice.wav'")
-
-    except FileNotFoundError:
-        click.echo(f"❌ File not found: {check}", err=True)
-        sys.exit(1)
-    except Exception as e:
-        click.echo(f"❌ Error reading file: {e}", err=True)
-        sys.exit(1)
 
 
 @main.command(name='speak')  # Make it explicit, not hidden

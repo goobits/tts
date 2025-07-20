@@ -92,7 +92,9 @@ class ElevenLabsProvider(TTSProvider):
 
                     self._voices_cache = voices
                 else:
-                    self.logger.warning(f"Failed to fetch ElevenLabs voices: {response.status_code}")
+                    self.logger.warning(
+                        f"Failed to fetch ElevenLabs voices: {response.status_code}"
+                    )
                     self._voices_cache = []
 
             except Exception as e:
@@ -104,7 +106,9 @@ class ElevenLabsProvider(TTSProvider):
     def _get_voice_id(self, voice_name: str) -> Optional[str]:
         """Get voice ID from voice name."""
         # Check if it's already a voice ID (32 char hex string)
-        if len(voice_name) == get_config_value('elevenlabs_voice_id_length') and all(c in '0123456789abcdef' for c in voice_name.lower()):
+        voice_id_length = get_config_value('elevenlabs_voice_id_length')
+        is_hex = all(c in '0123456789abcdef' for c in voice_name.lower())
+        if len(voice_name) == voice_id_length and is_hex:
             return voice_name
 
         # Search in available voices

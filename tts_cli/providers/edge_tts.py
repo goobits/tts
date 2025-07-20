@@ -73,7 +73,9 @@ class EdgeTTSProvider(TTSProvider):
                 convert_with_cleanup(mp3_path, output_path, output_format)
         except ConnectionError as e:
             self.logger.error(f"Network connection error during Edge TTS synthesis: {e}")
-            raise NetworkError(f"Edge TTS connection failed: {e}. Check your internet connection and try again.") from e
+            raise NetworkError(
+                f"Edge TTS connection failed: {e}. Check your internet connection and try again."
+            ) from e
         except OSError as e:
             self.logger.error(f"File system error during Edge TTS synthesis: {e}")
             raise ProviderError(f"Edge TTS file operation failed: {e}") from e
@@ -81,7 +83,9 @@ class EdgeTTSProvider(TTSProvider):
             error_msg = str(e).lower()
             if any(keyword in error_msg for keyword in ["internet", "network", "connection", "dns", "timeout"]):
                 self.logger.error(f"Network-related error during Edge TTS synthesis: {e}")
-                raise NetworkError(f"Edge TTS network error: {e}. Check your internet connection and try again.") from e
+                raise NetworkError(
+                    f"Edge TTS network error: {e}. Check your internet connection and try again."
+                ) from e
             else:
                 self.logger.error(f"Edge TTS synthesis failed with unexpected error: {type(e).__name__}: {e}")
                 raise ProviderError(f"Edge TTS synthesis failed: {type(e).__name__}: {e}") from e
