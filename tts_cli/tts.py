@@ -1537,11 +1537,15 @@ def speak(ctx: click.Context, output: str, output_format: str, voice: str, clone
     
     # Check if text starts with @provider shortcut
     if text and text.startswith('@'):
-        provider_from_shortcut, remaining_args = parse_provider_shortcut([text])
-        if remaining_args:  # This shouldn't happen since we only passed one arg
+        # When text is @provider, the actual text might be in options
+        all_args = [text] + list(options)
+        provider_from_shortcut, remaining_args = parse_provider_shortcut(all_args)
+        if remaining_args:
             final_text = remaining_args[0] if remaining_args else None
+            final_options = remaining_args[1:] if len(remaining_args) > 1 else []
         else:
             final_text = None
+            final_options = []
     
     # Check if first option is @provider shortcut  
     elif options and options[0].startswith('@'):
