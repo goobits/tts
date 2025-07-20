@@ -104,18 +104,45 @@ Provider loading is dynamic via the `PROVIDERS` dict in `tts.py:21-27`.
 ```
 
 ```bash
-tts "text"                    # Stream audio (default)
-tts save "text"               # Save to file
-tts voices                    # Interactive voice browser
-tts config                    # Show/edit configuration  
-tts doctor                    # System health check
-tts voice load voice.wav      # Preload voice for fast access
-tts install chatterbox gpu    # Install provider dependencies
+# Basic synthesis (direct streaming to speakers)
+tts "Hello world"             # Stream audio (default behavior)
+tts Hello world               # Unquoted text also works
+echo "Hello world" | tts      # Pipe input support
 
-# Document processing commands
-tts document report.html           # Convert HTML to speech
+# Provider shortcuts
+tts @edge "Hello world"       # Edge TTS (free)
+tts @openai "Hello world"     # OpenAI TTS
+tts @elevenlabs "Hello world" # ElevenLabs
+tts @google "Hello world"     # Google Cloud TTS
+tts @chatterbox "Hello world" # Local voice cloning
+
+# Save to file
+tts save "text"               # Save to file
+tts save @edge "text" -o audio.mp3  # Save with specific provider
+
+# Voice and system management
+tts voices                    # Interactive voice browser
+tts voice load voice.wav      # Preload voice for fast access
+tts voice status              # Show loaded voices
+tts providers                 # Enhanced provider status display
+tts providers @openai         # Provider-specific setup instructions
+tts status                    # System health check
+tts version                   # Show version with suite branding
+
+# Configuration (enhanced display)
+tts config show               # Rich config display with emoji sections
+tts config set openai_api_key YOUR_KEY    # Set API keys
+tts config edit               # Interactive editor
+
+# Document processing
+tts document report.html      # Convert HTML to speech
 tts document api.json --emotion-profile technical --save
 tts document README.md --ssml-platform azure
+
+# Pipeline examples (integration with STT/TTT)
+echo "Hello world" | tts                     # Simple pipe
+ttt "Fix grammar" < essay.txt | tts          # Fix then speak
+stt recording.wav | tts @edge               # Transcribe and speak
 ```
 
 ## Code Style & Standards
@@ -156,15 +183,22 @@ The `tts install` command handles complex dependency management, especially for 
 
 ## Recent Features
 
-- Real-time streaming support (OpenAI, ElevenLabs) 
-- Enhanced curses voice browser with three-panel layout
-- Dual authentication for Google Cloud TTS (API key + service account)
-- Voice loading/caching system for performance
-- Interactive configuration editor
-- Document-to-speech processing with emotion detection
-- Multi-format document support (HTML, JSON, Markdown)
-- Platform-specific SSML generation (Azure, Google, Amazon)
-- Context-aware emotion profiles for different document types
+### CLI Enhancement (v2.0.0)
+- **Enhanced user experience**: Emoji-enhanced interface with visual status indicators
+- **Provider shortcuts**: Use `@edge`, `@openai`, `@elevenlabs`, etc. for quick provider selection
+- **Rich configuration display**: Organized sections showing API keys, defaults, audio settings, and paths
+- **Pipeline integration examples**: Clear demonstrations of STT → TTT → TTS workflows
+- **Comprehensive providers command**: Detailed status checking and setup instructions
+
+### Core Features
+- **Real-time streaming support**: OpenAI, ElevenLabs with minimal latency
+- **Enhanced voice browser**: Three-panel curses interface with advanced filtering
+- **Dual authentication**: Google Cloud TTS supports both API key and service account
+- **Voice loading/caching**: Preload voices for fast synthesis (Chatterbox)
+- **Interactive configuration**: User-friendly config editor with validation
+- **Document processing**: Multi-format support (HTML, JSON, Markdown) with emotion detection
+- **SSML generation**: Platform-optimized markup (Azure, Google, Amazon)
+- **Context-aware profiles**: Technical, marketing, narrative, tutorial emotion detection
 
 ## Important Files to Understand
 

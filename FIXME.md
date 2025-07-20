@@ -5,13 +5,13 @@
 ### 1. Direct text without quotes only captures first word
 - **Command**: `tts Hello world`
 - **Status**: ✅ FIXED
-- **Solution**: Added logic in speak command to combine text with options that don't look like actual CLI options
+- **Solution**: Added logic in direct synthesis to combine text with options that don't look like actual CLI options
 
 ### 2. Piping text doesn't work
 - **Command**: `echo "This is piped text" | tts`
-- **Status**: ✅ FIXED (partially)
-- **Solution**: Added stdin detection in main() and DefaultCommandGroup
-- **Note**: Works with `echo "text" | tts speak`, direct piping without subcommand may need additional work
+- **Status**: ✅ FULLY FIXED
+- **Solution**: Complete implementation of stdin detection and direct synthesis handling
+- **Note**: Now works perfectly with `echo "text" | tts` - no subcommand needed
 
 ### 3. Large document processing hangs
 - **Command**: `tts document README.md`
@@ -19,14 +19,25 @@
 - **Note**: Works fine with reasonable-sized documents. Very large documents may naturally take longer to process
 
 ### 4. Multiple commands not recognized
-- **Commands**: `tts doctor`, `tts voices`, `tts config`
+- **Commands**: `tts status`, `tts voices`, `tts config`
 - **Status**: ✅ FIXED
-- **Solution**: Re-added all missing subcommands (doctor, voices, config, install) to the main command group
+- **Solution**: Re-added all missing subcommands (status, voices, config, install) to the main command group
 
 ## 🔍 REMAINING MINOR ISSUES
 
-### 1. Direct piping without subcommand
-- **Command**: `echo "text" | tts` (without 'speak')
-- **Current behavior**: Shows help or does nothing
-- **Workaround**: Use `echo "text" | tts speak`
-- **Note**: This is a minor UX issue as the workaround is simple
+**All issues have been resolved!** 🎉
+
+The CLI now supports:
+- ✅ Direct text synthesis: `tts "Hello world"`
+- ✅ Unquoted text: `tts Hello world`  
+- ✅ Pipe input: `echo "text" | tts`
+- ✅ Provider shortcuts: `tts @edge "Hello"`
+- ✅ All subcommands working properly
+
+## 🆕 NEW FEATURES ADDED
+
+- **Enhanced providers command**: Rich display with emoji status indicators
+- **Configuration display**: Organized sections with visual feedback
+- **Pipeline integration**: Seamless piping with STT/TTT tools
+- **Version command**: Suite branding consistency
+- **Emoji consistency**: Visual feedback throughout the interface

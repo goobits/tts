@@ -25,7 +25,7 @@ cloning capabilities. The CLI offers comprehensive functionality including:
 - `tts "text" --save` - Save audio to file
 - `tts voices` - Interactive voice browser
 - `tts config` - Configuration management
-- `tts doctor` - System health diagnostics
+- `tts status` - System health check
 
 **Usage Examples:**
 ```bash
@@ -93,20 +93,17 @@ PROVIDER_SHORTCUTS: Dict[str, str] = {
 
 class DefaultCommandGroup(click.Group):
     """
-    A custom Click group that invokes a default command ('speak') if no other
-    subcommand is specified.
+    A custom Click group that handles direct text synthesis when no subcommand is specified.
     """
     def resolve_command(
         self, ctx: click.Context, args: List[str]
     ) -> Tuple[Optional[str], Optional[click.Command], List[str]]:
-        # If no args, check if we have stdin input
+        # If no args, this could be stdin input or help request
         if not args:
-            # If stdin has data (not connected to terminal), route to speak command
-            if not sys.stdin.isatty():
-                args = ['speak']
-                return super().resolve_command(ctx, args)
-            # Otherwise, let default handling take over (will invoke callback)
-            return super().resolve_command(ctx, args)
+            # Set flag for direct synthesis and let main() handle stdin detection
+            ctx.meta['direct_synthesis'] = True
+            ctx.meta['synthesis_args'] = []
+            return None, self.callback, args
 
         # If the first arg is a known option (like --help or --list),
         # let default handling take over.
@@ -119,12 +116,12 @@ class DefaultCommandGroup(click.Group):
             # It's a subcommand, let Click handle it normally.
             return super().resolve_command(ctx, args)
 
-        # The first argument is not a subcommand, so we assume it's text
-        # for the 'speak' command. We prepend 'speak' to the argument list.
-        args.insert(0, 'speak')
-
-        # Now, resolve the command again with the modified args.
-        return super().resolve_command(ctx, args)
+        # The first argument is not a subcommand, so we assume it's text for direct synthesis
+        # Store args for direct synthesis handling
+        ctx.meta['direct_synthesis'] = True
+        ctx.meta['synthesis_args'] = args
+        # Return the group's callback name so Click can invoke main()
+        return None, self.callback, args
 
 
 def parse_provider_shortcut(args: List[str]) -> Tuple[Optional[str], List[str]]:
@@ -148,10 +145,10 @@ def parse_provider_shortcut(args: List[str]) -> Tuple[Optional[str], List[str]]:
             return provider_name, args[1:]  # Return provider and remaining args
         else:
             # Unknown shortcut - show error
-            click.echo(f"Error: Unknown provider shortcut '@{shortcut}'", err=True)
+            click.echo(f"❌ Error: Unknown provider shortcut '@{shortcut}'", err=True)
             shortcuts = [f"@{s}" for s in PROVIDER_SHORTCUTS.keys()]
-            click.echo(f"Available providers: {', '.join(shortcuts)}", err=True)
-            click.echo("Use 'tts providers' to see detailed information.", err=True)
+            click.echo(f"💡 Available providers: {', '.join(shortcuts)}", err=True)
+            click.echo("💡 Use 'tts providers' to see detailed information.", err=True)
             sys.exit(1)
 
     return None, args
@@ -192,6 +189,137 @@ def parse_input(text: str) -> Tuple[str, Dict]:
         except json.JSONDecodeError:
             pass
     return text, {}  # Plain text input
+
+
+def handle_direct_synthesis(args: List[str]) -> None:
+    """Handle direct text synthesis without a subcommand.
+    
+    This function incorporates the logic from the removed speak command
+    to handle direct text synthesis like: tts "Hello world"
+    """
+    # Parse provider shortcuts from the arguments
+    provider_from_shortcut = None
+    final_text = None
+    final_options = []
+
+    # Handle case where args is empty (stdin input)
+    if not args:
+        final_text = None
+        final_options = []
+    else:
+        # Check if first arg starts with @provider shortcut
+        if args[0].startswith('@'):
+            provider_from_shortcut, remaining_args = parse_provider_shortcut(args)
+            if remaining_args:
+                final_text = remaining_args[0] if remaining_args else None
+                final_options = remaining_args[1:] if len(remaining_args) > 1 else []
+            else:
+                final_text = None
+                final_options = []
+        else:
+            # First arg is text, check if second arg is @provider
+            final_text = args[0]
+            remaining_args = args[1:]
+            
+            if remaining_args and remaining_args[0].startswith('@'):
+                provider_from_shortcut, options_after_provider = parse_provider_shortcut(remaining_args)
+                final_options = options_after_provider
+            else:
+                final_options = remaining_args
+
+    # If we have text and options that don't look like actual options, combine them
+    # This handles the case: tts Hello world (without quotes)
+    if final_text and final_options:
+        # Check if the options look like plain text (not CLI options or key=value pairs)
+        text_like_options = []
+        remaining_options = []
+
+        for opt in final_options:
+            # If it doesn't start with - and doesn't contain =, it's likely part of the text
+            if not opt.startswith('-') and '=' not in opt and not opt.startswith('@'):
+                text_like_options.append(opt)
+            else:
+                # Once we hit a real option, collect the rest as options
+                remaining_options.append(opt)
+                remaining_options.extend(final_options[final_options.index(opt) + 1:])
+                break
+
+        if text_like_options:
+            # Combine the text with the text-like options
+            final_text = final_text + ' ' + ' '.join(text_like_options)
+            final_options = remaining_options
+
+    # Setup logging
+    logger = setup_logging()
+
+    # Initialize core TTS engine
+    initialize_tts_engine(PROVIDERS)
+
+    # Load configuration first
+    user_config = load_config()
+
+    # Use provider from shortcut if detected, otherwise fall back to config
+    final_model = provider_from_shortcut
+
+    # Apply configuration defaults where CLI args weren't provided
+    if not final_model:
+        config_voice = user_config.get('voice', 'edge_tts:en-IE-EmilyNeural')
+        provider, _ = parse_voice_setting(config_voice)
+        final_model = provider or 'edge_tts'
+
+    # Handle voice configuration
+    final_voice = None
+    config_voice = user_config.get('voice')
+    if config_voice:
+        _, final_voice = parse_voice_setting(config_voice)
+
+    # Validate model/provider early
+    if final_model not in PROVIDERS:
+        click.echo(f"❌ Error: Unknown provider: {final_model}", err=True)
+        sys.exit(1)
+
+    # Set default output and format
+    output = "output.wav"
+    output_format = user_config.get('format', 'mp3')
+
+    # Check required arguments - try stdin if no text provided
+    if not final_text:
+        # Check if text is being piped in
+        if not sys.stdin.isatty():
+            # Read from stdin
+            try:
+                final_text = sys.stdin.read().strip()
+                if not final_text:
+                    # Show help when empty stdin is provided
+                    click.echo("❌ Error: No text provided via stdin", err=True)
+                    sys.exit(1)
+                logger.debug(f"Read {len(final_text)} characters from stdin")
+            except Exception as e:
+                logger.error(f"Failed to read from stdin: {e}")
+                click.echo("📥 Error: Failed to read text from stdin", err=True)
+                sys.exit(1)
+        else:
+            # Error when no text is provided
+            click.echo("❌ Error: You must provide text to synthesize", err=True)
+            click.echo("💡 Usage: tts \"Hello world\" or echo \"text\" | tts", err=True)
+            sys.exit(1)
+
+    # Parse JSON input if provided and override parameters
+    final_text, json_params = parse_input(final_text)
+    if json_params:
+        # Override CLI parameters with JSON values
+        final_voice = json_params.get('voice', final_voice)
+        output = json_params.get('output_path', output)
+        output_format = json_params.get('format', output_format)
+
+    # In streaming mode, display the text being spoken
+    click.echo(final_text)
+
+    # Handle main synthesis - direct synthesis is always streaming (save=False)
+    handle_synthesize(
+        final_text, final_model, output, False, final_voice, None, output_format,
+        tuple(final_options), logger, False, False, None, None
+    )
 
 
 def format_output(
@@ -323,7 +451,7 @@ def handle_document_command(document_path: str, provider: str = None, **kwargs) 
     )
 
     if not text:
-        click.echo("Error: Failed to process document", err=True)
+        click.echo("❌ Error: Failed to process document", err=True)
         sys.exit(1)
 
     # If save flag is set, synthesize the processed text
@@ -367,32 +495,328 @@ def handle_voice_subcommand(subcommand: str, args: tuple) -> None:
     elif subcommand == "status":
         handle_status_command()
     else:
-        click.echo(f"Error: Unknown voice subcommand '{subcommand}'", err=True)
-        click.echo("Available voice commands: load, unload, status", err=True)
+        click.echo(f"❌ Error: Unknown voice subcommand '{subcommand}'", err=True)
+        click.echo("💡 Available voice commands: load, unload, status", err=True)
         sys.exit(1)
 
 
 def handle_providers_command() -> None:
-    """Handle the new 'tts providers' command - simple list for scripting"""
+    """Enhanced providers command with emoji-rich display and status checking"""
+    click.echo("🏢 Available TTS Providers:")
+    click.echo()
+    
+    # Provider metadata with emojis and descriptions
+    provider_info = {
+        "edge_tts": {
+            "emoji": "🌐",
+            "name": "Edge TTS",
+            "description": "Free Microsoft Azure voices",
+            "shortcut": "@edge",
+            "default_voice_count": "300+"
+        },
+        "openai": {
+            "emoji": "🤖", 
+            "name": "OpenAI",
+            "description": "Premium AI voices",
+            "shortcut": "@openai",
+            "default_voice_count": "6"
+        },
+        "elevenlabs": {
+            "emoji": "🎭",
+            "name": "ElevenLabs", 
+            "description": "Advanced voice cloning",
+            "shortcut": "@elevenlabs",
+            "default_voice_count": "30+"
+        },
+        "chatterbox": {
+            "emoji": "🏠",
+            "name": "Chatterbox",
+            "description": "Local voice synthesis", 
+            "shortcut": "@chatterbox",
+            "default_voice_count": "Custom"
+        },
+        "google": {
+            "emoji": "☁️",
+            "name": "Google Cloud TTS",
+            "description": "Google neural voices",
+            "shortcut": "@google", 
+            "default_voice_count": "200+"
+        }
+    }
+    
+    # Load config to check API keys
+    config = load_config()
+    
     for provider_name in PROVIDERS.keys():
-        click.echo(provider_name)
+        if provider_name not in provider_info:
+            continue
+            
+        info = provider_info[provider_name]
+        
+        # Check provider status
+        status_emoji = "❌"
+        status_text = "Not available"
+        voice_count = info["default_voice_count"]
+        
+        try:
+            provider_class = load_provider(provider_name)
+            provider = provider_class()
+            
+            # Get actual info if available
+            try:
+                provider_data = provider.get_info()
+                if provider_data and 'sample_voices' in provider_data:
+                    voice_count = str(len(provider_data['sample_voices']))
+            except:
+                pass  # Use default voice count
+                
+            # Check specific provider status
+            if provider_name == "edge_tts":
+                status_emoji = "✅"
+                status_text = "Ready"
+            elif provider_name == "openai":
+                if config.get("openai_api_key"):
+                    status_emoji = "✅"
+                    status_text = "Ready"
+                else:
+                    status_emoji = "⚠️"
+                    status_text = "API key required"
+            elif provider_name == "elevenlabs":
+                if config.get("elevenlabs_api_key"):
+                    status_emoji = "✅"
+                    status_text = "Ready"
+                else:
+                    status_emoji = "❌"
+                    status_text = "Not configured"
+            elif provider_name == "google":
+                if config.get("google_api_key") or config.get("google_credentials_path"):
+                    status_emoji = "✅"
+                    status_text = "Ready"
+                else:
+                    status_emoji = "⚠️"
+                    status_text = "API key required"
+            elif provider_name == "chatterbox":
+                # Check for PyTorch and voice files
+                try:
+                    provider._lazy_load()  # This will check dependencies
+                    from pathlib import Path
+                    voices_dir = Path("./voices/")
+                    voice_files = []
+                    if voices_dir.exists():
+                        voice_files = list(voices_dir.glob("*.wav")) + list(voices_dir.glob("*.mp3"))
+                    
+                    if voice_files:
+                        status_emoji = "✅"
+                        status_text = "Ready"
+                        voice_count = str(len(voice_files))
+                    else:
+                        status_emoji = "⚠️"
+                        status_text = "No voice files"
+                except:
+                    status_emoji = "❌"
+                    status_text = "Not installed"
+                    
+        except Exception:
+            status_emoji = "❌"
+            status_text = "Not available"
+        
+        # Display provider info
+        click.echo(f"{info['emoji']} {info['name']}")
+        click.echo(f"   {info['description']}")
+        click.echo(f"   Shortcut: {info['shortcut']}")
+        click.echo(f"   Voices: {voice_count}")
+        click.echo(f"   Status: {status_emoji} {status_text}")
+        click.echo()
+    
+    click.echo("💡 Run 'tts providers <name>' for setup instructions.")
 
 
+def handle_provider_setup_instructions(provider_name: str) -> None:
+    """Show setup instructions for a specific provider"""
+    # Handle @provider shortcuts
+    if provider_name.startswith('@'):
+        shortcut = provider_name[1:]
+        if shortcut in PROVIDER_SHORTCUTS:
+            provider_name = PROVIDER_SHORTCUTS[shortcut]
+        else:
+            click.echo(f"❌ Unknown provider shortcut '@{shortcut}'", err=True)
+            click.echo(f"Available providers: {', '.join('@' + s for s in PROVIDER_SHORTCUTS.keys())}", err=True)
+            sys.exit(1)
+    
+    # Provider setup instructions
+    setup_instructions = {
+        "edge_tts": {
+            "emoji": "🌐",
+            "name": "Edge TTS",
+            "status": "✅ Ready - No setup required",
+            "instructions": [
+                "Edge TTS is free and works out of the box!",
+                "No API keys or installation needed.",
+                "300+ voices available from Microsoft Azure."
+            ],
+            "examples": [
+                "tts @edge \"Hello world\"",
+                "tts @edge \"Hello\" --voice en-US-JennyNeural",
+                "tts voices  # Browse available voices"
+            ]
+        },
+        "openai": {
+            "emoji": "🤖", 
+            "name": "OpenAI",
+            "status": "⚠️ Requires API key",
+            "instructions": [
+                "1. Get API key from https://platform.openai.com/api-keys",
+                "2. Set your API key: tts config set openai_api_key YOUR_KEY",
+                "3. Verify setup: tts @openai \"Hello world\""
+            ],
+            "examples": [
+                "tts @openai \"Hello world\"",
+                "tts @openai \"Hello\" --voice nova",
+                "tts @openai \"Hello\" --voice alloy"
+            ]
+        },
+        "elevenlabs": {
+            "emoji": "🎭",
+            "name": "ElevenLabs",
+            "status": "❌ Requires API key and account",
+            "instructions": [
+                "1. Create account at https://elevenlabs.io",
+                "2. Get API key from your profile settings",
+                "3. Set your API key: tts config set elevenlabs_api_key YOUR_KEY",
+                "4. Verify setup: tts @elevenlabs \"Hello world\""
+            ],
+            "examples": [
+                "tts @elevenlabs \"Hello world\"",
+                "tts @elevenlabs \"Hello\" --voice Rachel",
+                "tts voices @elevenlabs  # Browse ElevenLabs voices"
+            ]
+        },
+        "chatterbox": {
+            "emoji": "🏠",
+            "name": "Chatterbox",
+            "status": "❌ Requires installation and voice files",
+            "instructions": [
+                "1. Install dependencies: tts install chatterbox gpu",
+                "2. Place voice files (.wav/.mp3) in ./voices/ directory",
+                "3. Load a voice: tts voice load voices/my_voice.wav",
+                "4. Test synthesis: tts @chatterbox \"Hello world\""
+            ],
+            "examples": [
+                "tts @chatterbox \"Hello world\"",
+                "tts @chatterbox \"Hello\" --voice ./voices/my_voice.wav",
+                "tts voice status  # Check loaded voices"
+            ]
+        },
+        "google": {
+            "emoji": "☁️",
+            "name": "Google Cloud TTS",
+            "status": "⚠️ Requires API key or service account",
+            "instructions": [
+                "Option 1 - API Key:",
+                "  1. Enable Cloud TTS API in Google Cloud Console",
+                "  2. Create API key with TTS permissions",
+                "  3. Set key: tts config set google_api_key YOUR_KEY",
+                "",
+                "Option 2 - Service Account:",
+                "  1. Create service account in Google Cloud Console",
+                "  2. Download JSON credentials file",
+                "  3. Set path: tts config set google_credentials_path /path/to/creds.json"
+            ],
+            "examples": [
+                "tts @google \"Hello world\"",
+                "tts @google \"Hello\" --voice en-US-Standard-A",
+                "tts voices @google  # Browse Google voices"
+            ]
+        }
+    }
+    
+    if provider_name not in setup_instructions:
+        click.echo(f"❌ Unknown provider: {provider_name}", err=True)
+        click.echo(f"Available providers: {', '.join(PROVIDERS.keys())}", err=True)
+        sys.exit(1)
+    
+    info = setup_instructions[provider_name]
+    
+    click.echo(f"{info['emoji']} {info['name']} Setup")
+    click.echo("━" * (len(info['name']) + 8))
+    click.echo()
+    click.echo(f"Status: {info['status']}")
+    click.echo()
+    click.echo("📋 Setup Instructions:")
+    for instruction in info['instructions']:
+        if instruction == "":
+            click.echo()
+        else:
+            click.echo(f"   {instruction}")
+    click.echo()
+    click.echo("💡 Usage Examples:")
+    for example in info['examples']:
+        click.echo(f"   {example}")
 
 
 def handle_config_commands(action: str, key: str = None, value: str = None) -> None:
     """Handle --config subcommands"""
     if action == "show":
         config = load_config()
-        click.echo("Current configuration:")
-        for k, v in config.items():
-            click.echo(f"  {k}: {v}")
+        click.echo("⚙️  TTS Configuration:")
+        click.echo()
+        
+        # API Keys section
+        click.echo("🔑 API Keys:")
+        api_keys = {
+            'openai_api_key': 'OpenAI',
+            'elevenlabs_api_key': 'ElevenLabs', 
+            'google_api_key': 'Google Cloud',
+            'google_credentials_path': 'Google Credentials'
+        }
+        
+        for key, display_name in api_keys.items():
+            value = config.get(key)
+            if value:
+                if key == 'google_credentials_path':
+                    click.echo(f"  {display_name}: {value} (✅ set)")
+                else:
+                    # Mask API keys for security
+                    masked = value[:8] + "..." + value[-3:] if len(value) > 11 else value[:3] + "..."
+                    click.echo(f"  {display_name}: {masked} (✅ set)")
+            else:
+                click.echo(f"  {display_name}: ❌ not set")
+        
+        click.echo()
+        click.echo("🎤 Defaults:")
+        voice = config.get('voice', 'edge_tts:en-IE-EmilyNeural')
+        provider, voice_name = voice.split(':', 1) if ':' in voice else (voice, 'default')
+        click.echo(f"  provider: {provider}")
+        click.echo(f"  voice: {voice_name}")
+        click.echo(f"  output_format: {config.get('output_format', 'mp3')}")
+        
+        click.echo()
+        click.echo("🎛️  Audio Settings:")
+        click.echo(f"  rate: {config.get('rate', '+0%')}")
+        click.echo(f"  pitch: {config.get('pitch', '+0Hz')}")
+        click.echo(f"  streaming_enabled: {config.get('streaming_enabled', True)}")
+        
+        click.echo()
+        click.echo("💾 Paths:")
+        from pathlib import Path
+        config_path = Path.home() / ".config" / "tts" / "config.json"
+        cache_path = Path.home() / ".cache" / "tts"
+        logs_path = Path.home() / ".local" / "share" / "tts" / "logs"
+        click.echo(f"  config: {config_path}")
+        click.echo(f"  cache: {cache_path}")
+        click.echo(f"  logs: {logs_path}")
+        
+        click.echo()
+        click.echo("💡 Tips:")
+        click.echo("  • Set API keys: tts config set <key> <value>")
+        click.echo("  • Edit config: tts config edit")
+        click.echo("  • View specific: tts config get <key>")
 
     elif action == "set":
         if not key or not value:
-            click.echo("Error: config set requires both key and value", err=True)
-            click.echo("Usage: tts config voice en-IE-EmilyNeural", err=True)
-            click.echo("       tts config openai_api_key sk-...", err=True)
+            click.echo("❌ Error: config set requires both key and value", err=True)
+            click.echo("💡 Usage: tts config voice en-IE-EmilyNeural", err=True)
+            click.echo("         tts config openai_api_key sk-...", err=True)
             sys.exit(1)
 
         # Special handling for API keys
@@ -409,19 +833,19 @@ def handle_config_commands(action: str, key: str = None, value: str = None) -> N
                     click.echo(f"❌ Invalid {provider} API key format", err=True)
                     if provider == "openai":
                         click.echo(
-                            "   OpenAI keys start with 'sk-' and are ~50 characters", err=True
+                            "💡 OpenAI keys start with 'sk-' and are ~50 characters", err=True
                         )
                     elif provider == "google":
                         click.echo(
-                            "   Google keys start with 'AIza' (39 chars) or 'ya29.' (OAuth)",
+                            "💡 Google keys start with 'AIza' (39 chars) or 'ya29.' (OAuth)",
                             err=True
                         )
                     elif provider == "elevenlabs":
-                        click.echo("   ElevenLabs keys are 32-character hex strings", err=True)
+                        click.echo("💡 ElevenLabs keys are 32-character hex strings", err=True)
                     sys.exit(1)
             else:
                 click.echo(f"❌ Unknown provider '{provider}' for API key", err=True)
-                click.echo("   Supported providers: openai, google, elevenlabs", err=True)
+                click.echo("💡 Supported providers: openai, google, elevenlabs", err=True)
                 sys.exit(1)
         else:
             # Regular config setting
@@ -433,29 +857,29 @@ def handle_config_commands(action: str, key: str = None, value: str = None) -> N
 
     elif action == "reset":
         if save_config(get_default_config()):
-            click.echo("Configuration reset to defaults")
+            click.echo("✅ Configuration reset to defaults")
         else:
-            click.echo("Failed to reset configuration", err=True)
+            click.echo("❌ Failed to reset configuration", err=True)
             sys.exit(1)
 
     elif action == "get":
         if not key:
-            click.echo("Error: config get requires a key", err=True)
-            click.echo("Usage: tts config get voice", err=True)
+            click.echo("❌ Error: config get requires a key", err=True)
+            click.echo("💡 Usage: tts config get voice", err=True)
             sys.exit(1)
 
         config = load_config()
         if key in config:
             click.echo(config[key])
         else:
-            click.echo(f"Error: Configuration key '{key}' not found", err=True)
-            click.echo(f"Available keys: {', '.join(config.keys())}", err=True)
+            click.echo(f"❌ Error: Configuration key '{key}' not found", err=True)
+            click.echo(f"💡 Available keys: {', '.join(config.keys())}", err=True)
             sys.exit(1)
 
     elif action == "edit":
         config = load_config()
-        click.echo("Interactive configuration editor:")
-        click.echo("Press Enter to keep current value, or type new value")
+        click.echo("⚙️  Interactive configuration editor:")
+        click.echo("💡 Press Enter to keep current value, or type new value")
         click.echo()
 
         new_config = {}
@@ -469,13 +893,13 @@ def handle_config_commands(action: str, key: str = None, value: str = None) -> N
             new_config[key] = new_value
 
         if save_config(new_config):
-            click.echo("Configuration updated successfully")
+            click.echo("✅ Configuration updated successfully")
         else:
-            click.echo("Failed to save configuration", err=True)
+            click.echo("❌ Failed to save configuration", err=True)
             sys.exit(1)
 
     else:
-        click.echo("Error: Unknown config action. Use: show, get, set, reset, or edit", err=True)
+        click.echo("❌ Error: Unknown config action. Use: show, get, set, reset, or edit", err=True)
         sys.exit(1)
 
 
@@ -702,7 +1126,7 @@ def handle_synthesize(
 
         # Display user feedback (only if not JSON output)
         if not json_output and not stream:
-            click.echo(f"Saving with {model}...")
+            click.echo(f"💾 Saving with {model}...")
 
         # Perform synthesis with timing
         start_time = time.time()
@@ -757,7 +1181,7 @@ def handle_synthesize(
         sys.exit(1)
 
 
-def handle_doctor_command() -> None:
+def handle_status_diagnostics() -> None:
     """Check system capabilities and provider availability"""
     click.echo("TTS System Health Check")
     click.echo("━━━━━━━━━━━━━━━━━━━━━━━━")
@@ -904,8 +1328,8 @@ def handle_doctor_command() -> None:
 def handle_install_command(args: tuple) -> None:
     """Install provider dependencies"""
     if len(args) == 0:
-        click.echo("Error: Specify a provider to install", err=True)
-        click.echo("Usage: tts install <provider> [gpu]")
+        click.echo("❌ Error: Specify a provider to install", err=True)
+        click.echo("💡 Usage: tts install <provider> [gpu]")
         click.echo("Available providers: chatterbox")
         sys.exit(1)
 
@@ -1011,7 +1435,7 @@ def handle_install_command(args: tuple) -> None:
         click.echo("✅ Edge TTS is already included and ready to use!")
 
     else:
-        click.echo(f"Error: Unknown provider '{provider}'", err=True)
+        click.echo(f"❌ Error: Unknown provider '{provider}'", err=True)
         click.echo("Available providers: chatterbox, edge_tts")
         sys.exit(1)
 
@@ -1019,9 +1443,9 @@ def handle_install_command(args: tuple) -> None:
 def handle_load_command(args: tuple) -> None:
     """Load voice files into memory for fast access"""
     if len(args) == 0:
-        click.echo("Error: Specify voice files to load", err=True)
-        click.echo("Usage: tts load <voice_file> [voice_file2] ...")
-        click.echo("Example: tts load ~/my_voice.wav ~/narrator.wav")
+        click.echo("❌ Error: Specify voice files to load", err=True)
+        click.echo("💡 Usage: tts load <voice_file> [voice_file2] ...")
+        click.echo("💡 Example: tts load ~/my_voice.wav ~/narrator.wav")
         sys.exit(1)
 
     voice_manager = VoiceManager()
@@ -1029,7 +1453,7 @@ def handle_load_command(args: tuple) -> None:
     for voice_path in args:
         voice_file = Path(voice_path).expanduser()
         if not voice_file.exists():
-            click.echo(f"Error: Voice file not found: {voice_file}", err=True)
+            click.echo(f"📁 Error: Voice file not found: {voice_file}", err=True)
             continue
 
         try:
@@ -1071,14 +1495,14 @@ def handle_info_command(args: tuple) -> None:
     tts_engine = get_tts_engine()
 
     if provider_name not in tts_engine.providers_registry:
-        click.echo(f"Error: Unknown provider '{provider_name}'", err=True)
+        click.echo(f"❌ Error: Unknown provider '{provider_name}'", err=True)
         click.echo(f"Available providers: {', '.join(tts_engine.providers_registry.keys())}")
         return
 
     try:
         info = tts_engine.get_provider_info(provider_name)
         if not info:
-            click.echo(f"Error: No info available for {provider_name}", err=True)
+            click.echo(f"❌ Error: No info available for {provider_name}", err=True)
             return
 
         # Display provider info in a nice format
@@ -1338,7 +1762,7 @@ def handle_document_processing(
             elements = parser_factory.parse_document(content, doc_format)
 
         if not elements:
-            click.echo(f"Warning: No content extracted from {document_path}", err=True)
+            click.echo(f"⚠️  Warning: No content extracted from {document_path}", err=True)
             return None
 
         # Apply emotion detection if enabled
@@ -1394,12 +1818,12 @@ def handle_document_processing(
         return plain_text
 
     except FileNotFoundError:
-        click.echo(f"Error: Document file not found: {document_path}", err=True)
+        click.echo(f"📁 Error: Document file not found: {document_path}", err=True)
         return None
     except Exception as e:
         logger = logging.getLogger(__name__)
         logger.error(f"Document processing error: {e}")
-        click.echo(f"Error processing document: {e}", err=True)
+        click.echo(f"❌ Error processing document: {e}", err=True)
         return None
 
 
@@ -1420,10 +1844,10 @@ def handle_unload_command(args: tuple) -> None:
         return
 
     if len(args) == 0:
-        click.echo("Error: Specify voice files to unload or use --all", err=True)
-        click.echo("Usage: tts unload <voice_file> [voice_file2] ...")
+        click.echo("❌ Error: Specify voice files to unload or use --all", err=True)
+        click.echo("💡 Usage: tts unload <voice_file> [voice_file2] ...")
         click.echo("       tts unload --all")
-        click.echo("Example: tts unload my_voice.wav")
+        click.echo("💡 Example: tts unload my_voice.wav")
         sys.exit(1)
 
     for voice_path in args:
@@ -1484,7 +1908,13 @@ def main(ctx: click.Context) -> None:
       tts info                             # Show all providers
       tts info @edge                       # Detailed provider info
       tts providers                        # Simple provider list
-      tts doctor                           # System health check
+      tts status                           # System health check
+
+    \b
+    🔗 Pipeline Examples:
+      echo "Hello world" | tts             # Pipe text to speech
+      ttt "Fix grammar" < essay.txt | tts  # Fix then speak
+      stt recording.wav | tts @edge        # Transcribe and speak
 
     \b
     🚀 Supported Providers:
@@ -1494,183 +1924,24 @@ def main(ctx: click.Context) -> None:
       • Google Cloud TTS: Neural voices with 40+ languages
       • ElevenLabs: Advanced voice synthesis and cloning
     """
-    # If no subcommand is invoked, check if we have stdin input
+    # Check if this is a direct synthesis call (detected by DefaultCommandGroup)
+    if ctx.meta.get('direct_synthesis', False):
+        synthesis_args = ctx.meta.get('synthesis_args', [])
+        handle_direct_synthesis(synthesis_args)
+        return
+    
+    # If no subcommand is invoked, check for piped input
     if ctx.invoked_subcommand is None:
-        # If stdin has data, manually invoke speak command
+        # Check if there's piped input
         if not sys.stdin.isatty():
-            # Manually invoke the speak command with no args to let it handle stdin
-            speak_cmd = ctx.command.commands.get('speak')
-            if speak_cmd:
-                speak_ctx = click.Context(speak_cmd, parent=ctx)
-                speak_ctx.invoke(speak_cmd, text=None, options=())
-                return
-        click.echo(ctx.get_help())
-        sys.exit(0)
-
-
-@main.command(name='_default', hidden=True)
-@click.argument('args', nargs=-1, required=True)
-@click.pass_context
-def default_cmd(ctx: click.Context, args: tuple) -> None:
-    """Hidden default command for direct text input (alternative to DefaultCommandGroup)."""
-    # Simply forward to the speak command
-    ctx.invoke(speak, text=" ".join(args), options=())
-
-
-
-@main.command(name='speak')  # Make it explicit, not hidden
-@click.option("-o", "--output", help="Output file path")
-@click.option("-f", "--format", "output_format", type=click.Choice(['mp3', 'wav', 'ogg', 'flac']), help="Audio output format")
-@click.option("-v", "--voice", help="Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
-@click.option("--clone", help="Audio file to clone voice from (deprecated: use --voice instead)")
-@click.option("--json", "json_output", is_flag=True, help="Output results as JSON")
-@click.option("--debug", is_flag=True, help="Show debug information during processing")
-@click.option("--rate", help="Speech rate adjustment (e.g., +20%, -50%, 150%)")
-@click.option("--pitch", help="Pitch adjustment (e.g., +5Hz, -10Hz)")
-@click.argument("text", required=False)
-@click.argument("options", nargs=-1)
-@click.pass_context
-def speak(
-    ctx: click.Context, output: str, output_format: str, voice: str, clone: str,
-    json_output: bool, debug: bool, rate: str, pitch: str, text: str, options: tuple
-) -> None:
-    """Synthesize text to speech (default command).
-
-    Streams audio directly to speakers. Use 'tts save' to save to file instead.
-    """
-    # Parse provider shortcuts from the arguments
-    provider_from_shortcut = None
-    final_text = text
-    final_options = list(options)
-
-    # Check if text starts with @provider shortcut
-    if text and text.startswith('@'):
-        # When text is @provider, the actual text might be in options
-        all_args = [text] + list(options)
-        provider_from_shortcut, remaining_args = parse_provider_shortcut(all_args)
-        if remaining_args:
-            final_text = remaining_args[0] if remaining_args else None
-            final_options = remaining_args[1:] if len(remaining_args) > 1 else []
+            handle_direct_synthesis([])  # Empty args, will read from stdin
+            return
         else:
-            final_text = None
-            final_options = []
-
-    # Check if first option is @provider shortcut
-    elif options and options[0].startswith('@'):
-        provider_from_shortcut, remaining_args = parse_provider_shortcut(list(options))
-        final_options = remaining_args
+            # No subcommand and no stdin, show help
+            click.echo(ctx.get_help())
+            sys.exit(0)
 
 
-    # If we have text and options that don't look like actual options, combine them
-    # This handles the case: tts Hello world (without quotes)
-    if final_text and final_options:
-        # Check if the options look like plain text (not CLI options or key=value pairs)
-        text_like_options = []
-        remaining_options = []
-
-        for opt in final_options:
-            # If it doesn't start with - and doesn't contain =, it's likely part of the text
-            if not opt.startswith('-') and '=' not in opt and not opt.startswith('@'):
-                text_like_options.append(opt)
-            else:
-                # Once we hit a real option, collect the rest as options
-                remaining_options.append(opt)
-                remaining_options.extend(final_options[final_options.index(opt) + 1:])
-                break
-
-        if text_like_options:
-            # Combine the text with the text-like options
-            final_text = final_text + ' ' + ' '.join(text_like_options)
-            final_options = remaining_options
-
-    # Check if no meaningful arguments provided and no stdin
-    if not final_text and not any([output, voice, clone]) and sys.stdin.isatty():
-        click.echo(ctx.get_help())
-        sys.exit(0)
-
-    # Setup logging
-    logger = setup_logging()
-
-    # Initialize core TTS engine
-    initialize_tts_engine(PROVIDERS)
-
-    # Load configuration first
-    user_config = load_config()
-
-    # Use provider from shortcut if detected, otherwise fall back to config
-    final_model = provider_from_shortcut
-
-    # Apply configuration defaults where CLI args weren't provided
-    if not final_model:
-        config_voice = user_config.get('voice', 'edge_tts:en-IE-EmilyNeural')
-        provider, _ = parse_voice_setting(config_voice)
-        final_model = provider or 'edge_tts'
-
-    # Handle voice and provider detection
-    final_voice = voice
-    if voice:
-        # Voice specified on command line - parse for provider
-        detected_provider, parsed_voice = parse_voice_setting(voice)
-        if detected_provider and not provider_from_shortcut:
-            # Only override if no @provider shortcut was used
-            final_model = detected_provider
-        final_voice = parsed_voice
-    elif not voice:
-        config_voice = user_config.get('voice')
-        if config_voice:
-            _, final_voice = parse_voice_setting(config_voice)
-
-    # Validate model/provider early
-    if final_model not in PROVIDERS:
-        click.echo(f"Error: Unknown provider: {final_model}", err=True)
-        sys.exit(1)
-
-    if not output:
-        output = "output.wav"
-
-    if not output_format:
-        output_format = user_config.get('format', 'mp3')
-
-
-    # Check required arguments - try stdin if no text provided
-    if not final_text:
-        # Check if text is being piped in
-        if not sys.stdin.isatty():
-            # Read from stdin
-            try:
-                final_text = sys.stdin.read().strip()
-                if not final_text:
-                    # Show help when empty stdin is provided
-                    click.echo(ctx.get_help())
-                    sys.exit(0)
-                logger.debug(f"Read {len(final_text)} characters from stdin")
-            except Exception as e:
-                logger.error(f"Failed to read from stdin: {e}")
-                click.echo("Error: Failed to read text from stdin", err=True)
-                sys.exit(1)
-        else:
-            # Error when no text is provided
-            click.echo("Error: You must provide text to synthesize", err=True)
-            sys.exit(1)
-
-    # Parse JSON input if provided and override parameters
-    final_text, json_params = parse_input(final_text)
-    if json_params:
-        # Override CLI parameters with JSON values
-        final_voice = json_params.get('voice', final_voice)
-        output = json_params.get('output_path', output)
-        output_format = json_params.get('format', output_format)
-
-    # In streaming mode, display the text being spoken
-    if not json_output and not debug:
-        # Show exactly what's being sent to TTS
-        click.echo(final_text)
-
-    # Handle main synthesis - speak command is always streaming (save=False)
-    handle_synthesize(
-        final_text, final_model, output, False, final_voice, clone, output_format,
-        tuple(final_options), logger, json_output, debug, rate, pitch
-    )
 
 
 @main.command()
@@ -1713,7 +1984,7 @@ def save(
         final_options = remaining_args
 
     if not final_text:
-        click.echo("Error: You must provide text to synthesize", err=True)
+        click.echo("❌ Error: You must provide text to synthesize", err=True)
         sys.exit(1)
 
     # Setup logging
@@ -1841,7 +2112,7 @@ def unload(voice_files: tuple, all: bool) -> None:
         handle_unload_command(("--all",))
     else:
         if not voice_files:
-            click.echo("Error: Specify voice files to unload or use --all", err=True)
+            click.echo("❌ Error: Specify voice files to unload or use --all", err=True)
             sys.exit(1)
         handle_unload_command(voice_files)
 
@@ -1873,8 +2144,8 @@ def info(provider: str) -> None:
             if shortcut in PROVIDER_SHORTCUTS:
                 provider = PROVIDER_SHORTCUTS[shortcut]
             else:
-                click.echo(f"Error: Unknown provider shortcut '@{shortcut}'", err=True)
-                click.echo(f"Available providers: {', '.join('@' + s for s in PROVIDER_SHORTCUTS.keys())}", err=True)
+                click.echo(f"❌ Error: Unknown provider shortcut '@{shortcut}'", err=True)
+                click.echo(f"💡 Available providers: {', '.join('@' + s for s in PROVIDER_SHORTCUTS.keys())}", err=True)
                 sys.exit(1)
         handle_info_command((provider,))
     else:
@@ -1882,15 +2153,25 @@ def info(provider: str) -> None:
 
 
 @main.command()
-def providers() -> None:
-    """List available providers (script-friendly output)."""
-    handle_providers_command()
+@click.argument("provider_name", required=False)
+def providers(provider_name: str) -> None:
+    """Show available TTS providers with status and configuration.
+    
+    Examples:
+      tts providers              # Show all providers
+      tts providers edge         # Setup instructions for Edge TTS
+      tts providers @openai      # Setup instructions for OpenAI
+    """
+    if provider_name:
+        handle_provider_setup_instructions(provider_name)
+    else:
+        handle_providers_command()
 
 
 @main.command()
-def doctor() -> None:
-    """Run system diagnostics and health checks."""
-    handle_doctor_command()
+def status() -> None:
+    """Check system health and provider availability."""
+    handle_status_diagnostics()
 
 
 @main.command()
@@ -1903,6 +2184,12 @@ def install(args: tuple) -> None:
       tts install chatterbox gpu    # Install with GPU support
     """
     handle_install_command(args)
+
+
+@main.command()
+def version() -> None:
+    """Show version information and suite branding."""
+    click.echo(f"TTS {__version__} - Goobits Audio Suite")
 
 
 @main.command()

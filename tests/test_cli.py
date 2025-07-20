@@ -18,8 +18,12 @@ def test_cli_list_models():
     runner = CliRunner()
     result = runner.invoke(cli, ['providers'])
     assert result.exit_code == 0
-    assert 'edge_tts' in result.output
-    assert 'chatterbox' in result.output
+    # Check for the new enhanced providers display format
+    assert '🏢 Available TTS Providers:' in result.output
+    assert 'Edge TTS' in result.output
+    assert 'Chatterbox' in result.output
+    assert '@edge' in result.output
+    assert '@chatterbox' in result.output
 
 
 def test_cli_default_model():
@@ -109,10 +113,12 @@ class TestPhase1NewSubcommands:
         runner = CliRunner()
         result = runner.invoke(cli, ['providers'])
         assert result.exit_code == 0
-        # Should list providers one per line
-        lines = result.output.strip().split('\n')
-        assert 'chatterbox' in lines
-        assert 'edge_tts' in lines
+        # Should show enhanced providers display with emojis and status
+        assert '🏢 Available TTS Providers:' in result.output
+        assert 'Chatterbox' in result.output
+        assert 'Edge TTS' in result.output
+        assert '@chatterbox' in result.output
+        assert '@edge' in result.output
 
 
 class TestPhase1ProviderShortcuts:
@@ -337,14 +343,13 @@ class TestPhase3LegacyRejection:
         # The text "models" will be treated as text to synthesize,
         # but should fail since there's no actual text processing
 
-    def test_legacy_save_in_speak_rejected(self):
-        """Test that legacy --save flag in speak command is rejected"""
+    def test_speak_command_rejected(self):
+        """Test that legacy speak command is completely removed"""
         runner = CliRunner()
-        result = runner.invoke(cli, ['speak', 'test text', '--save'])
+        result = runner.invoke(cli, ['speak', 'test text'])
 
-        # Should fail with unknown option error
+        # Should fail - speak is no longer a valid subcommand
         assert result.exit_code != 0
-        output_lower = result.output.lower()
-        assert "no such option" in output_lower or "unknown option" in output_lower
+        # The text "speak" will be treated as text to synthesize
 
 

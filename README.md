@@ -17,7 +17,7 @@ This project is part of the Goobits ecosystem:
 - [Basic Usage](#-basic-usage)
 - [Document Processing](#-document-processing)
 - [Configuration](#️-configuration)
-- [Voice Discovery](#-voice-discovery)
+- [Voice Discovery & Provider Management](#-voice-discovery--provider-management)
 - [Voice Loading (Performance)](#-voice-loading-performance)
 - [Voice Cloning Workflow](#-voice-cloning-workflow)
 - [System Management](#-system-management)
@@ -41,35 +41,47 @@ cd tts
 ./setup.sh install         # Uses pipx automatically
 
 # Verify installation
-tts doctor                  # Check system health
+tts status                  # Check system health
 tts install chatterbox gpu  # Add voice cloning (optional)
 ```
 
 ## 🎯 Basic Usage
 
 ```bash
-# New recommended syntax
+# Direct synthesis (streams to speakers by default)
 tts "Hello world"                    # Stream with default voice
-tts save "Hello world"               # Save to file
-tts @edge "Hello world"              # Use Edge TTS provider
-tts @openai "Hello world" --voice nova  # OpenAI with specific voice
+tts Hello world                      # Unquoted text works too
+echo "Hello world" | tts             # Pipe input support
 
-# Provider shortcuts (recommended)
-tts @edge "text"                     # Edge TTS
-tts @openai "text"                   # OpenAI TTS
-tts @elevenlabs "text"               # ElevenLabs
-tts @google "text"                   # Google TTS
-tts @chatterbox "text"               # Voice cloning
+# Provider shortcuts for quick access
+tts @edge "Hello world"              # Edge TTS (free, 300+ voices)
+tts @openai "Hello world"            # OpenAI TTS (premium quality)
+tts @elevenlabs "Hello world"        # ElevenLabs (voice cloning)
+tts @google "Hello world"            # Google Cloud TTS
+tts @chatterbox "Hello world"        # Local voice cloning
+
+# Save to file
+tts save "Hello world"               # Save to audio file
+tts save @edge "Hello" -o speech.mp3 # Save with specific provider
 ```
 
 ## ⚙️ Configuration
 
+TTS CLI now features an enhanced configuration display with organized sections:
+
 ```bash
-tts config                           # Show current settings
-tts config voice en-IE-EmilyNeural  # Set default voice
-tts config set default_action save   # Save files by default
+tts config show                      # Rich display with emoji sections
+tts config set openai_api_key YOUR_KEY   # Set API keys
+tts config set voice en-IE-EmilyNeural   # Set default voice
 tts config get voice                 # Get specific setting value
 tts config edit                      # Interactive editor
+
+# Enhanced config display shows:
+# 🔑 API Keys: Status of all provider API keys
+# 🎤 Defaults: Provider, voice, output format
+# 🎛️ Audio Settings: Rate, pitch, streaming
+# 💾 Paths: Config, cache, and log locations
+# 💡 Tips: Quick help and usage examples
 ```
 
 ## 📄 Document Processing
@@ -103,14 +115,32 @@ tts document file.html --doc-format auto       # Auto-detect format
 - ⚡ Performance caching for repeated conversions
 - 🧠 Intelligent pause insertion and emphasis
 
-## 🎤 Voice Discovery
+## 🎤 Voice Discovery & Provider Management
+
+TTS CLI features an enhanced providers system with visual status indicators:
 
 ```bash
+# Enhanced providers command with emoji status
+tts providers                        # Rich display of all providers with status
+tts providers @openai                # Setup instructions for specific provider
+tts providers edge_tts               # Setup instructions using full name
+
+# Traditional voice browsing
 tts voices                           # Interactive voice browser
-tts info edge_tts                    # Show detailed info for specific provider
 tts info                             # Show all providers and capabilities
-tts providers                        # Simple list of available providers
+tts info @edge                       # Detailed info for specific provider
+
+# Quick status check
+tts status                           # System health with provider status
+tts version                          # Show version with suite branding
 ```
+
+**Enhanced Provider Display:**
+- 🏢 Visual provider listing with emojis
+- ✅ ⚠️ ❌ Status indicators (Ready/API Key Required/Not Configured)
+- 🔗 Provider shortcuts (@edge, @openai, etc.)
+- 📋 Voice counts and capabilities
+- 💡 Setup instructions with examples
 
 ## 🚀 Voice Loading (Performance)
 
@@ -140,7 +170,7 @@ tts @chatterbox "This sounds like me!" --clone ~/my_voice.wav
 ## 🔧 System Management
 
 ```bash
-tts doctor                           # Check system health
+tts status                           # Check system health
 tts install chatterbox gpu           # Install provider with GPU support
 ```
 
@@ -215,6 +245,35 @@ Choose from free offline options or premium cloud services based on your needs.
 - **Chunked streaming**: Real-time audio with minimal latency
 - **Document caching**: Optimized repeated document conversions
 - **Optimized provider loading**: Dynamic imports with error recovery
+
+## 🔗 Pipeline Integration
+
+TTS CLI is designed to work seamlessly with other Goobits Audio Suite tools:
+
+```bash
+# Basic pipeline operations
+echo "Hello world" | tts                     # Simple text-to-speech
+cat document.txt | tts @edge                 # File input with provider
+
+# Integration with TTT (Text-to-Text)
+ttt "Fix grammar" < essay.txt | tts          # Fix grammar then speak
+ttt "Summarize in 3 bullets" < report.md | tts @openai  # Summarize and speak
+
+# Integration with STT (Speech-to-Text)  
+stt recording.wav | tts @edge                # Transcribe and re-speak
+stt meeting.mp3 | ttt "extract action items" | tts  # Meeting → actions → speech
+
+# Advanced workflows
+stt input.wav | ttt "translate to Spanish" | tts @google  # Translate pipeline
+cat story.txt | ttt "simplify for kids" | tts @elevenlabs  # Accessibility
+```
+
+**Pipeline Features:**
+- 🔄 **Seamless piping**: Works naturally with Unix pipes
+- 🎯 **Provider selection**: Use shortcuts in any pipeline stage  
+- 📝 **Text processing**: Perfect integration with TTT transformations
+- 🎤 **Voice selection**: Automatic provider detection and voice selection
+- ⚡ **Performance**: Optimized for real-time pipeline processing
 
 ## 🧪 Development
 
