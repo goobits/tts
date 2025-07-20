@@ -48,9 +48,17 @@ python -m pytest tests/ -v    # Direct pytest execution
 
 **Code Quality:**
 ```bash
-black .                  # Format code (line-length 100)
-ruff check .            # Lint code 
-mypy tts_cli/           # Type checking
+ruff check .                                              # Lint code 
+ruff check . --fix                                        # Auto-fix linting issues
+black .                                                   # Format code (line-length 100)
+mypy tts_cli/                                            # Type checking
+```
+
+**Note:** If tools are installed via pipx, use the full path:
+```bash
+~/.local/share/pipx/venvs/goobits-tts/bin/ruff check .    # Lint code
+~/.local/share/pipx/venvs/goobits-tts/bin/black .         # Format code  
+~/.local/share/pipx/venvs/goobits-tts/bin/mypy tts_cli/   # Type checking
 ```
 
 **Building:**
@@ -97,17 +105,17 @@ Provider loading is dynamic via the `PROVIDERS` dict in `tts.py:21-27`.
 
 ```bash
 tts "text"                    # Stream audio (default)
-tts "text" --save             # Save to file
+tts save "text"               # Save to file
 tts voices                    # Interactive voice browser
 tts config                    # Show/edit configuration  
 tts doctor                    # System health check
-tts load voice.wav            # Preload voice for fast access
+tts voice load voice.wav      # Preload voice for fast access
 tts install chatterbox gpu    # Install provider dependencies
 
 # Document processing commands
-tts --document report.html           # Convert HTML to speech
-tts --document api.json --emotion-profile technical --save
-tts --document README.md --ssml-platform azure
+tts document report.html           # Convert HTML to speech
+tts document api.json --emotion-profile technical --save
+tts document README.md --ssml-platform azure
 ```
 
 ## Code Style & Standards

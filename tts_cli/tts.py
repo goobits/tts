@@ -82,8 +82,13 @@ class DefaultCommandGroup(click.Group):
     subcommand is specified.
     """
     def resolve_command(self, ctx: click.Context, args: List[str]) -> Tuple[Optional[str], Optional[click.Command], List[str]]:
-        # If no args, let default handling take over (will invoke callback)
+        # If no args, check if we have stdin input
         if not args:
+            # If stdin has data (not connected to terminal), route to speak command
+            if not sys.stdin.isatty():
+                args = ['speak']
+                return super().resolve_command(ctx, args)
+            # Otherwise, let default handling take over (will invoke callback)
             return super().resolve_command(ctx, args)
             
         # If the first arg is a known option (like --help or --list), let default handling take over.
@@ -393,6 +398,20 @@ def handle_config_commands(action: str, key: str = None, value: str = None) -> N
             click.echo("Failed to reset configuration", err=True)
             sys.exit(1)
     
+    elif action == "get":
+        if not key:
+            click.echo("Error: config get requires a key", err=True)
+            click.echo("Usage: tts config get voice", err=True)
+            sys.exit(1)
+        
+        config = load_config()
+        if key in config:
+            click.echo(config[key])
+        else:
+            click.echo(f"Error: Configuration key '{key}' not found", err=True)
+            click.echo(f"Available keys: {', '.join(config.keys())}", err=True)
+            sys.exit(1)
+    
     elif action == "edit":
         config = load_config()
         click.echo("Interactive configuration editor:")
@@ -416,7 +435,7 @@ def handle_config_commands(action: str, key: str = None, value: str = None) -> N
             sys.exit(1)
     
     else:
-        click.echo("Error: Unknown config action. Use: show, set, reset, or edit", err=True)
+        click.echo("Error: Unknown config action. Use: show, get, set, reset, or edit", err=True)
         sys.exit(1)
 
 
@@ -1424,8 +1443,16 @@ def main(ctx: click.Context) -> None:
       • Google Cloud TTS: Neural voices with 40+ languages
       • ElevenLabs: Advanced voice synthesis and cloning
     """
-    # If no subcommand is invoked, show help
+    # If no subcommand is invoked, check if we have stdin input
     if ctx.invoked_subcommand is None:
+        # If stdin has data, manually invoke speak command
+        if not sys.stdin.isatty():
+            # Manually invoke the speak command with no args to let it handle stdin
+            speak_cmd = ctx.command.commands.get('speak')
+            if speak_cmd:
+                speak_ctx = click.Context(speak_cmd, parent=ctx)
+                speak_ctx.invoke(speak_cmd, text=None, options=())
+                return
         click.echo(ctx.get_help())
         sys.exit(0)
 
@@ -1556,6 +1583,28 @@ def speak(ctx: click.Context, output: str, output_format: str, voice: str, clone
         provider_from_shortcut, remaining_args = parse_provider_shortcut(list(options))
         final_options = remaining_args
         
+    
+    # If we have text and options that don't look like actual options, combine them
+    # This handles the case: tts Hello world (without quotes)
+    if final_text and final_options:
+        # Check if the options look like plain text (not CLI options or key=value pairs)
+        text_like_options = []
+        remaining_options = []
+        
+        for opt in final_options:
+            # If it doesn't start with - and doesn't contain =, it's likely part of the text
+            if not opt.startswith('-') and '=' not in opt and not opt.startswith('@'):
+                text_like_options.append(opt)
+            else:
+                # Once we hit a real option, collect the rest as options
+                remaining_options.append(opt)
+                remaining_options.extend(final_options[final_options.index(opt) + 1:])
+                break
+        
+        if text_like_options:
+            # Combine the text with the text-like options
+            final_text = final_text + ' ' + ' '.join(text_like_options)
+            final_options = remaining_options
     
     # Check if no meaningful arguments provided and no stdin
     if not final_text and not any([output, voice, clone]) and sys.stdin.isatty():
@@ -1840,6 +1889,51 @@ def info(provider: str) -> None:
 def providers() -> None:
     """List available providers (script-friendly output)."""
     handle_providers_command()
+
+
+@main.command()
+def doctor() -> None:
+    """Run system diagnostics and health checks."""
+    handle_doctor_command()
+
+
+@main.command()
+@click.argument("args", nargs=-1)
+def install(args: tuple) -> None:
+    """Install provider dependencies.
+    
+    Examples:
+      tts install chatterbox        # Install with CPU support
+      tts install chatterbox gpu    # Install with GPU support
+    """
+    handle_install_command(args)
+
+
+@main.command()
+@click.argument("args", nargs=-1)
+def voices(args: tuple) -> None:
+    """Browse and search available voices interactively."""
+    handle_voices_command(args, PROVIDERS, load_provider)
+
+
+@main.command()
+@click.argument("action", type=click.Choice(["show", "voice", "provider", "format", "get", "edit", "set"]), required=False)
+@click.argument("key", required=False)
+@click.argument("value", required=False)
+def config(action: str, key: str, value: str) -> None:
+    """Manage TTS configuration.
+    
+    Examples:
+      tts config                    # Show current configuration
+      tts config show               # Show current configuration
+      tts config voice en-US-JennyNeural  # Set default voice
+      tts config get voice          # Get specific setting
+      tts config set rate +20%      # Set custom setting
+      tts config edit               # Open config in editor
+    """
+    if not action:
+        action = "show"
+    handle_config_commands(action, key, value)
 
 
 def handle_interrupt(signum, frame):

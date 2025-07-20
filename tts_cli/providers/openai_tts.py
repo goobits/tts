@@ -56,7 +56,12 @@ class OpenAITTSProvider(TTSProvider):
         """Synthesize speech using OpenAI TTS API."""
         # Extract options
         voice = kwargs.get("voice", "nova")  # Default to nova voice
-        stream = kwargs.get("stream", "false").lower() in ("true", "1", "yes")
+        # Handle stream parameter as boolean or string
+        stream_param = kwargs.get("stream", False)
+        if isinstance(stream_param, bool):
+            stream = stream_param
+        else:
+            stream = str(stream_param).lower() in ("true", "1", "yes")
         output_format = kwargs.get("output_format", "wav")
         
         # Handle SSML (OpenAI doesn't support SSML, so strip tags)

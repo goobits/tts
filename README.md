@@ -67,7 +67,8 @@ tts @chatterbox "text"               # Voice cloning
 ```bash
 tts config                           # Show current settings
 tts config voice en-IE-EmilyNeural  # Set default voice
-tts config default_action save   # Save files by default
+tts config set default_action save   # Save files by default
+tts config get voice                 # Get specific setting value
 tts config edit                      # Interactive editor
 ```
 
@@ -106,9 +107,9 @@ tts document file.html --doc-format auto       # Auto-detect format
 
 ```bash
 tts voices                           # Interactive voice browser
-tts models edge_tts                  # List voices for specific provider
-tts voices en-GB                     # Filter by language/region
-tts models                           # List providers and capabilities
+tts info edge_tts                    # Show detailed info for specific provider
+tts info                             # Show all providers and capabilities
+tts providers                        # Simple list of available providers
 ```
 
 ## 🚀 Voice Loading (Performance)
