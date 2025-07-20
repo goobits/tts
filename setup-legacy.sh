@@ -480,7 +480,7 @@ install_tts() {
     echo
     print_success "Installation complete!"
     print_info "Usage: tts \"Hello, world!\""
-    print_info "Check system: tts doctor"
+    print_info "Check system: tts status"
     print_info "Install providers: tts install chatterbox --gpu"
     print_info "Help: tts --help"
 }
@@ -560,7 +560,7 @@ upgrade_tts() {
     echo
     print_success "Upgrade complete!"
     print_info "Usage: tts \"Hello, upgraded world!\""
-    print_info "Check system: tts doctor"
+    print_info "Check system: tts status"
     print_info "Help: tts --help"
 }
 
@@ -599,7 +599,7 @@ show_help() {
     echo "  $0 uninstall    # Remove installation"
     echo
     echo "After installation:"
-    echo "  tts doctor               # Check system capabilities"
+    echo "  tts status               # Check system capabilities"
     echo "  tts install chatterbox --gpu  # Add GPU voice cloning"
     echo "  tts \"Hello world\"        # Basic usage"
 }

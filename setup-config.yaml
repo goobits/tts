@@ -39,7 +39,7 @@ messages:
 
     Quick start:
       tts "Hello, world!"
-      tts doctor               # Check system capabilities
+      tts status               # Check system capabilities
       tts install chatterbox --gpu  # Add GPU voice cloning
 
   install_dev_success: |
@@ -50,7 +50,7 @@ messages:
       - Edit code in tts_cli/ directory
       - Test immediately with: tts "test audio"
       - Run tests with: ./test.sh
-      - Check audio: tts doctor
+      - Check audio: tts status
       - Format code with: black tts_cli/
       - Check types with: mypy tts_cli/
       
