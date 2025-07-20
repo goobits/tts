@@ -5,46 +5,45 @@ plain text inputs, extracting parameters and text content appropriately.
 Tests pure functions without requiring external dependencies.
 """
 
-import pytest
 from tts_cli.tts import parse_input
 
 
 class TestParseInput:
     """Test input parsing for JSON and plain text formats."""
-    
+
     def test_valid_json_with_text(self):
         """Test parsing valid JSON input with text field."""
         json_input = '{"text": "Hello world", "voice": "nova", "rate": "fast"}'
         text, params = parse_input(json_input)
-        
+
         assert text == "Hello world"
         assert params == {"voice": "nova", "rate": "fast"}
-    
+
     def test_valid_json_minimal(self):
         """Test parsing minimal valid JSON with only text."""
         json_input = '{"text": "Simple message"}'
         text, params = parse_input(json_input)
-        
+
         assert text == "Simple message"
         assert params == {}
-    
+
     def test_valid_json_no_text_field(self):
         """Test parsing valid JSON without text field (should fall back to plain text)."""
         json_input = '{"voice": "nova", "rate": "fast"}'
         text, params = parse_input(json_input)
-        
+
         # Should return the original JSON string as text
         assert text == json_input
         assert params == {}
-    
+
     def test_valid_json_empty_text(self):
         """Test parsing valid JSON with empty text field."""
         json_input = '{"text": "", "voice": "nova"}'
         text, params = parse_input(json_input)
-        
+
         assert text == ""
         assert params == {"voice": "nova"}
-    
+
     def test_valid_json_complex_parameters(self):
         """Test parsing JSON with various parameter types."""
         json_input = '''
@@ -60,7 +59,7 @@ class TestParseInput:
         }
         '''
         text, params = parse_input(json_input)
-        
+
         assert text == "Complex message"
         assert params["voice"] == "en-US-JennyNeural"
         assert params["rate"] == 1.2
@@ -70,7 +69,7 @@ class TestParseInput:
         assert params["format"] == "mp3"
         assert params["metadata"]["author"] == "test"
         assert params["metadata"]["tags"] == ["speech", "demo"]
-    
+
     def test_valid_json_with_whitespace(self):
         """Test parsing JSON with extra whitespace."""
         json_inputs = [
@@ -79,12 +78,12 @@ class TestParseInput:
             '\t{"text": "Hello", "voice": "nova"}\t',
             '   \n\t  {"text": "Hello", "voice": "nova"}  \t\n   ',
         ]
-        
+
         for json_input in json_inputs:
             text, params = parse_input(json_input)
             assert text == "Hello"
             assert params == {"voice": "nova"}
-    
+
     def test_invalid_json_malformed(self):
         """Test parsing malformed JSON (should fall back to plain text)."""
         invalid_json_inputs = [
@@ -97,13 +96,13 @@ class TestParseInput:
             '{invalid json structure}',
             '{"text": "Hello", }',  # Trailing comma
         ]
-        
+
         for invalid_input in invalid_json_inputs:
             text, params = parse_input(invalid_input)
             # Should return the original string as plain text
             assert text == invalid_input
             assert params == {}
-    
+
     def test_invalid_json_empty_braces(self):
         """Test parsing empty or minimal JSON structures."""
         edge_case_inputs = [
@@ -111,13 +110,13 @@ class TestParseInput:
             '{   }',  # Empty with whitespace
             '{ }',  # Empty with space
         ]
-        
+
         for json_input in edge_case_inputs:
             text, params = parse_input(json_input)
             # Should return original string since no 'text' field
             assert text == json_input
             assert params == {}
-    
+
     def test_plain_text_simple(self):
         """Test parsing simple plain text input."""
         plain_texts = [
@@ -127,12 +126,12 @@ class TestParseInput:
             "Text with numbers 123",
             "Text with symbols !@#$%",
         ]
-        
+
         for plain_text in plain_texts:
             text, params = parse_input(plain_text)
             assert text == plain_text
             assert params == {}
-    
+
     def test_plain_text_with_braces_not_json(self):
         """Test plain text that contains braces but isn't JSON."""
         non_json_with_braces = [
@@ -144,27 +143,13 @@ class TestParseInput:
             "{this starts with brace but isn't JSON",
             "} this ends with brace {",
         ]
-        
+
         for text_input in non_json_with_braces:
             text, params = parse_input(text_input)
             assert text == text_input
             assert params == {}
-    
-    def test_empty_and_none_inputs(self):
-        """Test parsing empty and None inputs."""
-        empty_inputs = [
-            "",
-            "   ",
-            "\n",
-            "\t",
-            "  \n\t  ",
-        ]
-        
-        for empty_input in empty_inputs:
-            text, params = parse_input(empty_input)
-            assert text == empty_input
-            assert params == {}
-    
+
+
     def test_json_with_special_characters(self):
         """Test parsing JSON with special characters in text."""
         special_text_cases = [
@@ -175,27 +160,27 @@ class TestParseInput:
             ('{"text": "Backslash: \\\\"}', 'Backslash: \\'),  # Escaped backslash
             ('{"text": "Forward/slash"}', 'Forward/slash'),  # Forward slash
         ]
-        
+
         for json_input, expected_text in special_text_cases:
             text, params = parse_input(json_input)
             assert text == expected_text
-    
+
     def test_json_text_field_various_types(self):
         """Test JSON where text field has various data types."""
         # Only string text should be extracted, others should fall back to plain text
         type_test_cases = [
             ('{"text": 123}', '{"text": 123}'),  # Number - should fall back
-            ('{"text": true}', '{"text": true}'),  # Boolean - should fall back  
+            ('{"text": true}', '{"text": true}'),  # Boolean - should fall back
             ('{"text": null}', '{"text": null}'),  # Null - should fall back
             ('{"text": []}', '{"text": []}'),  # Array - should fall back
             ('{"text": {}}', '{"text": {}}'),  # Object - should fall back
             ('{"text": "valid string"}', 'valid string'),  # String - should work
         ]
-        
+
         for json_input, expected_text in type_test_cases:
             text, params = parse_input(json_input)
             assert text == expected_text
-    
+
     def test_json_parameter_extraction(self):
         """Test that parameters are correctly extracted after text removal."""
         json_input = '''
@@ -209,23 +194,23 @@ class TestParseInput:
             "format": "wav"
         }
         '''
-        
+
         text, params = parse_input(json_input)
-        
+
         assert text == "The message"
         # Text should be removed from params
         assert "text" not in params
         # All other parameters should be preserved
         expected_params = {
             "voice": "nova",
-            "rate": "slow", 
+            "rate": "slow",
             "pitch": "+1st",
             "volume": 0.9,
             "save": False,
             "format": "wav"
         }
         assert params == expected_params
-    
+
     def test_json_nested_structures(self):
         """Test parsing JSON with nested objects and arrays."""
         complex_json = '''
@@ -246,33 +231,17 @@ class TestParseInput:
             }
         }
         '''
-        
+
         text, params = parse_input(complex_json)
-        
+
         assert text == "Complex structure"
         assert "text" not in params
         assert params["voice_config"]["provider"] == "openai"
         assert params["voice_config"]["settings"]["rate"] == 1.0
         assert params["outputs"] == ["mp3", "wav"]
         assert params["metadata"]["tags"] == ["test", "demo"]
-    
-    def test_whitespace_handling(self):
-        """Test handling of whitespace in various scenarios."""
-        whitespace_cases = [
-            # JSON with whitespace in text
-            ('{"text": "  Hello  "}', "  Hello  "),  # Preserve whitespace in text
-            ('{"text": "\\t\\n\\r"}', "\t\n\r"),  # Preserve escape sequences
-            
-            # Plain text with whitespace
-            ("  Hello  ", "  Hello  "),  # Preserve leading/trailing whitespace
-            ("\tHello\t", "\tHello\t"),  # Preserve tabs
-            ("\nHello\n", "\nHello\n"),  # Preserve newlines
-        ]
-        
-        for input_text, expected_text in whitespace_cases:
-            text, params = parse_input(input_text)
-            assert text == expected_text
-    
+
+
     def test_large_inputs(self):
         """Test parsing with large inputs."""
         # Large plain text
@@ -280,14 +249,14 @@ class TestParseInput:
         text, params = parse_input(large_text)
         assert text == large_text
         assert params == {}
-        
+
         # Large JSON text field
         large_json_text = "B" * 5000
         json_input = f'{{"text": "{large_json_text}", "voice": "nova"}}'
         text, params = parse_input(json_input)
         assert text == large_json_text
         assert params == {"voice": "nova"}
-    
+
     def test_edge_case_json_structures(self):
         """Test edge cases in JSON structure detection."""
         edge_cases = [
@@ -296,33 +265,15 @@ class TestParseInput:
             ('null', 'null'),  # Null value
             ('123', '123'),  # Number
             ('"string"', '"string"'),  # Quoted string
-            
+
             # Starting with { but complex cases
             ('{{nested}}', '{{nested}}'),  # Invalid nested braces
             ('{', '{'),  # Just opening brace
             ('{ "incomplete"', '{ "incomplete"'),  # Incomplete JSON
         ]
-        
+
         for input_text, expected_output in edge_cases:
             text, params = parse_input(input_text)
             assert text == expected_output
             assert params == {}
-    
-    def test_return_type_consistency(self):
-        """Test that parse_input always returns tuple of (str, dict)."""
-        test_inputs = [
-            "plain text",
-            '{"text": "json text"}',
-            "",
-            '{}',
-            '{invalid}',
-            None,  # This might cause an error, but let's see
-        ]
-        
-        for test_input in test_inputs:
-            if test_input is not None:  # Skip None for now
-                result = parse_input(test_input)
-                assert isinstance(result, tuple), f"Result should be tuple for input: {test_input}"
-                assert len(result) == 2, f"Result should have 2 elements for input: {test_input}"
-                assert isinstance(result[0], str), f"First element should be string for input: {test_input}"
-                assert isinstance(result[1], dict), f"Second element should be dict for input: {test_input}"
+

@@ -1,8 +1,9 @@
+
 import pytest
-from pathlib import Path
+
 from tts_cli.document_processing.parser_factory import DocumentParserFactory
-from tts_cli.speech_synthesis.ssml_generator import SSMLGenerator, SSMLPlatform
 from tts_cli.document_processing.performance_cache import PerformanceOptimizer
+from tts_cli.speech_synthesis.ssml_generator import SSMLGenerator, SSMLPlatform
 
 
 class TestDocumentProcessing:
@@ -56,7 +57,9 @@ class TestDocumentProcessing:
         import time
 
         # Generate large markdown document
-        large_content = "\n".join([f"# Section {i}\n\nContent for section {i}." for i in range(100)])
+        large_content = "\n".join([
+            f"# Section {i}\n\nContent for section {i}." for i in range(100)
+        ])
 
         factory = DocumentParserFactory()
         start = time.time()
@@ -95,7 +98,7 @@ class TestDocumentProcessing:
         )
         assert "Title" in doc_result
 
-        # Test transcription content  
+        # Test transcription content
         trans_result = processor.process_mixed_content(
             "Um, this is like, you know, spoken text",
             content_type="transcription"
@@ -105,16 +108,16 @@ class TestDocumentProcessing:
     def test_cache_functionality(self):
         """Test document caching functionality"""
         optimizer = PerformanceOptimizer(enable_caching=True)
-        
+
         # First processing - should cache
         content = "# Test Document\n\nThis is test content."
         elements1 = optimizer.process_document(content, "markdown")
         stats1 = optimizer.get_performance_stats()
-        
+
         # Second processing - should use cache
         elements2 = optimizer.process_document(content, "markdown")
         stats2 = optimizer.get_performance_stats()
-        
+
         assert elements1 == elements2
         assert stats2["cache_hits"] > stats1["cache_hits"]
         assert stats2["cache_misses"] == stats1["cache_misses"]
@@ -122,7 +125,7 @@ class TestDocumentProcessing:
     def test_emotion_detection_integration(self):
         """Test emotion detection in document processing"""
         from tts_cli.speech_synthesis.advanced_emotion_detector import AdvancedEmotionDetector
-        
+
         # Technical content
         tech_content = """
         ## API Reference
@@ -130,29 +133,29 @@ class TestDocumentProcessing:
         - `data`: Input data structure
         - `options`: Configuration object
         """
-        
+
         factory = DocumentParserFactory()
         elements = factory.parse_document(tech_content, "markdown")
-        
+
         detector = AdvancedEmotionDetector()
         profile = detector.detect_document_type(elements)
-        
+
         assert profile in ["technical", "tutorial"]
 
     def test_ssml_platform_variations(self):
         """Test SSML generation for different platforms"""
         speech_md = "Hello [pause] world"
-        
+
         platforms = [
             SSMLPlatform.AZURE,
             SSMLPlatform.GOOGLE,
             SSMLPlatform.AMAZON
         ]
-        
+
         for platform in platforms:
             generator = SSMLGenerator(platform)
             ssml = generator.convert_speech_markdown(speech_md)
-            
+
             assert "<speak" in ssml
             assert "</speak>" in ssml
             # Each platform should have some unique formatting
@@ -161,17 +164,17 @@ class TestDocumentProcessing:
     def test_document_format_autodetection(self):
         """Test automatic format detection"""
         factory = DocumentParserFactory()
-        
+
         # HTML content
         html_content = "<html><body><h1>Test</h1></body></html>"
         elements = factory.parse_document(html_content, "auto")
         assert len(elements) > 0
-        
+
         # JSON content
         json_content = '{"key": "value"}'
         elements = factory.parse_document(json_content, "auto")
         assert len(elements) > 0
-        
+
         # Markdown content
         md_content = "# Heading\n\nParagraph"
         elements = factory.parse_document(md_content, "auto")
@@ -180,15 +183,15 @@ class TestDocumentProcessing:
     def test_large_document_chunking(self):
         """Test chunking for large documents"""
         optimizer = PerformanceOptimizer(enable_caching=False)
-        
+
         # Create a very large document
         large_content = "\n\n".join([
             f"# Chapter {i}\n\n" + "\n".join([f"Paragraph {j} content." for j in range(50)])
             for i in range(20)
         ])
-        
+
         elements = optimizer.process_document(large_content, "markdown", max_chunk_size=5000)
-        
+
         assert len(elements) > 0
         # Verify all elements were parsed
         assert any(e.content.startswith("Chapter") for e in elements)
@@ -196,10 +199,10 @@ class TestDocumentProcessing:
     def test_configuration_integration(self):
         """Test that configuration settings are respected"""
         from tts_cli.config import load_config, save_config
-        
+
         # Save current config
         original_config = load_config()
-        
+
         # Test config
         test_config = original_config.copy()
         test_config["document_parsing"] = {
@@ -208,13 +211,13 @@ class TestDocumentProcessing:
             "cache_enabled": False,
             "cache_ttl": 1800
         }
-        
+
         save_config(test_config)
-        
+
         # Verify config was saved
         loaded_config = load_config()
         assert loaded_config["document_parsing"]["default_format"] == "markdown"
-        assert loaded_config["document_parsing"]["emotion_detection"] == False
-        
+        assert loaded_config["document_parsing"]["emotion_detection"] is False
+
         # Restore original config
         save_config(original_config)
