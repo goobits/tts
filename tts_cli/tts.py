@@ -1630,7 +1630,7 @@ def speak(ctx: click.Context, output: str, output_format: str, voice: str, clone
     # In streaming mode, display the text being spoken
     if not json_output and not debug:
         # Show exactly what's being sent to TTS
-        click.echo(f"\n{final_text}\n")
+        click.echo(final_text)
     
     # Handle main synthesis - speak command is always streaming (save=False)
     handle_synthesize(final_text, final_model, output, False, final_voice, clone, output_format, tuple(final_options), logger, json_output, debug, rate, pitch)
