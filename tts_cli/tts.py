@@ -128,15 +128,17 @@ class DefaultCommandGroup(click.RichGroup):
     """
     A custom Click group that handles direct text synthesis when no subcommand is specified.
     """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.default_cmd_name = "speak"
+    
     def resolve_command(
         self, ctx: click.Context, args: List[str]
     ) -> Tuple[Optional[str], Optional[click.Command], List[str]]:
         # If no args, this could be stdin input or help request
         if not args:
-            # Set flag for direct synthesis and let main() handle stdin detection
-            ctx.meta['direct_synthesis'] = True
-            ctx.meta['synthesis_args'] = []
-            return None, self.callback, args
+            # Use the default speak command for stdin
+            return self.default_cmd_name, self.commands.get(self.default_cmd_name), args
 
         # If the first arg is a known option (like --help or --list),
         # let default handling take over.
@@ -149,12 +151,9 @@ class DefaultCommandGroup(click.RichGroup):
             # It's a subcommand, let Click handle it normally.
             return super().resolve_command(ctx, args)
 
-        # The first argument is not a subcommand, so we assume it's text for direct synthesis
-        # Store args for direct synthesis handling
-        ctx.meta['direct_synthesis'] = True
-        ctx.meta['synthesis_args'] = args
-        # Return the group's callback name so Click can invoke main()
-        return None, self.callback, args
+        # The first argument is not a subcommand, so we assume it's text for the speak command
+        # Return the speak command with all args
+        return self.default_cmd_name, self.commands.get(self.default_cmd_name), args
 
 
 def parse_provider_shortcut(args: List[str]) -> Tuple[Optional[str], List[str]]:
@@ -1902,7 +1901,7 @@ def handle_unload_command(args: tuple) -> None:
 @click.version_option(version=__version__, prog_name="TTS CLI")
 @click.pass_context
 def main(ctx: click.Context) -> None:
-    """🔮 [bold cyan]TTS CLI v1.0-rc2[/bold cyan] - Multi-provider text-to-speech with voice cloning
+    """🔮 [bold cyan]TTS CLI v1.1[/bold cyan] - Multi-provider text-to-speech with voice cloning
 
     Transform text into natural speech using AI providers with auto-selection and real-time streaming.
 
@@ -1910,29 +1909,29 @@ def main(ctx: click.Context) -> None:
 
     \b
     [bold yellow]💡 Quick Start:[/bold yellow]
-      [green]tts "Hello world"[/green]                    [italic]# Speak instantly[/italic]
+      [green]tts "Hello world"[/green]                    [italic]# Speak instantly (implicit 'speak')[/italic]
+      [green]tts speak -v "onyx" "Hello world"[/green]    [italic]# Speak with a specific voice[/italic]
       [green]tts save "Hello" -o out.mp3[/green]          [italic]# Save as audio file[/italic]
-      [green]tts @edge "Hello from Microsoft"[/green]     [italic]# Use Edge TTS (free)[/italic]
       [green]echo "Piped input" | tts @openai[/green]     [italic]# Pipeline with OpenAI[/italic]
 
     \b
     [bold yellow]🎯 Core Commands:[/bold yellow]
-      [green]save[/green]     💾 Save text as audio file
+      [green]speak[/green]    🗣️ Speak text aloud (default command)
+      [green]save[/green]     💾 Save text as an audio file
       [green]voices[/green]   🔍 Browse and test voices interactively
-      [green]config[/green]   🔧 Provider and application settings
+      [green]config[/green]   🔧 Manage provider and application settings
       [green]status[/green]   🩺 Check system health and provider status
 
     \b
     [bold yellow]📊 Provider Management:[/bold yellow]
-      [green]providers[/green] 📋 Available providers and status
+      [green]providers[/green] 📋 List available providers and their status
       [green]install[/green]   📦 Install provider dependencies
-      [green]info[/green]      👀 Provider details and capabilities
+      [green]info[/green]      👀 Get detailed information on a provider
 
     \b
     [bold yellow]🎙️ Advanced Features:[/bold yellow]
       [green]voice[/green]    🎤 Load and cache voices for speed
       [green]document[/green] 📖 Convert documents to speech
-      [green]version[/green]  📚 Show version information
 
     \b
     [bold yellow]🔑 First-time Setup:[/bold yellow]
@@ -1943,22 +1942,9 @@ def main(ctx: click.Context) -> None:
 
     📚 For detailed help on a command, run: [green]tts [COMMAND] --help[/green]
     """
-    # Check if this is a direct synthesis call (detected by DefaultCommandGroup)
-    if ctx.meta.get('direct_synthesis', False):
-        synthesis_args = ctx.meta.get('synthesis_args', [])
-        handle_direct_synthesis(synthesis_args)
-        return
-    
-    # If no subcommand is invoked, check for piped input
-    if ctx.invoked_subcommand is None:
-        # Check if there's piped input
-        if not sys.stdin.isatty():
-            handle_direct_synthesis([])  # Empty args, will read from stdin
-            return
-        else:
-            # No subcommand and no stdin, show help
-            click.echo(ctx.get_help())
-            sys.exit(0)
+    # The DefaultCommandGroup will now handle implicit speak commands
+    # No special handling needed here since speak is the default
+    pass
 
 
 
@@ -2258,12 +2244,44 @@ def install(args: tuple) -> None:
 
 
 @main.command()
-def version() -> None:
-    """📚 Version and suite information
+@click.option("-v", "--voice", help="🎤 Voice to use (e.g., en-GB-SoniaNeural for edge_tts)")
+@click.option("--rate", help="⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)")
+@click.option("--pitch", help="🎵 Pitch adjustment (e.g., +5Hz, -10Hz)")
+@click.option("--debug", is_flag=True, help="🔍 Show debug information during processing")
+@click.argument("text", required=False)
+@click.argument("options", nargs=-1)
+def speak(voice: str, rate: str, pitch: str, debug: bool, text: str, options: tuple) -> None:
+    """🗣️ Speak text aloud (default)
     
-    Display current TTS CLI version and branding information.
+    Synthesize and stream text directly to your speakers with real-time audio playback.
+    
+    \b
+    Examples:
+      tts speak "Hello world"                  # Basic speech
+      tts speak @openai "Hello world"          # Use OpenAI provider
+      tts speak -v onyx "Hello world"          # Use specific voice
+      echo "Piped text" | tts speak            # Pipe input
+    
+    Provider shortcuts:
+      @edge, @openai, @elevenlabs, @google, @chatterbox
     """
-    click.echo(f"TTS {__version__} - Goobits Audio Suite")
+    # Convert args to list for handle_direct_synthesis
+    args = []
+    if text:
+        args.append(text)
+    args.extend(options)
+    
+    # Reconstruct options for handle_direct_synthesis
+    if voice:
+        args.extend(["--voice", voice])
+    if rate:
+        args.extend(["--rate", rate])
+    if pitch:
+        args.extend(["--pitch", pitch])
+    if debug:
+        args.append("--debug")
+    
+    handle_direct_synthesis(args)
 
 
 @main.command()
