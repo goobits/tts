@@ -211,3 +211,26 @@ The `tts install` command handles complex dependency management, especially for 
 
 ### Temporary Files
 When creating temporary debug or test scripts, use `/tmp` directory to keep the project clean.
+
+### Preventing __pycache__ Directories During Development
+
+The setup script automatically sets `PYTHONDONTWRITEBYTECODE=1` during installation to prevent Python from creating `__pycache__` directories. 
+
+For permanent prevention in your development environment:
+```bash
+# Add to your shell profile (.bashrc/.zshrc)
+export PYTHONDONTWRITEBYTECODE=1
+```
+
+Alternative installation options to minimize build artifacts:
+```bash
+pip install -e . --no-build-isolation --no-deps
+# Note: May require dependencies to be installed separately
+```
+
+The `.gitignore` file is already configured to exclude all Python build artifacts including:
+- `__pycache__/`
+- `*.py[cod]`
+- `*.egg-info/`
+- `build/`
+- `dist/`

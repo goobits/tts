@@ -6,7 +6,8 @@
       "Bash(nvidia-smi:*)",
       "Bash(rg:*)",
       "Bash(find:*)",
-      "Bash(tts:*)"
+      "Bash(tts:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": []
   }

@@ -5,6 +5,34 @@ import rich_click as click
 # Configure rich-click to enable markup - MUST be first!
 click.rich_click.USE_RICH_MARKUP = True
 
+# Apply Dracula theme colors
+click.rich_click.STYLE_OPTION = "#ff79c6"      # Dracula Pink - for option flags
+click.rich_click.STYLE_ARGUMENT = "#8be9fd"    # Dracula Cyan - for argument types  
+click.rich_click.STYLE_COMMAND = "#50fa7b"     # Dracula Green - for subcommands
+click.rich_click.STYLE_USAGE = "#bd93f9"       # Dracula Purple - for "Usage:" line
+click.rich_click.STYLE_HELPTEXT = "#b3b8c0"    # Light gray - for help descriptions
+
+# Configure rich-click to sort commands alphabetically
+click.rich_click.SHOW_ARGUMENTS = True
+click.rich_click.GROUP_ARGUMENTS_OPTIONS = True
+click.rich_click.COMMAND_GROUPS = {
+    "tts": [
+        {
+            "name": "Commands",
+            "commands": [],  # Empty list will include all commands
+        }
+    ]
+}
+click.rich_click.OPTION_GROUPS = {
+    "tts": [],  # No custom option groups
+}
+# Sort commands alphabetically
+click.rich_click.OPTIONS_PANEL_TITLE = "Options"
+click.rich_click.COMMANDS_PANEL_TITLE = "Commands"
+# Set max width to prevent wrapping issues
+click.rich_click.MAX_WIDTH = 120
+click.rich_click.STYLE_COMMANDS_TABLE_PADDING = (0, 1)
+
 """TTS CLI - Text-to-Speech Command Line Interface.
 
 This module provides the main CLI entry point for the TTS CLI application,
@@ -1874,50 +1902,46 @@ def handle_unload_command(args: tuple) -> None:
 @click.version_option(version=__version__, prog_name="TTS CLI")
 @click.pass_context
 def main(ctx: click.Context) -> None:
-    """🔮 TTS CLI 1.0-rc2 - AI-powered text-to-speech synthesis
-    
+    """🔮 [bold cyan]TTS CLI v1.0-rc2[/bold cyan] - Multi-provider text-to-speech with voice cloning
+
+    Transform text into natural speech using AI providers with auto-selection and real-time streaming.
+
+     
+
     \b
-    
+    [bold yellow]💡 Quick Start:[/bold yellow]
+      [green]tts "Hello world"[/green]                    [italic]# Speak instantly[/italic]
+      [green]tts save "Hello" -o out.mp3[/green]          [italic]# Save as audio file[/italic]
+      [green]tts @edge "Hello from Microsoft"[/green]     [italic]# Use Edge TTS (free)[/italic]
+      [green]echo "Piped input" | tts @openai[/green]     [italic]# Pipeline with OpenAI[/italic]
+
     \b
-    Transform text into speech using multiple AI providers with smart auto-selection,
-    voice cloning capabilities, and real-time streaming. Support for 400+ voices
-    across Edge TTS, OpenAI, ElevenLabs, Google Cloud TTS, and local voice cloning.
-    
+    [bold yellow]🎯 Core Commands:[/bold yellow]
+      [green]save[/green]     💾 Save text as audio file
+      [green]voices[/green]   🔍 Browse and test voices interactively
+      [green]config[/green]   🔧 Provider and application settings
+      [green]status[/green]   🩺 Check system health and provider status
+
     \b
-    [bold]💡 Quick Examples:[/bold]
-        tts "Hello world"                        [italic]# Stream with default voice[/italic]
-        tts save "Hello" -o output.mp3           [italic]# Save to file[/italic]
-        tts @edge "Hello"                        [italic]# Use Edge TTS provider[/italic]
-        echo "Hello" | tts @openai               [italic]# Pipeline with OpenAI[/italic]
-    
+    [bold yellow]📊 Provider Management:[/bold yellow]
+      [green]providers[/green] 📋 Available providers and status
+      [green]install[/green]   📦 Install provider dependencies
+      [green]info[/green]      👀 Provider details and capabilities
+
     \b
-    [bold]🎯 Core Commands:[/bold]
-        save     💾 Save text as audio file
-        voices   🔍 Interactive voice browser
-        config   🔧 Configuration management
-        status   🩺 System health check
-    
+    [bold yellow]🎙️ Advanced Features:[/bold yellow]
+      [green]voice[/green]    🎤 Load and cache voices for speed
+      [green]document[/green] 📖 Convert documents to speech
+      [green]version[/green]  📚 Show version information
+
     \b
-    [bold]📊 Provider Management:[/bold]
-        providers    📋 List available providers with status
-        install      📦 Install provider dependencies
-        info         👀 Detailed provider information
-    
-    \b
-    [bold]🎙️ Voice & Document Processing:[/bold]
-        voice        🎤 Voice loading and management
-        document     📖 Convert documents to speech
-        version      📚 Show version information
-    
-    \b
-    [bold]🔑 Quick Setup:[/bold]
-        1. Choose a provider: tts providers
-        2. Configure API keys: tts config set openai_api_key YOUR_KEY
-        3. Browse voices: tts voices
-        4. Start speaking: tts "Hello world"
-    
-    \b
-    📚 For detailed command help: tts COMMAND --help
+    [bold yellow]🔑 First-time Setup:[/bold yellow]
+      1. Check providers:  [green]tts providers[/green]
+      2. Set API keys:     [green]tts config set openai_api_key YOUR_KEY[/green]
+      3. Choose a voice:   [green]tts voices[/green]
+      4. Start speaking:   [green]tts "Hello AI world"[/green]
+
+    📚 For detailed help on a command, run: [green]tts [COMMAND] --help[/green]
     """
     # Check if this is a direct synthesis call (detected by DefaultCommandGroup)
     if ctx.meta.get('direct_synthesis', False):
@@ -2042,7 +2066,7 @@ def document(
     json_output: bool, debug: bool, doc_format: str, ssml_platform: str, emotion_profile: str,
     rate: str, pitch: str, options: tuple
 ) -> None:
-    """📖 Process and convert documents to speech
+    """📖 Convert documents to speech
     
     Convert HTML, JSON, and Markdown documents to speech with emotion detection
     and platform-optimized SSML generation.
@@ -2094,7 +2118,7 @@ def document(
 
 @main.group()
 def voice() -> None:
-    """🎤 Voice loading and management
+    """🎤 Voice loading and caching
     
     Load voice files into memory for fast synthesis and manage voice cache.
     
@@ -2157,7 +2181,7 @@ def status() -> None:
 @main.command()
 @click.argument("provider", required=False)
 def info(provider: str) -> None:
-    """👀 Show provider information and capabilities
+    """👀 Provider information and capabilities
     
     Display detailed information about TTS providers including available
     options, features, and sample voices.
@@ -2190,7 +2214,7 @@ def info(provider: str) -> None:
 @main.command()
 @click.argument("provider_name", required=False)
 def providers(provider_name: str) -> None:
-    """📋 Show available TTS providers with status
+    """📋 Available TTS providers and status
     
     List all TTS providers with their current status, configuration requirements,
     and setup instructions.
@@ -2209,7 +2233,7 @@ def providers(provider_name: str) -> None:
 
 @main.command()
 def status() -> None:
-    """🩺 Check system health and provider availability
+    """🩺 System health and provider availability
     
     Perform comprehensive system diagnostics including Python version,
     dependencies, provider status, and configuration validation.
@@ -2235,7 +2259,7 @@ def install(args: tuple) -> None:
 
 @main.command()
 def version() -> None:
-    """📚 Show version information and suite branding
+    """📚 Version and suite information
     
     Display current TTS CLI version and branding information.
     """
@@ -2245,7 +2269,7 @@ def version() -> None:
 @main.command()
 @click.argument("args", nargs=-1)
 def voices(args: tuple) -> None:
-    """🔍 Browse and search available voices interactively
+    """🔍 Browse available voices interactively
     
     Launch an interactive voice browser with three-panel layout,
     filtering capabilities, and real-time voice preview.
@@ -2265,7 +2289,7 @@ def voices(args: tuple) -> None:
 @click.argument("key", required=False)
 @click.argument("value", required=False)
 def config(action: str, key: str, value: str) -> None:
-    """🔧 Manage TTS configuration
+    """🔧 TTS configuration
     
     \b
     Configure API keys, default voices, audio settings, and paths with

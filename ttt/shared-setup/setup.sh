@@ -674,6 +674,9 @@ cmd_install() {
         esac
     done
     
+    # Prevent __pycache__ directories during development
+    export PYTHONDONTWRITEBYTECODE=1
+    
     # Run system checks
     check_python_version || exit 1
     check_git || exit 1
@@ -689,6 +692,8 @@ cmd_install() {
 }
 
 cmd_upgrade() {
+    # Prevent __pycache__ directories during development
+    export PYTHONDONTWRITEBYTECODE=1
     upgrade_with_pipx
 }
 
