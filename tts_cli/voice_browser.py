@@ -425,8 +425,11 @@ class VoiceBrowser:
                 provider_instance.synthesize(preview_text, temp_file, **kwargs)
 
                 # Use AudioPlaybackManager for centralized subprocess management
-                play_process = self.audio_manager.play_with_tracking(temp_file, cleanup=True)
+                play_process = self.audio_manager.play_with_tracking(temp_file)
                 play_process.wait()
+
+                # Cleanup using shared utility
+                cleanup_file(temp_file, logger=self.logger)
 
                 # Check if this is still the current playback
                 if self.audio_manager.get_current_process() == play_process:
