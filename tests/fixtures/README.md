@@ -38,19 +38,19 @@ This directory contains sample documents for testing the document-to-speech func
 
 ```bash
 # Test technical document with auto emotion detection
-tts --document tests/__fixtures__/technical_document.md --stream
+tts --document tests/fixtures/technical_document.md --stream
 
 # Test marketing HTML with SSML generation
-tts --document tests/__fixtures__/marketing_page.html --ssml-platform azure --save
+tts --document tests/fixtures/marketing_page.html --ssml-platform azure --save
 
 # Test narrative with custom emotion profile
-tts --document tests/__fixtures__/story_narrative.md --emotion-profile narrative --stream
+tts --document tests/fixtures/story_narrative.md --emotion-profile narrative --stream
 
 # Test tutorial with performance measurement
-time tts --document tests/__fixtures__/tutorial_guide.md --save
+time tts --document tests/fixtures/tutorial_guide.md --save
 
 # Test JSON data export
-tts --document tests/__fixtures__/data_export.json --save
+tts --document tests/fixtures/data_export.json --save
 ```
 
 ## Expected Behaviors
