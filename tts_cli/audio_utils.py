@@ -30,18 +30,19 @@ class AudioPlaybackManager:
     def play_with_tracking(
         self, 
         audio_path: str, 
-        timeout: Optional[int] = None,
-        cleanup: bool = False
+        timeout: Optional[int] = None
     ) -> subprocess.Popen:
         """Play audio with process tracking for background management.
         
         This method is intended for use cases like the voice browser where
         the calling code needs to track and potentially terminate playback.
         
+        Note: This method does not handle cleanup automatically. The caller
+        is responsible for cleaning up temporary files as needed.
+        
         Args:
             audio_path: Path to the audio file to play
             timeout: Optional timeout for ffplay process
-            cleanup: Whether to delete the file after playing
             
         Returns:
             The subprocess.Popen instance for the ffplay process
