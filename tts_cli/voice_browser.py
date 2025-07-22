@@ -17,7 +17,6 @@ an intuitive way to explore and test available TTS voices before use.
 import curses
 import logging
 import re
-import subprocess
 import sys
 import tempfile
 import threading
@@ -26,7 +25,7 @@ from typing import Any, Callable, Dict, List, Set, Tuple
 
 import click
 
-from .audio_utils import cleanup_file
+from .audio_utils import cleanup_file, AudioPlaybackManager
 from .config import set_setting
 from .exceptions import DependencyError, ProviderLoadError, ProviderNotFoundError
 
@@ -136,9 +135,9 @@ class VoiceBrowser:
 
         # Playback state
         self.is_playing = False
-        self.current_playback_process = None
         self.playing_voice = None
         self.favorites: Set[str] = set()
+        self.audio_manager = AudioPlaybackManager(logger=self.logger)
 
         # Double-click tracking
         self.last_click_time = 0
@@ -409,9 +408,7 @@ class VoiceBrowser:
     def start_voice_preview(self, provider: str, voice: str) -> None:
         """Start playing a voice preview in background thread."""
         # Stop current playback
-        if self.current_playback_process and self.current_playback_process.poll() is None:
-            self.current_playback_process.terminate()
-            self.current_playback_process = None
+        self.audio_manager.stop_playback()
 
         self.playing_voice = voice
         self.is_playing = True
@@ -427,27 +424,19 @@ class VoiceBrowser:
                 kwargs = {"voice": voice}
                 provider_instance.synthesize(preview_text, temp_file, **kwargs)
 
-                # Play audio using shared utility
-                # Note: We need to handle the subprocess differently for the voice browser
-                # to support the current_playback_process tracking
-                play_process = subprocess.Popen(['ffplay', '-nodisp', '-autoexit', temp_file],
-                                              stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-                self.current_playback_process = play_process
+                # Use AudioPlaybackManager for centralized subprocess management
+                play_process = self.audio_manager.play_with_tracking(temp_file, cleanup=True)
                 play_process.wait()
 
-                # Cleanup using shared utility
-                cleanup_file(temp_file, logger=self.logger)
-
-                if self.current_playback_process == play_process:
+                # Check if this is still the current playback
+                if self.audio_manager.get_current_process() == play_process:
                     self.is_playing = False
                     self.playing_voice = None
-                    self.current_playback_process = None
 
             except Exception as e:
                 self.logger.error(f"Preview failed: {e}")
                 self.is_playing = False
                 self.playing_voice = None
-                self.current_playback_process = None
 
         worker = threading.Thread(target=background_preview)
         worker.daemon = True
@@ -593,11 +582,9 @@ class VoiceBrowser:
                     stdscr.refresh()
 
                     # Check if background playback finished
-                    process = self.current_playback_process
-                    if process and process.poll() is not None:
+                    if self.is_playing and not self.audio_manager.is_playing():
                         self.is_playing = False
                         self.playing_voice = None
-                        self.current_playback_process = None
 
                     # Handle input
                     key = stdscr.getch()
@@ -686,9 +673,7 @@ class VoiceBrowser:
 
                     elif key in (ord('q'), ord('Q'), 27):  # q, Q, or Escape
                         # Stop any background playback before exiting
-                        process = self.current_playback_process
-                        if process and process.poll() is None:
-                            self.current_playback_process.terminate()
+                        self.audio_manager.stop_playback()
                         break
 
                 except KeyboardInterrupt:

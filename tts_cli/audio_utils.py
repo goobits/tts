@@ -4,6 +4,7 @@ import logging
 import os
 import subprocess
 import tempfile
+import threading
 from typing import Any, Callable, Dict, List, Optional
 
 from .config import get_config_value
@@ -13,6 +14,200 @@ from .exceptions import AudioPlaybackError, DependencyError
 logger = logging.getLogger(__name__)
 
 
+class AudioPlaybackManager:
+    """Centralized audio playback management with subprocess lifecycle tracking."""
+    
+    def __init__(self, logger: Optional[logging.Logger] = None):
+        """Initialize the AudioPlaybackManager.
+        
+        Args:
+            logger: Optional logger instance for debugging
+        """
+        self.logger = logger or logging.getLogger(__name__)
+        self._current_process: Optional[subprocess.Popen] = None
+        self._process_lock = threading.Lock()
+    
+    def play_with_tracking(
+        self, 
+        audio_path: str, 
+        timeout: Optional[int] = None,
+        cleanup: bool = False
+    ) -> subprocess.Popen:
+        """Play audio with process tracking for background management.
+        
+        This method is intended for use cases like the voice browser where
+        the calling code needs to track and potentially terminate playback.
+        
+        Args:
+            audio_path: Path to the audio file to play
+            timeout: Optional timeout for ffplay process
+            cleanup: Whether to delete the file after playing
+            
+        Returns:
+            The subprocess.Popen instance for the ffplay process
+            
+        Raises:
+            DependencyError: If ffplay is not available
+            AudioPlaybackError: If playback fails to start
+        """
+        if timeout is None:
+            timeout = get_config_value('ffmpeg_conversion_timeout')
+            
+        try:
+            with self._process_lock:
+                # Terminate any existing process
+                self._terminate_current_process()
+                
+                # Start new process
+                process = subprocess.Popen([
+                    'ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', audio_path
+                ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+                
+                self._current_process = process
+                self.logger.debug(f"Started audio playback with tracking: {audio_path}")
+                
+                return process
+                
+        except FileNotFoundError as e:
+            self.logger.warning(f"FFplay not available, audio saved to: {audio_path}")
+            raise DependencyError(
+                f"Audio generated but cannot play automatically. File saved to: {audio_path}"
+            ) from e
+        except Exception as e:
+            self.logger.warning(f"Failed to start audio playback: {e}")
+            raise AudioPlaybackError(f"Audio playback failed to start: {e}") from e
+    
+    def play_and_forget(
+        self, 
+        audio_path: str, 
+        timeout: Optional[int] = None,
+        cleanup: bool = False
+    ) -> None:
+        """Play audio without tracking (fire-and-forget).
+        
+        This method is intended for regular TTS playback where the caller
+        doesn't need to manage the subprocess lifecycle.
+        
+        Args:
+            audio_path: Path to the audio file to play
+            timeout: Optional timeout for ffplay process
+            cleanup: Whether to delete the file after playing
+            
+        Raises:
+            DependencyError: If ffplay is not available
+            AudioPlaybackError: If playback fails
+        """
+        if timeout is None:
+            timeout = get_config_value('ffmpeg_conversion_timeout')
+            
+        try:
+            # Run and wait for completion
+            subprocess.run([
+                'ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', audio_path
+            ], check=True, timeout=timeout)
+            
+            self.logger.debug(f"Audio playback completed: {audio_path}")
+            
+        except FileNotFoundError as e:
+            self.logger.warning(f"FFplay not available, audio saved to: {audio_path}")
+            raise DependencyError(
+                f"Audio generated but cannot play automatically. File saved to: {audio_path}"
+            ) from e
+        except subprocess.CalledProcessError as e:
+            self.logger.warning(f"FFplay failed to play audio file: {e}")
+            raise AudioPlaybackError(
+                f"Audio generated but playback failed. File saved to: {audio_path}"
+            ) from e
+        except subprocess.TimeoutExpired as e:
+            self.logger.warning(f"FFplay playback timed out after {timeout} seconds")
+            raise AudioPlaybackError(
+                f"Audio playback timed out. File saved to: {audio_path}"
+            ) from e
+        finally:
+            if cleanup:
+                cleanup_file(audio_path, self.logger)
+    
+    def stop_playback(self) -> bool:
+        """Stop any currently playing audio.
+        
+        Returns:
+            True if a process was stopped, False if no process was running
+        """
+        with self._process_lock:
+            return self._terminate_current_process()
+    
+    def is_playing(self) -> bool:
+        """Check if audio is currently playing.
+        
+        Returns:
+            True if audio is playing, False otherwise
+        """
+        with self._process_lock:
+            if self._current_process is None:
+                return False
+            
+            poll_result = self._current_process.poll()
+            if poll_result is not None:
+                # Process has ended
+                self._current_process = None
+                return False
+            
+            return True
+    
+    def get_current_process(self) -> Optional[subprocess.Popen]:
+        """Get the current playback process.
+        
+        Returns:
+            The current subprocess.Popen instance or None if not playing
+        """
+        with self._process_lock:
+            return self._current_process
+    
+    def _terminate_current_process(self) -> bool:
+        """Terminate the current playback process if it exists.
+        
+        Returns:
+            True if a process was terminated, False if no process was running
+        """
+        if self._current_process is None:
+            return False
+        
+        try:
+            if self._current_process.poll() is None:  # Still running
+                self._current_process.terminate()
+                try:
+                    self._current_process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    # Force kill if it doesn't terminate gracefully
+                    self._current_process.kill()
+                    self._current_process.wait()
+                
+                self.logger.debug("Terminated current audio playback process")
+                return True
+        except Exception as e:
+            self.logger.warning(f"Error terminating audio process: {e}")
+        finally:
+            self._current_process = None
+        
+        return False
+
+
+# Global manager instance
+_global_manager: Optional[AudioPlaybackManager] = None
+
+
+def get_audio_manager() -> AudioPlaybackManager:
+    """Get the global AudioPlaybackManager instance.
+    
+    Returns:
+        The global AudioPlaybackManager instance
+    """
+    global _global_manager
+    if _global_manager is None:
+        _global_manager = AudioPlaybackManager()
+    return _global_manager
+
+
 def play_audio_with_ffplay(
     audio_path: str,
     logger: Optional[logging.Logger] = None,
@@ -20,7 +215,7 @@ def play_audio_with_ffplay(
     timeout: Optional[int] = None
 ) -> None:
     """
-    Play an audio file using ffplay.
+    Play an audio file using ffplay (legacy function, use AudioPlaybackManager instead).
 
     Args:
         audio_path: Path to the audio file to play
@@ -34,35 +229,10 @@ def play_audio_with_ffplay(
     """
     if logger is None:
         logger = logging.getLogger(__name__)
-
-    if timeout is None:
-        timeout = get_config_value('ffmpeg_conversion_timeout')
-
-    try:
-        # Play the audio file
-        subprocess.run([
-            'ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', audio_path
-        ], check=True, timeout=timeout)
-        logger.debug(f"Audio playback completed: {audio_path}")
-
-    except FileNotFoundError as e:
-        logger.warning(f"FFplay not available, audio saved to: {audio_path}")
-        raise DependencyError(
-            f"Audio generated but cannot play automatically. File saved to: {audio_path}"
-        ) from e
-    except subprocess.CalledProcessError as e:
-        logger.warning(f"FFplay failed to play audio file: {e}")
-        raise AudioPlaybackError(
-            f"Audio generated but playback failed. File saved to: {audio_path}"
-        ) from e
-    except subprocess.TimeoutExpired as e:
-        logger.warning(f"FFplay playback timed out after {timeout} seconds")
-        raise AudioPlaybackError(
-            f"Audio playback timed out. File saved to: {audio_path}"
-        ) from e
-    finally:
-        if cleanup:
-            cleanup_file(audio_path, logger)
+    
+    # Use AudioPlaybackManager for consistency
+    manager = AudioPlaybackManager(logger=logger)
+    manager.play_and_forget(audio_path, timeout=timeout, cleanup=cleanup)
 
 
 def cleanup_file(file_path: str, logger: Optional[logging.Logger] = None) -> None:
@@ -119,8 +289,9 @@ def stream_via_tempfile(
         # Generate audio to temporary file
         synthesize_func(text, temp_file, **synthesis_kwargs)
 
-        # Play the temporary file
-        play_audio_with_ffplay(temp_file, logger, cleanup=False)
+        # Play the temporary file using AudioPlaybackManager
+        manager = AudioPlaybackManager(logger=logger)
+        manager.play_and_forget(temp_file, cleanup=False)
 
     finally:
         # Always clean up temporary file
@@ -257,7 +428,8 @@ def stream_audio_file(audio_path: str) -> None:
         DependencyError: If ffplay is not found
         AudioPlaybackError: If playback fails
     """
-    play_audio_with_ffplay(audio_path, logger=logger)
+    manager = get_audio_manager()
+    manager.play_and_forget(audio_path)
 
 
 def convert_audio(input_path: str, output_path: str, output_format: str) -> None:
