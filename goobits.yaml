@@ -7,9 +7,12 @@ command_name: "tts"
 display_name: "TTS - Text to Speech"
 description: "Multi-provider text-to-speech with voice cloning"
 
+# CLI generation configuration
+cli_output_path: "src/{package_name}/cli.py"
+
 python:
   minimum_version: "3.8"
-  maximum_version: ""  # Empty means no maximum
+  maximum_version: "3.13"
 
 dependencies:
   required:

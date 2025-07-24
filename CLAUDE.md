@@ -38,6 +38,10 @@ Additionally, TTS CLI now includes advanced document-to-speech capabilities:
 
 **IMPORTANT FOR DEVELOPMENT**: Always use `./setup.sh install --dev` for development work. This creates an editable installation where code changes are immediately reflected without needing to reinstall or upgrade.
 
+## CLI Generation
+The project uses Goobits CLI framework: run `goobits build` to generate CLI and setup scripts from goobits.yaml configuration.
+After generation, use `./setup.sh install --dev` for development installation with immediate code change reflection.
+
 ## Common Development Commands
 
 **Testing:**

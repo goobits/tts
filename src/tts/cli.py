@@ -69,62 +69,6 @@ except (ImportError, FileNotFoundError):
     # No hooks module found, use default behavior
     pass
 
-def load_provider(provider_name: str):
-    """Load a TTS provider by name.
-    
-    Args:
-        provider_name: Name of the provider (e.g., 'edge_tts', 'openai_tts')
-        
-    Returns:
-        Provider class
-    """
-    import importlib
-    from typing import Type
-    from .base import TTSProvider
-    
-    # Provider module mapping
-    provider_modules = {
-        'edge_tts': 'tts.providers.edge_tts',
-        'openai_tts': 'tts.providers.openai_tts',
-        'elevenlabs': 'tts.providers.elevenlabs', 
-        'google_tts': 'tts.providers.google_tts',
-        'chatterbox': 'tts.providers.chatterbox',
-    }
-    
-    if provider_name not in provider_modules:
-        raise ImportError(f"Unknown provider: {provider_name}")
-    
-    module_path = provider_modules[provider_name]
-    
-    try:
-        # Import the provider module
-        module = importlib.import_module(module_path)
-        
-        # Get the provider class (assuming it follows naming convention)
-        provider_class_name = provider_name.replace('_', '').title() + 'Provider'
-        if provider_name == 'edge_tts':
-            provider_class_name = 'EdgeTTSProvider'
-        elif provider_name == 'openai_tts':
-            provider_class_name = 'OpenAITTSProvider'
-        elif provider_name == 'elevenlabs':
-            provider_class_name = 'ElevenLabsProvider'
-        elif provider_name == 'google_tts':
-            provider_class_name = 'GoogleTTSProvider'
-        elif provider_name == 'chatterbox':
-            provider_class_name = 'ChatterboxProvider'
-            
-        provider_class = getattr(module, provider_class_name)
-        
-        # Verify it's a TTSProvider subclass
-        if not issubclass(provider_class, TTSProvider):
-            raise ImportError(f"Provider class {provider_class_name} is not a TTSProvider subclass")
-            
-        return provider_class
-        
-    except (ImportError, AttributeError) as e:
-        raise ImportError(f"Failed to load provider {provider_name}: {e}") from e
-
-
 def load_plugins(cli_group):
     """Load plugins from the conventional plugin directory."""
     # Define plugin directories to search
