@@ -27,6 +27,18 @@ readonly YELLOW='\033[1;33m'
 readonly BLUE='\033[0;34m'
 readonly NC='\033[0m' # No Color
 
+# Tree view components
+readonly TREE_BRANCH="├─"
+readonly TREE_LAST="└─"
+readonly TREE_PIPE="│ "
+readonly TREE_SPACE="  "
+
+# Tree view state
+TREE_MODE="${TREE_MODE:-false}"
+TREE_DEPTH=0
+TREE_PREFIX=""
+TREE_BUFFER=""
+
 # Check if terminal supports colors
 if [[ -t 1 ]] && [[ "$(tput colors 2>/dev/null)" -ge 8 ]]; then
     USE_COLOR=true
@@ -53,8 +65,92 @@ readonly SHELL_ALIAS="tts"
 readonly REQUIRED_DEPS=("git" "pipx")
 readonly OPTIONAL_DEPS=("ffmpeg" "sox")
 
-# Logging functions
+# Tree view helper functions
+tree_start() {
+    local title="$1"
+    echo "$DISPLAY_NAME Setup $(get_version)"
+    echo "$TREE_LAST $title"
+    TREE_DEPTH=1
+    TREE_PREFIX="   "
+}
+
+tree_node() {
+    local status="$1"
+    local message="$2"
+    local is_last="${3:-false}"
+    
+    local status_icon
+    case "$status" in
+        "success") status_icon="✓" ;;
+        "warning") status_icon="⚠" ;;
+        "error") status_icon="✗" ;;
+        "info") status_icon="•" ;;
+        *) status_icon="" ;;
+    esac
+    
+    if [[ "$is_last" == "true" ]]; then
+        echo "${TREE_PREFIX}$TREE_LAST $status_icon $message"
+    else
+        echo "${TREE_PREFIX}$TREE_BRANCH $status_icon $message"
+    fi
+}
+
+tree_sub_node() {
+    local status="$1"
+    local message="$2"
+    local is_last="${3:-false}"
+    
+    local status_icon
+    case "$status" in
+        "success") status_icon="✓" ;;
+        "warning") status_icon="⚠" ;;
+        "error") status_icon="✗" ;;
+        "info") status_icon="•" ;;
+        *) status_icon="" ;;
+    esac
+    
+    local sub_prefix="${TREE_PREFIX}$TREE_PIPE "
+    if [[ "$is_last" == "true" ]]; then
+        echo "${sub_prefix}$TREE_LAST $status_icon $message"
+    else
+        echo "${sub_prefix}$TREE_BRANCH $status_icon $message"
+    fi
+}
+
+tree_final_node() {
+    local status="$1"
+    local message="$2"
+    
+    local status_icon
+    case "$status" in
+        "success") status_icon="✓" ;;
+        "warning") status_icon="⚠" ;;
+        "error") status_icon="✗" ;;
+        "info") status_icon="•" ;;
+        *) status_icon="" ;;
+    esac
+    
+    echo "${TREE_PREFIX}$TREE_LAST $status_icon $message"
+}
+
+get_version() {
+    # Try to extract version from various sources
+    local version=""
+    if command -v "$COMMAND_NAME" >/dev/null 2>&1; then
+        version=$("$COMMAND_NAME" --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+[^ ]*' | head -1)
+    fi
+    if [[ -n "$version" ]]; then
+        echo "v$version"
+    else
+        echo ""
+    fi
+}
+
+# Logging functions (original + tree mode support)
 log_info() {
+    if [[ "$TREE_MODE" == "true" ]]; then
+        return  # Tree mode handles its own output
+    fi
     if [[ "$USE_COLOR" == "true" ]]; then
         echo -e "${BLUE}[INFO]${NC} $*" >&2
     else
@@ -63,6 +159,9 @@ log_info() {
 }
 
 log_success() {
+    if [[ "$TREE_MODE" == "true" ]]; then
+        return  # Tree mode handles its own output
+    fi
     if [[ "$USE_COLOR" == "true" ]]; then
         echo -e "${GREEN}[SUCCESS]${NC} $*" >&2
     else
@@ -71,6 +170,9 @@ log_success() {
 }
 
 log_warning() {
+    if [[ "$TREE_MODE" == "true" ]]; then
+        return  # Tree mode handles its own output
+    fi
     if [[ "$USE_COLOR" == "true" ]]; then
         echo -e "${YELLOW}[WARNING]${NC} $*" >&2
     else
@@ -79,6 +181,9 @@ log_warning() {
 }
 
 log_error() {
+    if [[ "$TREE_MODE" == "true" ]]; then
+        return  # Tree mode handles its own output
+    fi
     if [[ "$USE_COLOR" == "true" ]]; then
         echo -e "${RED}[ERROR]${NC} $*" >&2
     else
@@ -127,7 +232,9 @@ EOF
 
 detect_system() {
     if ! get_cached_system_info; then
-        log_info "Detecting system configuration..."
+        if [[ "$TREE_MODE" != "true" ]]; then
+            log_info "Detecting system configuration..."
+        fi
         
         # Detect OS
         if [[ "$OSTYPE" == "linux-gnu"* ]]; then
@@ -209,7 +316,9 @@ validate_python() {
         return 1
     fi
     
-    log_info "Found Python $PYTHON_VERSION at $PYTHON_PATH"
+    if [[ "$TREE_MODE" != "true" ]]; then
+        log_info "Found Python $PYTHON_VERSION at $PYTHON_PATH"
+    fi
     
     # Check minimum version
     version_compare "$PYTHON_VERSION" "$REQUIRED_VERSION"
@@ -219,7 +328,9 @@ validate_python() {
             return 1
             ;;
         0|2)  # Current version is equal or greater than required
-            log_success "Python version requirement satisfied"
+            if [[ "$TREE_MODE" != "true" ]]; then
+                log_success "Python version requirement satisfied"
+            fi
             ;;
     esac
     
@@ -235,6 +346,56 @@ validate_python() {
                 log_success "Python maximum version requirement satisfied"
                 ;;
         esac
+    fi
+    
+    return 0
+}
+
+# Tree mode versions of validation functions
+validate_python_tree() {
+    if [[ -z "$PYTHON_PATH" ]]; then
+        tree_sub_node "error" "Python not found in PATH" "true"
+        return 1
+    fi
+    
+    # Check minimum version
+    version_compare "$PYTHON_VERSION" "$REQUIRED_VERSION"
+    case $? in
+        1)  # Current version is less than required
+            tree_sub_node "error" "Python $PYTHON_VERSION < $REQUIRED_VERSION (required)" "true"
+            return 1
+            ;;
+        0|2)  # Current version is equal or greater than required
+            return 0
+            ;;
+    esac
+}
+
+validate_dependencies_tree() {
+    local missing_deps=()
+    local optional_missing=()
+    
+    # Check required dependencies
+    for dep in "${REQUIRED_DEPS[@]}"; do
+        if ! command -v "$dep" >/dev/null 2>&1; then
+            missing_deps+=("$dep")
+        fi
+    done
+    
+    # Check optional dependencies
+    for dep in "${OPTIONAL_DEPS[@]}"; do
+        if ! command -v "$dep" >/dev/null 2>&1; then
+            optional_missing+=("$dep")
+        fi
+    done
+    
+    if [[ ${#missing_deps[@]} -gt 0 ]]; then
+        tree_sub_node "error" "Missing required: ${missing_deps[*]}" "true"
+        return 1
+    fi
+    
+    if [[ ${#optional_missing[@]} -gt 0 ]]; then
+        tree_sub_node "warning" "${optional_missing[*]} (optional)" "true"
     fi
     
     return 0
@@ -303,7 +464,9 @@ validate_dependencies() {
         log_warning "Some features may not be available"
     fi
     
-    log_success "Dependency check completed"
+    if [[ "$TREE_MODE" != "true" ]]; then
+        log_success "Dependency check completed"
+    fi
     return 0
 }
 
@@ -404,35 +567,100 @@ try:
 except:
     sys.exit(1)
 " 2>/dev/null; then
-                log_info "Detected local/development installation."
-                log_info "Reinstalling from local directory to update dependencies..."
-                pipx install --force --editable "$PROJECT_DIR" &
-                show_spinner $!
-                wait $!
+                if [[ "$TREE_MODE" == "true" ]]; then
+                    tree_sub_node "info" "Detected local/development installation"
+                    tree_sub_node "info" "Reinstalling from local directory..."
+                else
+                    log_info "Detected local/development installation."
+                    log_info "Reinstalling from local directory to update dependencies..."
+                fi
+                
+                # Capture output for tree mode
+                local output
+                if [[ "$TREE_MODE" == "true" ]]; then
+                    output=$(pipx install --force --editable "$PROJECT_DIR" 2>&1)
+                    local exit_code=$?
+                    
+                    # Parse output for version info
+                    local version_info=$(echo "$output" | grep -E '(already at latest|installed|upgraded)' | head -1)
+                    if [[ -n "$version_info" ]]; then
+                        tree_sub_node "success" "$version_info" "true"
+                    else
+                        tree_sub_node "success" "Reinstalled successfully" "true"
+                    fi
+                else
+                    pipx install --force --editable "$PROJECT_DIR" &
+                    show_spinner $!
+                    wait $!
+                    local exit_code=$?
+                fi
             else
                 # Regular PyPI installation
-                log_info "Upgrading $DISPLAY_NAME with pipx..."
-                pipx upgrade "$PACKAGE_NAME" &
-                show_spinner $!
-                wait $!
+                if [[ "$TREE_MODE" == "true" ]]; then
+                    # Capture pipx upgrade output to parse version info
+                    local output
+                    output=$(pipx upgrade "$PACKAGE_NAME" 2>&1)
+                    local exit_code=$?
+                    
+                    # Parse the output to extract version information
+                    local version_info=$(echo "$output" | grep -E '(already at latest version|upgraded|installed)' | head -1)
+                    if [[ -n "$version_info" ]]; then
+                        # Clean up the version info message and truncate if too long
+                        version_info=$(echo "$version_info" | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | cut -c1-50)
+                        tree_sub_node "success" "$version_info" "true"
+                    else
+                        tree_sub_node "success" "Upgrade completed" "true"
+                    fi
+                else
+                    log_info "Upgrading $DISPLAY_NAME with pipx..."
+                    pipx upgrade "$PACKAGE_NAME" &
+                    show_spinner $!
+                    wait $!
+                    local exit_code=$?
+                fi
             fi
         else
-            log_error "Package '$PACKAGE_NAME' not found in pipx installations."
-            log_error "Please install first with: $0 install"
+            if [[ "$TREE_MODE" == "true" ]]; then
+                tree_sub_node "error" "Package '$PACKAGE_NAME' not found in pipx installations" "true"
+            else
+                log_error "Package '$PACKAGE_NAME' not found in pipx installations."
+                log_error "Please install first with: $0 install"
+            fi
             return 1
         fi
     else
-        log_info "Upgrading $DISPLAY_NAME with pip..."
-        python3 -m pip install --upgrade "$PYPI_NAME" --user &
-        show_spinner $!
-        wait $!
+        if [[ "$TREE_MODE" == "true" ]]; then
+            local output
+            output=$(python3 -m pip install --upgrade "$PYPI_NAME" --user 2>&1)
+            local exit_code=$?
+            
+            # Parse pip output for version info
+            local version_info=$(echo "$output" | grep -E '(already satisfied|successfully installed)' | head -1)
+            if [[ -n "$version_info" ]]; then
+                tree_sub_node "success" "$(echo "$version_info" | sed 's/^[[:space:]]*//')" "true"
+            else
+                tree_sub_node "success" "Upgrade completed" "true"
+            fi
+        else
+            log_info "Upgrading $DISPLAY_NAME with pip..."
+            python3 -m pip install --upgrade "$PYPI_NAME" --user &
+            show_spinner $!
+            wait $!
+            local exit_code=$?
+        fi
     fi
     
-    if [[ $? -eq 0 ]]; then
-        log_success "Upgrade completed!"
+    if [[ ${exit_code:-$?} -eq 0 ]]; then
+        if [[ "$TREE_MODE" != "true" ]]; then
+            log_success "Upgrade completed!"
+        fi
         show_upgrade_success_message
     else
-        log_error "Upgrade failed"
+        if [[ "$TREE_MODE" == "true" ]]; then
+            tree_sub_node "error" "Upgrade failed" "true"
+        else
+            log_error "Upgrade failed"
+        fi
         return 1
     fi
 }
@@ -549,6 +777,7 @@ OPTIONS:
     --force                Skip confirmation prompts
     --no-deps              Skip dependency checks
     --no-cache             Skip system information caching
+    --tree                 Use compact tree view output
 
 EXAMPLES:
     $0 install             # Install from PyPI
@@ -586,6 +815,9 @@ main() {
             --no-cache)
                 no_cache="true"
                 ;;
+            --tree)
+                TREE_MODE="true"
+                ;;
             *)
                 log_error "Unknown option: $1"
                 show_help
@@ -602,9 +834,13 @@ main() {
     fi
     
     # Header
-    echo
-    log_info "Starting $DISPLAY_NAME setup..."
-    echo
+    if [[ "$TREE_MODE" == "true" ]]; then
+        tree_start "${command^} Process"
+    else
+        echo
+        log_info "Starting $DISPLAY_NAME setup..."
+        echo
+    fi
     
     # System detection
     if [[ "$no_cache" != "true" ]]; then
@@ -613,18 +849,46 @@ main() {
     
     # Validation
     if [[ "$command" != "uninstall" ]]; then
-        log_info "Validating system requirements..."
-        
-        validate_python || exit 1
-        
-        if [[ "$no_deps" != "true" ]]; then
-            validate_dependencies || exit 1
-        fi
-        
-        validate_disk_space || exit 1
-        
-        if [[ "$command" == "install" ]]; then
-            validate_pipx || log_warning "Continuing with pip installation"
+        if [[ "$TREE_MODE" == "true" ]]; then
+            tree_node "info" "System Check"
+            
+            # Python validation
+            if validate_python_tree; then
+                tree_sub_node "success" "Python $PYTHON_VERSION"
+            else
+                exit 1
+            fi
+            
+            # Dependencies validation
+            if [[ "$no_deps" != "true" ]]; then
+                if validate_dependencies_tree; then
+                    : # Already handled in function
+                else
+                    exit 1
+                fi
+            fi
+            
+            # Disk space validation
+            validate_disk_space || exit 1
+            
+            # pipx validation for install
+            if [[ "$command" == "install" ]]; then
+                validate_pipx || log_warning "Continuing with pip installation"
+            fi
+        else
+            log_info "Validating system requirements..."
+            
+            validate_python || exit 1
+            
+            if [[ "$no_deps" != "true" ]]; then
+                validate_dependencies || exit 1
+            fi
+            
+            validate_disk_space || exit 1
+            
+            if [[ "$command" == "install" ]]; then
+                validate_pipx || log_warning "Continuing with pip installation"
+            fi
         fi
     fi
     
@@ -637,7 +901,14 @@ main() {
             fi
             ;;
         upgrade)
-            upgrade_package
+            if [[ "$TREE_MODE" == "true" ]]; then
+                tree_node "info" "Package Status"
+                upgrade_package
+                tree_final_node "success" "Complete"
+                echo "        └─ Try: $COMMAND_NAME --version"
+            else
+                upgrade_package
+            fi
             ;;
         uninstall)
             if [[ "$force_flag" != "true" ]]; then
@@ -660,8 +931,10 @@ main() {
             ;;
     esac
     
-    echo
-    log_success "$DISPLAY_NAME setup completed!"
+    if [[ "$TREE_MODE" != "true" ]]; then
+        echo
+        log_success "$DISPLAY_NAME setup completed!"
+    fi
 }
 
 # Run main function with all arguments

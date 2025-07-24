@@ -754,17 +754,37 @@ class DefaultGroup(RichGroup):
         self.default_command = default
     
     def resolve_command(self, ctx, args):
+        import sys
+        import os
+        
         try:
             # Try normal command resolution first
             return super().resolve_command(ctx, args)
         except click.UsageError:
             # If no command found and we have a default, use it
-            if self.default_command and args and not any(arg in ['--help-all', '--help-json'] for arg in args):
-                # Get the default command object
-                cmd = self.commands.get(self.default_command)
-                if cmd:
-                    # Return command name, command object, and all args
-                    return self.default_command, cmd, args
+            # Check if stdin is coming from a pipe or redirection
+            has_stdin = False
+            try:
+                # Check if stdin is a pipe or file (not a terminal)
+                stdin_stat = os.fstat(sys.stdin.fileno())
+                # Use S_ISFIFO to check if it's a pipe, or S_ISREG to check if it's a regular file
+                import stat
+                has_stdin = stat.S_ISFIFO(stdin_stat.st_mode) or stat.S_ISREG(stdin_stat.st_mode)
+            except:
+                # Fallback to isatty check
+                has_stdin = not sys.stdin.isatty()
+            
+            is_help_request = any(arg in ['--help-all', '--help-json'] for arg in args)
+            
+            if self.default_command and not is_help_request:
+                # Trigger default command if:
+                # 1. We have args (existing behavior)
+                # 2. We have stdin input (new behavior for pipes)
+                if args or has_stdin:
+                    cmd = self.commands.get(self.default_command)
+                    if cmd:
+                        # Return command name, command object, and all args
+                        return self.default_command, cmd, args
             raise
 
 

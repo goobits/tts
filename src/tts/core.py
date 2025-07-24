@@ -38,14 +38,38 @@ class TTSEngine:
         if name in self._loaded_providers:
             return self._loaded_providers[name]
 
-        # Use the existing load_provider function from the cli module
-        # We need to import it here to avoid circular imports
-        from .cli import load_provider as main_load_provider
-
+        # Load provider directly from the registry
+        if name not in self.providers_registry:
+            raise ProviderNotFoundError(f"Provider '{name}' not found in registry")
+        
+        module_path = self.providers_registry[name]
+        
         try:
-            provider_class = main_load_provider(name)
+            # Import the provider module dynamically
+            import importlib
+            module = importlib.import_module(module_path)
+            
+            # Find the provider class in the module
+            # Look for a class that inherits from TTSProvider
+            provider_class = None
+            for attr_name in dir(module):
+                attr = getattr(module, attr_name)
+                if (isinstance(attr, type) and 
+                    issubclass(attr, TTSProvider) and 
+                    attr is not TTSProvider):
+                    provider_class = attr
+                    break
+            
+            if not provider_class:
+                raise ProviderLoadError(
+                    f"No TTSProvider subclass found in module {module_path}"
+                )
+            
             self._loaded_providers[name] = provider_class
             return provider_class
+            
+        except ImportError as e:
+            raise ProviderLoadError(f"Failed to import provider module {module_path}: {e}") from e
         except Exception as e:
             raise ProviderLoadError(f"Failed to load provider {name}: {e}") from e
 
