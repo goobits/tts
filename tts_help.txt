@@ -1,0 +1,53 @@
+                                                                                                                        
+ [38;2;189;147;249mUsage:[0m [1mgoobits-tts[0m [[38;2;139;233;253mOPTIONS[0m] [38;2;139;233;253mCOMMAND[0m [[38;2;139;233;253mARGS[0m]...                                                                         
+                                                                                                                        
+ 🔮 [1;36mTTS CLI v1.1[0m - Multi-provider text-to-speech with voice cloning                                                     
+ [38;2;179;184;192mTransform text into natural speech using AI providers with auto-selection and real-time streaming.[0m                     
+                                                                                                                        
+ [1;33m💡 Quick Start:[0m                                                                                                        
+ [38;2;179;184;192m  [0m[32mtts "Hello world"[0m[38;2;179;184;192m                    [0m[3;38;2;179;184;192m# Speak instantly (implicit 'speak')[0m                                            
+ [38;2;179;184;192m  [0m[32mtts speak [0m[1;32m-v[0m[32m "onyx" "Hello world"[0m[38;2;179;184;192m    [0m[3;38;2;179;184;192m# Speak with a specific voice[0m                                                   
+ [38;2;179;184;192m  [0m[32mtts save "Hello" [0m[1;32m-o[0m[32m out.mp3[0m[38;2;179;184;192m          [0m[3;38;2;179;184;192m# Save as audio file[0m                                                            
+ [38;2;179;184;192m  [0m[32mecho "Piped input" | tts @openai[0m[38;2;179;184;192m     [0m[3;38;2;179;184;192m# Pipeline with OpenAI[0m                                                          
+                                                                                                                        
+ [1;33m🎯 Core Commands:[0m                                                                                                      
+ [38;2;179;184;192m  [0m[32mspeak[0m[38;2;179;184;192m    🗣️ Speak text aloud (default command)[0m                                                                        
+ [38;2;179;184;192m  [0m[32msave[0m[38;2;179;184;192m     💾 Save text as an audio file[0m                                                                               
+ [38;2;179;184;192m  [0m[32mvoices[0m[38;2;179;184;192m   🔍 Browse and test voices interactively[0m                                                                     
+ [38;2;179;184;192m  [0m[32mconfig[0m[38;2;179;184;192m   🔧 Manage provider and application settings[0m                                                                 
+ [38;2;179;184;192m  [0m[32mstatus[0m[38;2;179;184;192m   🩺 Check system health and provider status[0m                                                                  
+                                                                                                                        
+ [1;33m📊 Provider Management:[0m                                                                                                
+ [38;2;179;184;192m  [0m[32mproviders[0m[38;2;179;184;192m 📋 List available providers and their status[0m                                                               
+ [38;2;179;184;192m  [0m[32minstall[0m[38;2;179;184;192m   📦 Install provider dependencies[0m                                                                           
+ [38;2;179;184;192m  [0m[32minfo[0m[38;2;179;184;192m      👀 Get detailed information on a provider[0m                                                                  
+                                                                                                                        
+ [1;33m🎙️ Advanced Features:[0m                                                                                                   
+ [38;2;179;184;192m  [0m[32mvoice[0m[38;2;179;184;192m    🎤 Load and cache voices for speed[0m                                                                          
+ [38;2;179;184;192m  [0m[32mdocument[0m[38;2;179;184;192m 📖 Convert documents to speech[0m                                                                              
+                                                                                                                        
+ [1;33m🔑 First-time Setup:[0m                                                                                                   
+ [38;2;179;184;192m  1. Check providers:  [0m[32mtts providers[0m                                                                                   
+ [38;2;179;184;192m  2. Set API keys:     [0m[32mtts config set openai_api_key YOUR_KEY[0m                                                          
+ [38;2;179;184;192m  3. Choose a voice:   [0m[32mtts voices[0m                                                                                      
+ [38;2;179;184;192m  4. Start speaking:   [0m[32mtts "Hello AI world"[0m                                                                            
+                                                                                                                        
+ [38;2;179;184;192m📚 For detailed help on a command, run: [0m[32mtts [COMMAND] [0m[38;2;255;121;198m--help[0m                                                           
+                                                                                                                        
+[2m╭─[0m[2m Options [0m[2m───────────────────────────────────────────────────────────────────────────────────────────────────────────[0m[2m─╮[0m
+[2m│[0m [38;2;255;121;198m--version[0m      Show the version and exit.                                                                            [2m│[0m
+[2m│[0m [38;2;255;121;198m--help[0m         Show this message and exit.                                                                           [2m│[0m
+[2m╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯[0m
+[2m╭─[0m[2m Commands [0m[2m──────────────────────────────────────────────────────────────────────────────────────────────────────────[0m[2m─╮[0m
+[2m│[0m [38;2;80;250;123mconfig               [0m[38;2;80;250;123m [0m 🔧 TTS configuration                                                                          [2m│[0m
+[2m│[0m [38;2;80;250;123mdocument             [0m[38;2;80;250;123m [0m 📖 Convert documents to speech                                                                [2m│[0m
+[2m│[0m [38;2;80;250;123minfo                 [0m[38;2;80;250;123m [0m 👀 Provider information and capabilities                                                      [2m│[0m
+[2m│[0m [38;2;80;250;123minstall              [0m[38;2;80;250;123m [0m 📦 Install provider dependencies                                                              [2m│[0m
+[2m│[0m [38;2;80;250;123mproviders            [0m[38;2;80;250;123m [0m 📋 Available TTS providers and status                                                         [2m│[0m
+[2m│[0m [38;2;80;250;123msave                 [0m[38;2;80;250;123m [0m 💾 Save text as audio file                                                                    [2m│[0m
+[2m│[0m [38;2;80;250;123mspeak                [0m[38;2;80;250;123m [0m 🗣️ Speak text aloud (default)                                                                  [2m│[0m
+[2m│[0m [38;2;80;250;123mstatus               [0m[38;2;80;250;123m [0m 🩺 System health and provider availability                                                    [2m│[0m
+[2m│[0m [38;2;80;250;123mvoice                [0m[38;2;80;250;123m [0m 🎤 Voice loading and caching                                                                  [2m│[0m
+[2m│[0m [38;2;80;250;123mvoices               [0m[38;2;80;250;123m [0m 🔍 Browse available voices interactively                                                      [2m│[0m
+[2m╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯[0m
+

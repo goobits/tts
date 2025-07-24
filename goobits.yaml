@@ -1,0 +1,310 @@
+# Goobits configuration for TTS CLI
+# This file defines the text-to-speech CLI application
+
+# Setup fields for setup.sh
+package_name: "goobits-tts"
+command_name: "tts"
+display_name: "TTS - Text to Speech"
+description: "Multi-provider text-to-speech with voice cloning"
+
+python:
+  minimum_version: "3.8"
+  maximum_version: ""  # Empty means no maximum
+
+dependencies:
+  required:
+    - git
+    - pipx
+  optional:
+    - ffmpeg  # For audio processing
+    - sox     # Alternative audio processor
+
+installation:
+  pypi_name: "goobits-tts"
+  development_path: "."
+
+shell_integration:
+  enabled: false
+  alias: "tts"
+
+validation:
+  check_api_keys: false
+  check_disk_space: true
+  minimum_disk_space_mb: 100
+
+messages:
+  install_success: |
+    TTS has been installed successfully!
+    You can now use 'tts' from your terminal.
+    
+    Quick start:
+      tts "Hello world"
+      tts save "Hello" -o out.mp3
+      tts voices
+  
+  install_dev_success: |
+    TTS has been installed in development mode!
+    ✅ Your local changes will be reflected immediately - no reinstalling needed!
+    
+    Development workflow:
+      - Edit code in src/tts/ directory
+      - Test immediately with: tts "test"
+      - Run tests with: ./test.sh
+      
+    💡 No need to run ./setup.sh upgrade after code changes!
+  
+  upgrade_success: |
+    TTS has been upgraded successfully!
+    Check out the latest features with: tts --version
+  
+  uninstall_success: |
+    TTS has been uninstalled.
+    Thank you for using TTS!
+
+# CLI fields for cli.py generation
+cli:
+  name: "TTS CLI"
+  version: "1.1"
+  display_version: true
+  tagline: "Multi-provider text-to-speech with voice cloning"
+  description: "Transform text into natural speech using AI providers with auto-selection and real-time streaming."
+  enable_recursive_help: true
+  enable_help_json: true
+  
+  header_sections:
+    - title: "Quick Start"
+      items:
+        - { item: 'tts "Hello world"', desc: "Speak instantly (implicit 'speak')", style: "example" }
+        - { item: 'tts save "Hello" -o out.mp3', desc: "Save as audio file", style: "example" }
+
+    - title: "Core Commands"
+      items:
+        - { item: "speak", desc: "🗣️  Speak text aloud (default command)", style: "command" }
+        - { item: "save", desc: "💾 Save text as an audio file", style: "command" }
+        - { item: "voices", desc: "🎭 Browse and test voices interactively", style: "command" }
+
+    - title: "First-time Setup"
+      items:
+        - { item: "1. Check providers", desc: "tts providers", style: "setup" }
+        - { item: "2. Set API keys", desc: "tts config set openai_api_key YOUR_KEY", style: "setup" }
+  
+  command_groups:
+    - name: "Core Commands"
+      commands: ["speak", "save", "voices"]
+    - name: "Provider Management"
+      commands: ["providers", "info", "install"]
+    - name: "Configuration"
+      commands: ["config", "status"]
+    - name: "Advanced Features"
+      commands: ["voice", "document"]
+
+  commands:
+    speak:
+      desc: "Speak text aloud"
+      icon: "🗣️"
+      is_default: true
+      args:
+        - name: "text"
+          desc: "Text to speak"
+          required: false
+        - name: "options"
+          desc: "Additional options"
+          nargs: "*"
+      options:
+        - name: "voice"
+          short: "v"
+          type: "str"
+          desc: "🎤 Voice to use (e.g., en-GB-SoniaNeural for edge_tts)"
+        - name: "rate"
+          type: "str"
+          desc: "⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)"
+        - name: "pitch"
+          type: "str"
+          desc: "🎵 Pitch adjustment (e.g., +5Hz, -10Hz)"
+        - name: "debug"
+          type: "flag"
+          desc: "🔍 Show debug information during processing"
+    
+    save:
+      desc: "Save text as an audio file"
+      icon: "💾"
+      args:
+        - name: "text"
+          desc: "Text to save as audio"
+          required: false
+        - name: "options"
+          desc: "Additional options"
+          nargs: "*"
+      options:
+        - name: "output"
+          short: "o"
+          type: "str"
+          desc: "💾 Output file path"
+        - name: "format"
+          short: "f"
+          type: "str"
+          desc: "🔧 Audio output format"
+          choices: ["mp3", "wav", "ogg", "flac"]
+        - name: "voice"
+          short: "v"
+          type: "str"
+          desc: "🎤 Voice to use (e.g., en-GB-SoniaNeural for edge_tts)"
+        - name: "clone"
+          type: "str"
+          desc: "🎭 Audio file to clone voice from (deprecated: use --voice instead)"
+        - name: "json"
+          type: "flag"
+          desc: "🔧 Output results as JSON"
+        - name: "debug"
+          type: "flag"
+          desc: "🔍 Show debug information during processing"
+        - name: "rate"
+          type: "str"
+          desc: "⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)"
+        - name: "pitch"
+          type: "str"
+          desc: "🎵 Pitch adjustment (e.g., +5Hz, -10Hz)"
+    
+    voices:
+      desc: "Browse and test voices interactively"
+      icon: "🔍"
+      args:
+        - name: "args"
+          desc: "Additional arguments"
+          nargs: "*"
+          required: false
+    
+    providers:
+      desc: "Available TTS providers and status"
+      icon: "📋"
+      args:
+        - name: "provider_name"
+          desc: "Provider name for setup instructions (optional)"
+          required: false
+    
+    install:
+      desc: "Install provider dependencies"
+      icon: "📦"
+      args:
+        - name: "args"
+          desc: "Provider and options (e.g., 'chatterbox gpu')"
+          nargs: "*"
+          required: false
+    
+    info:
+      desc: "Provider information and capabilities"
+      icon: "👀"
+      args:
+        - name: "provider"
+          desc: "Provider name (optional)"
+          required: false
+    
+    document:
+      desc: "Convert documents to speech"
+      icon: "📖"
+      args:
+        - name: "document_path"
+          desc: "Path to document file"
+          type: "path"
+          path_exists: true
+        - name: "options"
+          desc: "Additional options"
+          nargs: "*"
+      options:
+        - name: "save"
+          type: "flag"
+          desc: "💾 Save processed audio to file"
+        - name: "output"
+          short: "o"
+          type: "str"
+          desc: "📁 Output file path"
+        - name: "format"
+          short: "f"
+          type: "str"
+          desc: "🔧 Audio output format"
+          choices: ["mp3", "wav", "ogg", "flac"]
+        - name: "voice"
+          short: "v"
+          type: "str"
+          desc: "🎤 Voice to use"
+        - name: "clone"
+          type: "str"
+          desc: "🎭 Audio file to clone voice from (deprecated: use --voice instead)"
+        - name: "json"
+          type: "flag"
+          desc: "🔧 Output results as JSON"
+        - name: "debug"
+          type: "flag"
+          desc: "🔍 Show debug information during processing"
+        - name: "doc-format"
+          type: "str"
+          desc: "📄 Document format"
+          choices: ["auto", "markdown", "html", "json"]
+          default: "auto"
+        - name: "ssml-platform"
+          type: "str"
+          desc: "🏧️ SSML platform"
+          choices: ["azure", "google", "amazon", "generic"]
+          default: "generic"
+        - name: "emotion-profile"
+          type: "str"
+          desc: "🎭 Emotion profile"
+          choices: ["technical", "marketing", "narrative", "tutorial", "auto"]
+          default: "auto"
+        - name: "rate"
+          type: "str"
+          desc: "⚡ Speech rate adjustment"
+        - name: "pitch"
+          type: "str"
+          desc: "🎵 Pitch adjustment"
+    
+    voice:
+      desc: "Voice loading and caching"
+      icon: "🎤"
+      subcommands:
+        load:
+          desc: "Load voice files into memory for fast access"
+          args:
+            - name: "voice_files"
+              desc: "Voice files to load"
+              nargs: "*"
+              required: true
+        unload:
+          desc: "Unload voice files from memory"
+          args:
+            - name: "voice_files"
+              desc: "Voice files to unload"
+              nargs: "*"
+              required: false
+          options:
+            - name: "all"
+              type: "flag"
+              desc: "🧹 Unload all voices"
+        status:
+          desc: "Show loaded voices and system status"
+    
+    status:
+      desc: "Check system and provider status"
+      icon: "🩺"
+    
+    config:
+      desc: "Manage configuration"
+      icon: "🔧"
+      args:
+        - name: "action"
+          desc: "Configuration action"
+          choices: ["show", "voice", "provider", "format", "get", "edit", "set"]
+          required: false
+        - name: "key"
+          desc: "Configuration key"
+          required: false
+        - name: "value"
+          desc: "Configuration value"
+          required: false
+  
+  config:
+    rich_help_panel: true
+    show_metavars_column: false
+    append_metavars_help: true
+    style_errors_suggestion: true
+    max_width: 120
