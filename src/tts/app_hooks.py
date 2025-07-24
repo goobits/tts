@@ -95,9 +95,9 @@ def on_speak(text, options, voice, rate, pitch, debug):
             # Handle invalid shortcuts
             if provider_name and provider_name.startswith('@'):
                 shortcut = provider_name[1:]
-                print(f"Error: Unknown provider shortcut '@{shortcut}'")
-                print(f"Available providers: {', '.join('@' + k for k in PROVIDER_SHORTCUTS.keys())}")
-                return 1
+                print(f"Error: Unknown provider shortcut '@{shortcut}'", file=sys.stderr)
+                print(f"Available providers: {', '.join('@' + k for k in PROVIDER_SHORTCUTS.keys())}", file=sys.stderr)
+                sys.exit(1)
             all_args = remaining_args
         
         # Parse any additional text from remaining arguments
@@ -105,7 +105,6 @@ def on_speak(text, options, voice, rate, pitch, debug):
         
         if not all_text:
             # If no text provided, try to read from stdin
-            import sys
             if not sys.stdin.isatty():
                 text_input = sys.stdin.read().strip()
                 if text_input:
@@ -169,9 +168,9 @@ def on_save(text, options, output, format, voice, clone, json, debug, rate, pitc
             # Handle invalid shortcuts
             if provider_name and provider_name.startswith('@'):
                 shortcut = provider_name[1:]
-                print(f"Error: Unknown provider shortcut '@{shortcut}'")
-                print(f"Available providers: {', '.join('@' + k for k in PROVIDER_SHORTCUTS.keys())}")
-                return 1
+                print(f"Error: Unknown provider shortcut '@{shortcut}'", file=sys.stderr)
+                print(f"Available providers: {', '.join('@' + k for k in PROVIDER_SHORTCUTS.keys())}", file=sys.stderr)
+                sys.exit(1)
             all_args = remaining_args
         
         # Parse any additional text from remaining arguments
@@ -275,7 +274,6 @@ def on_install(args):
     """Handle the install command"""
     try:
         import subprocess
-        import sys
         
         if not args:
             print("🔧 TTS Provider Installation")
@@ -306,9 +304,9 @@ def on_install(args):
         }
         
         if provider not in install_commands:
-            print(f"❌ Unknown provider: {provider}")
-            print("Available providers: edge-tts, openai, elevenlabs, google-tts, chatterbox")
-            return 1
+            print(f"❌ Unknown provider: {provider}", file=sys.stderr)
+            print("Available providers: edge-tts, openai, elevenlabs, google-tts, chatterbox", file=sys.stderr)
+            sys.exit(1)
         
         print(f"🔧 Installing {provider}...")
         print("=" * 40)
@@ -397,9 +395,9 @@ def on_info(provider):
             
             if resolved_provider and resolved_provider.startswith('@'):
                 shortcut = resolved_provider[1:]
-                print(f"Error: Unknown provider shortcut '@{shortcut}'")
-                print(f"Available providers: {', '.join('@' + k for k in PROVIDER_SHORTCUTS.keys())}")
-                return 1
+                print(f"Error: Unknown provider shortcut '@{shortcut}'", file=sys.stderr)
+                print(f"Available providers: {', '.join('@' + k for k in PROVIDER_SHORTCUTS.keys())}", file=sys.stderr)
+                sys.exit(1)
             
             provider_name = resolved_provider or provider
             
@@ -427,9 +425,10 @@ def on_info(provider):
                     else:
                         print(f"   {key}: {value}")
             else:
-                print(f"❌ No info available for {provider_name}")
+                print(f"❌ No info available for {provider_name}", file=sys.stderr)
                 available = engine.get_available_providers()
-                print(f"Available providers: {', '.join(available)}")
+                print(f"Available providers: {', '.join(available)}", file=sys.stderr)
+                sys.exit(1)
         else:
             # Show general info about all providers
             print("📋 TTS Provider Information")

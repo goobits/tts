@@ -134,7 +134,7 @@ class TestPhase1ProviderShortcuts:
         result = runner.invoke(cli, ['info', '@chatterbox'])
         assert result.exit_code == 0
         assert 'Chatterbox' in result.output
-        assert 'Available Options' in result.output
+        assert 'Options:' in result.output
 
     def test_invalid_provider_shortcut_error(self):
         """Test that invalid @provider shortcuts show proper error"""
