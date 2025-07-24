@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, Type
 from .base import TTSProvider
 from .config import load_config, parse_voice_setting
 from .exceptions import ProviderLoadError, ProviderNotFoundError, TTSError
+from .types import ProviderInfo
 
 
 class TTSEngine:
@@ -41,33 +42,33 @@ class TTSEngine:
         # Load provider directly from the registry
         if name not in self.providers_registry:
             raise ProviderNotFoundError(f"Provider '{name}' not found in registry")
-        
+
         module_path = self.providers_registry[name]
-        
+
         try:
             # Import the provider module dynamically
             import importlib
             module = importlib.import_module(module_path)
-            
+
             # Find the provider class in the module
             # Look for a class that inherits from TTSProvider
             provider_class = None
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
-                if (isinstance(attr, type) and 
-                    issubclass(attr, TTSProvider) and 
+                if (isinstance(attr, type) and
+                    issubclass(attr, TTSProvider) and
                     attr is not TTSProvider):
                     provider_class = attr
                     break
-            
+
             if not provider_class:
                 raise ProviderLoadError(
                     f"No TTSProvider subclass found in module {module_path}"
                 )
-            
+
             self._loaded_providers[name] = provider_class
             return provider_class
-            
+
         except ImportError as e:
             raise ProviderLoadError(f"Failed to import provider module {module_path}: {e}") from e
         except Exception as e:
@@ -84,7 +85,7 @@ class TTSEngine:
                        voice: Optional[str] = None,
                        stream: bool = True,
                        output_format: str = "wav",
-                       **kwargs) -> Optional[str]:
+                       **kwargs: Any) -> Optional[str]:
         """Synthesize text to speech.
 
         Args:
@@ -187,7 +188,7 @@ class TTSEngine:
             self.logger.error(f"Synthesis failed: {e}")
             raise TTSError(f"Synthesis failed: {e}") from e
 
-    def get_provider_info(self, provider_name: str) -> Optional[Dict[str, Any]]:
+    def get_provider_info(self, provider_name: str) -> Optional[ProviderInfo]:
         """Get information about a specific provider.
 
         Args:
@@ -217,6 +218,8 @@ class TTSEngine:
                 info = self.get_provider_info(provider_name)
                 if info:
                     voices = info.get('all_voices') or info.get('sample_voices', [])
+                    if not isinstance(voices, list):
+                        voices = []
                     all_voices[provider_name] = voices
                 else:
                     all_voices[provider_name] = []
@@ -248,6 +251,8 @@ class TTSEngine:
                 return False
 
             voices = info.get('all_voices') or info.get('sample_voices', [])
+            if not isinstance(voices, list):
+                voices = []
             return voice in voices
 
         except Exception:
@@ -277,6 +282,8 @@ class TTSEngine:
 
             if info:
                 voices = info.get('all_voices') or info.get('sample_voices', [])
+                if not isinstance(voices, list):
+                    voices = []
                 result.update({
                     'available': True,
                     'voice_count': len(voices),

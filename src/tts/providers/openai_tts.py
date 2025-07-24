@@ -4,7 +4,7 @@ import logging
 import subprocess
 import tempfile
 import time
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from ..audio_utils import (
     check_audio_environment,
@@ -45,7 +45,7 @@ class OpenAITTSProvider(TTSProvider):
         """Get OpenAI client, initializing if needed."""
         if self._client is None:
             try:
-                from openai import OpenAI
+                from openai import OpenAI  # type: ignore
             except ImportError:
                 raise DependencyError(
                     "OpenAI library not installed. Install with: pip install openai"
@@ -61,7 +61,7 @@ class OpenAITTSProvider(TTSProvider):
 
         return self._client
 
-    def synthesize(self, text: str, output_path: str, **kwargs) -> None:
+    def synthesize(self, text: str, output_path: Optional[str], **kwargs: Any) -> None:
         """Synthesize speech using OpenAI TTS API."""
         # Extract options
         voice = kwargs.get("voice", "nova")  # Default to nova voice
@@ -89,6 +89,8 @@ class OpenAITTSProvider(TTSProvider):
                 self._stream_realtime(text, voice)
             else:
                 # Use regular synthesis for file output
+                if output_path is None:
+                    raise ValueError("output_path is required when not streaming")
                 client = self._get_client()
 
                 # Generate speech
@@ -178,9 +180,10 @@ class OpenAITTSProvider(TTSProvider):
 
                     try:
                         # Write chunk immediately to start playback ASAP
-                        ffplay_process.stdin.write(chunk)
-                        ffplay_process.stdin.flush()
-                        bytes_written += len(chunk)
+                        if ffplay_process.stdin is not None:
+                            ffplay_process.stdin.write(chunk)
+                            ffplay_process.stdin.flush()
+                            bytes_written += len(chunk)
 
                         # Log progress every N chunks
                         if chunk_count % get_config_value('streaming_progress_interval') == 0:
@@ -189,15 +192,20 @@ class OpenAITTSProvider(TTSProvider):
                     except BrokenPipeError:
                         # Check if ffplay process ended early
                         if ffplay_process.poll() is not None:
-                            stderr_output = ffplay_process.stderr.read().decode('utf-8', errors='ignore')
-                            self.logger.warning(f"FFplay ended early (exit code: {ffplay_process.returncode}): {stderr_output}")
+                            if ffplay_process.stderr is not None:
+                                stderr_output = ffplay_process.stderr.read().decode('utf-8', errors='ignore')
+                                self.logger.warning(
+                                    f"FFplay ended early (exit code: {ffplay_process.returncode}): "
+                                    f"{stderr_output}"
+                                )
                             break
                         else:
                             raise
 
                 # Close stdin and wait for ffplay to finish
                 try:
-                    ffplay_process.stdin.close()
+                    if ffplay_process.stdin is not None:
+                        ffplay_process.stdin.close()
                     exit_code = ffplay_process.wait(timeout=get_config_value('ffplay_timeout'))
 
                     # Calculate and log timing metrics
@@ -274,7 +282,7 @@ class OpenAITTSProvider(TTSProvider):
         api_key = get_api_key("openai")
         api_status = "✅ Configured" if api_key else "❌ API key not set"
 
-        return {
+        return cast(ProviderInfo, {
             "name": "OpenAI TTS",
             "description": "High-quality neural text-to-speech with 6 voices",
             "api_status": api_status,
@@ -293,4 +301,4 @@ class OpenAITTSProvider(TTSProvider):
             },
             "pricing": "$15 per 1M characters",
             "output_format": "MP3 (converted to other formats via ffmpeg)"
-        }
+        })

@@ -4,9 +4,9 @@ import logging
 import subprocess
 import tempfile
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
-import requests
+import requests  # type: ignore
 
 from ..audio_utils import (
     check_audio_environment,
@@ -45,10 +45,10 @@ class ElevenLabsProvider(TTSProvider):
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
-        self._voices_cache = None
+        self._voices_cache: Optional[List[Dict[str, Any]]] = None
         self.base_url = "https://api.elevenlabs.io/v1"
 
-    def _make_request(self, method: str, endpoint: str, **kwargs) -> requests.Response:
+    def _make_request(self, method: str, endpoint: str, **kwargs: Any) -> requests.Response:
         """Make authenticated request to ElevenLabs API."""
         api_key = get_api_key("elevenlabs")
         if not api_key:
@@ -115,7 +115,7 @@ class ElevenLabsProvider(TTSProvider):
         voices = self._get_available_voices()
         for voice in voices:
             if voice["name"].lower() == voice_name.lower():
-                return voice["voice_id"]
+                return str(voice["voice_id"])
 
         # Fallback to default voices (these have well-known IDs)
         voice_id_map = {
@@ -132,7 +132,7 @@ class ElevenLabsProvider(TTSProvider):
 
         return voice_id_map.get(voice_name.lower())
 
-    def synthesize(self, text: str, output_path: str, **kwargs) -> None:
+    def synthesize(self, text: str, output_path: Optional[str], **kwargs: Any) -> None:
         """Synthesize speech using ElevenLabs API."""
         # Extract options
         voice = kwargs.get("voice", "rachel")  # Default voice
@@ -211,11 +211,13 @@ class ElevenLabsProvider(TTSProvider):
                 # Convert to desired format if needed
                 if output_format == "mp3":
                     # Direct save
-                    import shutil
-                    shutil.move(tmp_path, output_path)
+                    if output_path is not None:
+                        import shutil
+                        shutil.move(tmp_path, output_path)
                 else:
                     # Convert using ffmpeg
-                    convert_audio(tmp_path, output_path, output_format)
+                    if output_path is not None:
+                        convert_audio(tmp_path, output_path, output_format)
                     # Clean up temp file
                     import os
                     os.unlink(tmp_path)
@@ -249,8 +251,6 @@ class ElevenLabsProvider(TTSProvider):
                 logger=self.logger,
                 format_args=['-f', 'mp3']
             )
-            ffplay_process.stdout = subprocess.DEVNULL  # Override stdout
-            ffplay_process.bufsize = 0  # Unbuffered for real-time streaming
 
             try:
                 # Prepare request for streaming
@@ -312,9 +312,10 @@ class ElevenLabsProvider(TTSProvider):
 
                         try:
                             # Write chunk immediately to start playback ASAP
-                            ffplay_process.stdin.write(chunk)
-                            ffplay_process.stdin.flush()
-                            bytes_written += len(chunk)
+                            if ffplay_process.stdin is not None:
+                                ffplay_process.stdin.write(chunk)
+                                ffplay_process.stdin.flush()
+                                bytes_written += len(chunk)
 
                             # Log progress every N chunks
                             if chunk_count % get_config_value('streaming_progress_interval') == 0:
@@ -323,7 +324,9 @@ class ElevenLabsProvider(TTSProvider):
                         except BrokenPipeError:
                             # Check if ffplay process ended early
                             if ffplay_process.poll() is not None:
-                                stderr_output = ffplay_process.stderr.read().decode('utf-8', errors='ignore')
+                                stderr_output = ""
+                                if ffplay_process.stderr is not None:
+                                    stderr_output = ffplay_process.stderr.read().decode('utf-8', errors='ignore')
                                 self.logger.warning(
                                     f"FFplay ended early (exit code: {ffplay_process.returncode}): {stderr_output}"
                                 )
@@ -333,7 +336,8 @@ class ElevenLabsProvider(TTSProvider):
 
                 # Close stdin and wait for ffplay to finish
                 try:
-                    ffplay_process.stdin.close()
+                    if ffplay_process.stdin is not None:
+                        ffplay_process.stdin.close()
                     exit_code = ffplay_process.wait(timeout=get_config_value('ffplay_timeout'))
 
                     # Calculate and log timing metrics
@@ -447,7 +451,7 @@ class ElevenLabsProvider(TTSProvider):
             custom_voices = []
             premade_voices = []
 
-        return {
+        return cast(ProviderInfo, {
             "name": "ElevenLabs",
             "description": (
                 f"Premium voice cloning with "
@@ -477,4 +481,4 @@ class ElevenLabsProvider(TTSProvider):
             },
             "pricing": "Starting at $5/month (subscription required)",
             "output_format": "MP3 (converted to other formats via ffmpeg)"
-        }
+        })

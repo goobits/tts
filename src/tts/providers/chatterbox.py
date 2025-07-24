@@ -17,7 +17,7 @@ class ChatterboxProvider(TTSProvider):
     def _lazy_load(self) -> None:
         if self.tts is None:
             try:
-                from chatterbox.tts import ChatterboxTTS
+                from chatterbox.tts import ChatterboxTTS  # type: ignore
                 print("Loading Chatterbox (Resemble AI) model...")
                 # Use GPU if available for much faster generation
                 device = "cuda" if self._has_cuda() else "cpu"
@@ -35,8 +35,8 @@ class ChatterboxProvider(TTSProvider):
 
     def _has_cuda(self) -> bool:
         try:
-            import torch
-            return torch.cuda.is_available()
+            import torch  # type: ignore
+            return bool(torch.cuda.is_available())
         except ImportError:
             # PyTorch not installed
             self.logger.debug("PyTorch not available, using CPU")
@@ -46,7 +46,7 @@ class ChatterboxProvider(TTSProvider):
             self.logger.warning(f"Error checking CUDA availability: {e}")
             return False
 
-    def synthesize(self, text: str, output_path: str, **kwargs) -> None:
+    def synthesize(self, text: str, output_path: Optional[str], **kwargs: Any) -> None:
         # Extract options
         # Handle stream parameter as boolean or string
         stream_param = kwargs.get("stream", False)
@@ -81,7 +81,8 @@ class ChatterboxProvider(TTSProvider):
                         self._stream_audio_data(audio_data)
                     else:
                         # Save audio data to file
-                        self._save_audio_data(audio_data, output_path, output_format)
+                        if output_path is not None:
+                            self._save_audio_data(audio_data, output_path, output_format)
                     return
 
                 except Exception as e:
@@ -92,6 +93,9 @@ class ChatterboxProvider(TTSProvider):
         self._lazy_load()
 
         # Generate speech with optimized settings for speed
+        if self.tts is None:
+            raise ProviderError("Chatterbox TTS model not loaded")
+
         if audio_prompt_path:
             # Voice cloning mode
             wav = self.tts.generate(text, audio_prompt_path=audio_prompt_path,
@@ -108,18 +112,21 @@ class ChatterboxProvider(TTSProvider):
         else:
             # Save to file
             if output_format == "wav":
-                import torchaudio as ta
-                ta.save(output_path, wav, self.tts.sr)
+                import torchaudio as ta  # type: ignore
+                if self.tts is not None and output_path is not None:
+                    ta.save(output_path, wav, self.tts.sr)
             else:
                 # Convert to other formats using ffmpeg
                 with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
                     wav_path = tmp.name
 
-                import torchaudio as ta
-                ta.save(wav_path, wav, self.tts.sr)
+                import torchaudio as ta  # type: ignore
+                if self.tts is not None:
+                    ta.save(wav_path, wav, self.tts.sr)
 
                 # Convert using utility function with cleanup
-                convert_with_cleanup(wav_path, output_path, output_format)
+                if output_path is not None:
+                    convert_with_cleanup(wav_path, output_path, output_format)
 
     def _stream_to_speakers(self, wav_tensor: Any) -> None:
         """Stream audio tensor directly to speakers using ffplay"""
@@ -127,7 +134,7 @@ class ChatterboxProvider(TTSProvider):
         import subprocess
         import wave
 
-        import numpy as np
+        import numpy as np  # type: ignore
 
         try:
             self.logger.debug("Converting audio tensor for streaming")
@@ -139,7 +146,7 @@ class ChatterboxProvider(TTSProvider):
             with wave.open(buffer, 'wb') as wav_file:
                 wav_file.setnchannels(1)  # Mono
                 wav_file.setsampwidth(2)  # 16-bit
-                wav_file.setframerate(self.tts.sr)  # Use model's sample rate
+                wav_file.setframerate(self.tts.sr if self.tts is not None else 22050)  # Use model's sample rate
                 # Normalize and convert to 16-bit PCM
                 audio_normalized = np.clip(audio_data, -1.0, 1.0)
                 audio_16bit = (audio_normalized * 32767 * 0.95).astype(np.int16)
@@ -158,8 +165,9 @@ class ChatterboxProvider(TTSProvider):
                 ) from None
 
             self.logger.debug("Streaming audio to ffplay")
-            ffplay_process.stdin.write(buffer.getvalue())
-            ffplay_process.stdin.close()
+            if ffplay_process.stdin is not None:
+                ffplay_process.stdin.write(buffer.getvalue())
+                ffplay_process.stdin.close()
             ffplay_process.wait()
             self.logger.debug("Audio streaming completed")
 
@@ -199,8 +207,9 @@ class ChatterboxProvider(TTSProvider):
                 ) from None
 
             self.logger.debug("Streaming audio to ffplay")
-            ffplay_process.stdin.write(audio_data)
-            ffplay_process.stdin.close()
+            if ffplay_process.stdin is not None:
+                ffplay_process.stdin.write(audio_data)
+                ffplay_process.stdin.close()
             ffplay_process.wait()
             self.logger.debug("Audio streaming completed")
 

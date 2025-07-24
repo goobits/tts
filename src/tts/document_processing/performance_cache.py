@@ -434,7 +434,7 @@ class PerformanceOptimizer:
 
     def get_performance_stats(self) -> Dict[str, Any]:
         """Get comprehensive performance statistics."""
-        stats = self.processing_stats.copy()
+        stats: Dict[str, Any] = self.processing_stats.copy()
 
         # Calculate derived metrics
         if stats["total_processed"] > 0:

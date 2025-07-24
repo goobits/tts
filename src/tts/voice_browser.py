@@ -21,11 +21,11 @@ import sys
 import tempfile
 import threading
 import time
-from typing import Any, Callable, Dict, List, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import click
 
-from .audio_utils import cleanup_file, AudioPlaybackManager
+from .audio_utils import AudioPlaybackManager, cleanup_file
 from .config import set_setting
 from .exceptions import DependencyError, ProviderLoadError, ProviderNotFoundError
 
@@ -119,7 +119,7 @@ class VoiceBrowser:
         self.search_active = False
 
         # Filter state
-        self.filters = {
+        self.filters: Dict[str, Dict[Any, bool]] = {
             'providers': {
                 'edge_tts': True, 'google': True, 'openai': True,
                 'elevenlabs': True, 'chatterbox': True
@@ -135,13 +135,13 @@ class VoiceBrowser:
 
         # Playback state
         self.is_playing = False
-        self.playing_voice = None
+        self.playing_voice: Optional[str] = None
         self.favorites: Set[str] = set()
         self.audio_manager = AudioPlaybackManager(logger=self.logger)
 
         # Double-click tracking
-        self.last_click_time = 0
-        self.last_click_pos = -1
+        self.last_click_time: float = 0.0
+        self.last_click_pos: int = -1
         self.DOUBLE_CLICK_TIME = 0.8  # seconds
 
         # Voice data
@@ -199,7 +199,7 @@ class VoiceBrowser:
 
         return filtered
 
-    def draw_interface(self, stdscr) -> None:
+    def draw_interface(self, stdscr: Any) -> None:
         """Draw the three-panel interface."""
         height, width = stdscr.getmaxyx()
         stdscr.clear()
@@ -258,7 +258,7 @@ class VoiceBrowser:
         )
 
     def draw_filters_panel(
-        self, stdscr, start_row: int, start_col: int, width: int, height: int
+        self, stdscr: Any, start_row: int, start_col: int, width: int, height: int
     ) -> None:
         """Draw the filters panel."""
         row = start_row
@@ -314,7 +314,7 @@ class VoiceBrowser:
                 stdscr.addstr(row, start_col + 1, f"{check} {region}"[:width-1], color)
                 row += 1
 
-    def draw_voices_panel(self, stdscr, start_row: int, start_col: int, width: int, height: int,
+    def draw_voices_panel(self, stdscr: Any, start_row: int, start_col: int, width: int, height: int,
                          filtered_voices: List[Tuple[str, str, int, str, str]]) -> None:
         """Draw the voices list panel."""
         # Adjust scroll if needed
@@ -357,7 +357,7 @@ class VoiceBrowser:
             nav_help = "↑↓ Navigate  Double-Click/Space Play  Enter Select"[:width-1]
             stdscr.addstr(start_row + height - 1, start_col + 1, nav_help, curses.color_pair(8))
 
-    def draw_preview_panel(self, stdscr, start_row: int, start_col: int, width: int, height: int,
+    def draw_preview_panel(self, stdscr: Any, start_row: int, start_col: int, width: int, height: int,
                           filtered_voices: List[Tuple[str, str, int, str, str]]) -> None:
         """Draw the preview/details panel."""
         row = start_row
@@ -413,7 +413,7 @@ class VoiceBrowser:
         self.playing_voice = voice
         self.is_playing = True
 
-        def background_preview():
+        def background_preview() -> None:
             try:
                 with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
                     temp_file = tmp.name
@@ -445,7 +445,7 @@ class VoiceBrowser:
         worker.daemon = True
         worker.start()
 
-    def handle_mouse_click(self, stdscr, mx: int, my: int, is_double_click: bool) -> None:
+    def handle_mouse_click(self, stdscr: Any, mx: int, my: int, is_double_click: bool) -> None:
         """Handle mouse click events."""
         height, width = stdscr.getmaxyx()
         filter_width = 20
@@ -498,7 +498,7 @@ class VoiceBrowser:
                 region = regions[region_idx]
                 self.filters['regions'][region] = not self.filters['regions'].get(region, False)
 
-    def handle_voice_click(self, stdscr, my: int, is_double_click: bool) -> None:
+    def handle_voice_click(self, stdscr: Any, my: int, is_double_click: bool) -> None:
         """Handle clicks in the voices panel."""
         voice_start_row = 2
         filtered_voices = self.filter_voices()
@@ -521,7 +521,7 @@ class VoiceBrowser:
                     self.start_voice_preview(provider, voice)
 
                     # Reset double-click tracking
-                    self.last_click_time = 0
+                    self.last_click_time = 0.0
                     self.last_click_pos = -1
                 else:
                     # Single click - just select the voice
@@ -692,7 +692,7 @@ class VoiceBrowser:
             raise
 
 
-def interactive_voice_browser(providers_registry: Dict[str, Any], load_provider_func) -> None:
+def interactive_voice_browser(providers_registry: Dict[str, Any], load_provider_func: Callable) -> None:
     """Launch the interactive voice browser with curses-based UI.
 
     Creates and runs a VoiceBrowser instance that provides a comprehensive
@@ -744,7 +744,7 @@ def show_browser_snapshot(providers_registry: Dict[str, str], load_provider_func
     click.echo(f"\nTotal voices loaded: {len(all_voices)}")
 
     # Default filters from browser
-    filters = {
+    filters: Dict[str, Dict[Any, bool]] = {
         'providers': {
             'edge_tts': True, 'google': True, 'openai': True,
             'elevenlabs': True, 'chatterbox': True
@@ -785,7 +785,7 @@ def show_browser_snapshot(providers_registry: Dict[str, str], load_provider_func
     click.echo()
 
     # Group by provider
-    by_provider = {}
+    by_provider: Dict[str, list] = {}
     for provider, voice, quality, region, gender in filtered_voices:
         if provider not in by_provider:
             by_provider[provider] = []
@@ -886,7 +886,7 @@ def handle_voices_command(
                         click.echo(f"\n🔹 {provider_name.upper()} (English):")
 
                         # Group by region for better organization
-                        regions = {}
+                        regions: Dict[str, list] = {}
                         for voice in english_voices:
                             if provider_name in ['openai', 'elevenlabs']:
                                 region = "General"

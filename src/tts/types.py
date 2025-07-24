@@ -21,6 +21,13 @@ class ProviderInfo(TypedDict, total=False):
     capabilities: List[str]
     api_status: Optional[str]
     voices: Optional[List[Dict[str, Any]]]
+    all_voices: Optional[List[str]]
+    voice_descriptions: Optional[Dict[str, str]]
+    features: Optional[Dict[str, Any]]
+    pricing: Optional[str]
+    output_format: Optional[str]
+    auth_method: Optional[str]
+    model: Optional[str]
 
 
 class AudioEnvironment(TypedDict):

@@ -288,7 +288,7 @@ class EdgeTTSProvider(TTSProvider):
             pitch=pitch
         )
 
-    def synthesize(self, text: str, output_path: str, **kwargs) -> None:
+    def synthesize(self, text: str, output_path: Optional[str], **kwargs: Any) -> None:
         self._lazy_load()
 
         # Extract provider-specific options
@@ -312,6 +312,8 @@ class EdgeTTSProvider(TTSProvider):
         if stream:
             self._run_async_safely(self._stream_async(text, voice, rate, pitch))
         else:
+            if output_path is None:
+                raise ValueError("output_path is required when not streaming")
             self._run_async_safely(
                 self._synthesize_async(text, output_path, voice, rate, pitch, output_format)
             )

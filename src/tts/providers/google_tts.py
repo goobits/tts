@@ -3,9 +3,9 @@
 import base64
 import logging
 import tempfile
-from typing import Any, List
+from typing import Any, List, Optional
 
-import requests
+import requests  # type: ignore
 
 from ..audio_utils import convert_audio, stream_audio_file
 from ..base import TTSProvider
@@ -43,10 +43,10 @@ class GoogleTTSProvider(TTSProvider):
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
-        self._voices_cache = None
+        self._voices_cache: Optional[List[str]] = None
         self.base_url = "https://texttospeech.googleapis.com/v1"
-        self._client = None
-        self._auth_method = None
+        self._client: Optional[Any] = None
+        self._auth_method: Optional[str] = None
 
     def _get_client(self) -> Any:
         """Get Google Cloud TTS client, supporting both API key and service account auth."""
@@ -67,7 +67,7 @@ class GoogleTTSProvider(TTSProvider):
                 try:
                     import json
 
-                    from google.cloud import texttospeech
+                    from google.cloud import texttospeech  # type: ignore
                     credentials_info = json.loads(api_key)
                     self._client = texttospeech.TextToSpeechClient.from_service_account_info(credentials_info)
                     self._auth_method = "service_account"
@@ -82,7 +82,7 @@ class GoogleTTSProvider(TTSProvider):
                 try:
                     import json
 
-                    from google.cloud import texttospeech
+                    from google.cloud import texttospeech  # type: ignore
                     credentials_info = json.loads("{" + api_key + "}")
                     self._client = texttospeech.TextToSpeechClient.from_service_account_info(credentials_info)
                     self._auth_method = "service_account"
@@ -99,7 +99,7 @@ class GoogleTTSProvider(TTSProvider):
 
         return self._client
 
-    def _make_request(self, method: str, endpoint: str, **kwargs) -> requests.Response:
+    def _make_request(self, method: str, endpoint: str, **kwargs: Any) -> requests.Response:
         """Make authenticated request to Google Cloud TTS REST API (for API key auth)."""
         api_key = get_api_key("google")
         if not api_key:
@@ -201,7 +201,7 @@ class GoogleTTSProvider(TTSProvider):
 
         return self._voices_cache
 
-    def synthesize(self, text: str, output_path: str, **kwargs) -> None:
+    def synthesize(self, text: str, output_path: Optional[str], **kwargs: Any) -> None:
         """Synthesize speech using Google Cloud TTS API with both auth methods."""
         # Extract options
         voice = kwargs.get("voice", "en-US-Neural2-A")  # Default voice
@@ -237,7 +237,7 @@ class GoogleTTSProvider(TTSProvider):
 
             if self._auth_method == "service_account" and client:
                 # Use Google Cloud client library for service account
-                from google.cloud import texttospeech
+                from google.cloud import texttospeech  # type: ignore
 
                 # Prepare synthesis input
                 if use_ssml:
@@ -322,15 +322,16 @@ class GoogleTTSProvider(TTSProvider):
                 os.unlink(tmp_path)
             else:
                 # Convert and save to final output path
-                if output_format.lower() != "wav":
-                    convert_audio(tmp_path, output_path, output_format)
-                    # Clean up temp file
-                    import os
-                    os.unlink(tmp_path)
-                else:
-                    # For WAV, just move the file
-                    import shutil
-                    shutil.move(tmp_path, output_path)
+                if output_path is not None:
+                    if output_format.lower() != "wav":
+                        convert_audio(tmp_path, output_path, output_format)
+                        # Clean up temp file
+                        import os
+                        os.unlink(tmp_path)
+                    else:
+                        # For WAV, just move the file
+                        import shutil
+                        shutil.move(tmp_path, output_path)
 
         except requests.RequestException as e:
             error_str = str(e).lower()

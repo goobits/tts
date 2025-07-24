@@ -5,17 +5,17 @@ This file connects the generated CLI to the actual TTS functionality
 """
 
 import sys
-from pathlib import Path
+from typing import Any, Dict, Optional
 
-# Import TTS functionality
-from tts.core import TTSEngine, get_tts_engine
 from tts.config import load_config, save_config
 
+# Import TTS functionality
+from tts.core import get_tts_engine
 
 # Provider registry - this should match what was in the original CLI
 PROVIDERS_REGISTRY = {
     'edge_tts': 'tts.providers.edge_tts',
-    'openai_tts': 'tts.providers.openai_tts', 
+    'openai_tts': 'tts.providers.openai_tts',
     'elevenlabs': 'tts.providers.elevenlabs',
     'google_tts': 'tts.providers.google_tts',
     'chatterbox': 'tts.providers.chatterbox',
@@ -24,18 +24,18 @@ PROVIDERS_REGISTRY = {
 # Provider shortcuts mapping for @provider syntax
 PROVIDER_SHORTCUTS = {
     "edge": "edge_tts",
-    "openai": "openai_tts", 
+    "openai": "openai_tts",
     "elevenlabs": "elevenlabs",
     "google": "google_tts",
     "chatterbox": "chatterbox"
 }
 
 
-def parse_provider_shortcuts(args):
+def parse_provider_shortcuts(args: list) -> tuple[Optional[str], list]:
     """Parse @provider shortcuts from arguments"""
     if not args:
         return None, args
-    
+
     # Check if first argument is a provider shortcut
     first_arg = args[0]
     if first_arg.startswith('@'):
@@ -47,15 +47,15 @@ def parse_provider_shortcuts(args):
         else:
             # Invalid shortcut - let calling function handle the error
             return first_arg, args[1:]
-    
+
     return None, args
 
 
-def handle_provider_shortcuts(provider_arg):
+def handle_provider_shortcuts(provider_arg: Optional[str]) -> Optional[str]:
     """Handle @provider syntax in commands"""
     if not provider_arg:
         return None
-    
+
     if provider_arg.startswith('@'):
         shortcut = provider_arg[1:]  # Remove @
         if shortcut in PROVIDER_SHORTCUTS:
@@ -63,32 +63,35 @@ def handle_provider_shortcuts(provider_arg):
         else:
             # Return the original for error handling
             return provider_arg
-    
+
     return provider_arg
 
 
-def get_engine():
+def get_engine() -> Any:
     """Get or create TTS engine instance"""
     try:
         return get_tts_engine()
-    except:
+    except Exception:
         from tts.core import initialize_tts_engine
         return initialize_tts_engine(PROVIDERS_REGISTRY)
 
 
-def on_speak(text, options, voice, rate, pitch, debug):
+def on_speak(
+    text: Optional[str], options: tuple, voice: Optional[str],
+    rate: Optional[str], pitch: Optional[str], debug: bool
+) -> int:
     """Handle the speak command"""
     try:
         # Parse provider shortcuts from text and options
         provider_name = None
         all_args = []
-        
+
         # Collect all arguments
         if text:
             all_args.append(text)
         if options:
             all_args.extend(options)
-        
+
         # Check if first argument is a provider shortcut
         if all_args and all_args[0].startswith('@'):
             provider_name, remaining_args = parse_provider_shortcuts(all_args)
@@ -99,37 +102,37 @@ def on_speak(text, options, voice, rate, pitch, debug):
                 print(f"Available providers: {', '.join('@' + k for k in PROVIDER_SHORTCUTS.keys())}", file=sys.stderr)
                 sys.exit(1)
             all_args = remaining_args
-        
+
         # Parse any additional text from remaining arguments
         all_text = all_args
-        
+
         if not all_text:
             # If no text provided, try to read from stdin
             if not sys.stdin.isatty():
                 text_input = sys.stdin.read().strip()
                 if text_input:
                     all_text.append(text_input)
-        
+
         if not all_text:
             print("Error: No text provided to speak")
             return 1
-            
+
         final_text = " ".join(all_text)
-        
+
         # Get TTS engine and synthesize
         engine = get_engine()
-        
+
         # Create output parameters
-        output_params = {
+        output_params: Dict[str, Any] = {
             'stream': True,  # For speaking, we want to stream to speakers
             'debug': debug
         }
-        
+
         if rate:
             output_params['rate'] = rate
         if pitch:
             output_params['pitch'] = pitch
-            
+
         # Synthesize the text
         result = engine.synthesize_text(
             text=final_text,
@@ -138,9 +141,9 @@ def on_speak(text, options, voice, rate, pitch, debug):
             output_path=None,  # None means stream to speakers
             **output_params
         )
-        
+
         return 0 if result else 1
-        
+
     except Exception as e:
         if debug:
             import traceback
@@ -149,19 +152,23 @@ def on_speak(text, options, voice, rate, pitch, debug):
         return 1
 
 
-def on_save(text, options, output, format, voice, clone, json, debug, rate, pitch):
+def on_save(
+    text: Optional[str], options: tuple, output: Optional[str], format: Optional[str],
+    voice: Optional[str], clone: Optional[str], json: bool, debug: bool,
+    rate: Optional[str], pitch: Optional[str]
+) -> int:
     """Handle the save command"""
     try:
         # Parse provider shortcuts from text and options
         provider_name = None
         all_args = []
-        
+
         # Collect all arguments
         if text:
             all_args.append(text)
         if options:
             all_args.extend(options)
-        
+
         # Check if first argument is a provider shortcut
         if all_args and all_args[0].startswith('@'):
             provider_name, remaining_args = parse_provider_shortcuts(all_args)
@@ -172,36 +179,36 @@ def on_save(text, options, output, format, voice, clone, json, debug, rate, pitc
                 print(f"Available providers: {', '.join('@' + k for k in PROVIDER_SHORTCUTS.keys())}", file=sys.stderr)
                 sys.exit(1)
             all_args = remaining_args
-        
+
         # Parse any additional text from remaining arguments
         all_text = all_args
-            
+
         if not all_text:
             print("Error: No text provided to save")
             return 1
-            
+
         final_text = " ".join(all_text)
-        
+
         # Default output filename if not provided
         if not output:
             output = "output.mp3"
-        
+
         # Get TTS engine and synthesize
         engine = get_engine()
-        
+
         # Create output parameters
-        output_params = {
+        output_params: Dict[str, Any] = {
             'stream': False,  # For saving, we don't stream
             'debug': debug
         }
-        
+
         if rate:
             output_params['rate'] = rate
         if pitch:
             output_params['pitch'] = pitch
         if format:
             output_params['format'] = format
-            
+
         # Synthesize the text
         result = engine.synthesize_text(
             text=final_text,
@@ -210,13 +217,13 @@ def on_save(text, options, output, format, voice, clone, json, debug, rate, pitc
             output_path=output,
             **output_params
         )
-        
+
         if result:
             print(f"Audio saved to: {output}")
             return 0
         else:
             return 1
-        
+
     except Exception as e:
         if debug:
             import traceback
@@ -225,12 +232,12 @@ def on_save(text, options, output, format, voice, clone, json, debug, rate, pitc
         return 1
 
 
-def on_voices(args):
+def on_voices(args: tuple) -> int:
     """Handle the voices command"""
     try:
         from tts.voice_browser import VoiceBrowser
         engine = get_engine()
-        
+
         # Create and launch voice browser
         browser = VoiceBrowser(PROVIDERS_REGISTRY, engine.load_provider)
         import curses
@@ -241,12 +248,12 @@ def on_voices(args):
         return 1
 
 
-def on_providers(provider_name):
+def on_providers(provider_name: Optional[str]) -> int:
     """Handle the providers command"""
     try:
         engine = get_engine()
         available = engine.get_available_providers()
-        
+
         if provider_name:
             if provider_name in available:
                 info = engine.get_provider_info(provider_name)
@@ -263,18 +270,18 @@ def on_providers(provider_name):
             print("Available TTS providers:")
             for provider in available:
                 print(f"  • {provider}")
-                
+
         return 0
     except Exception as e:
         print(f"Error in providers command: {e}")
         return 1
 
 
-def on_install(args):
+def on_install(args: tuple) -> int:
     """Handle the install command"""
     try:
         import subprocess
-        
+
         if not args:
             print("🔧 TTS Provider Installation")
             print("===========================")
@@ -282,16 +289,16 @@ def on_install(args):
             print("Available providers to install:")
             print("  • edge-tts        - Microsoft Edge TTS (free)")
             print("  • openai          - OpenAI TTS API")
-            print("  • elevenlabs      - ElevenLabs TTS API") 
+            print("  • elevenlabs      - ElevenLabs TTS API")
             print("  • google-tts      - Google Cloud TTS API")
             print("  • chatterbox      - Local voice cloning")
             print()
             print("Usage: tts install <provider>")
             print("Example: tts install edge-tts")
             return 0
-        
+
         provider = args[0].lower()
-        
+
         # Provider installation mappings
         install_commands = {
             'edge-tts': ['pip', 'install', 'edge-tts'],
@@ -302,15 +309,15 @@ def on_install(args):
             'google_tts': ['pip', 'install', 'google-cloud-texttospeech'],
             'chatterbox': ['pip', 'install', 'torch', 'torchaudio', 'transformers', 'librosa']
         }
-        
+
         if provider not in install_commands:
             print(f"❌ Unknown provider: {provider}", file=sys.stderr)
             print("Available providers: edge-tts, openai, elevenlabs, google-tts, chatterbox", file=sys.stderr)
             sys.exit(1)
-        
+
         print(f"🔧 Installing {provider}...")
         print("=" * 40)
-        
+
         try:
             # Special handling for chatterbox (multiple packages)
             if provider == 'chatterbox':
@@ -322,7 +329,7 @@ def on_install(args):
                         capture_output=True,
                         text=True
                     )
-                    
+
                     if result.returncode != 0:
                         print(f"❌ Failed to install {package}")
                         print(f"Error: {result.stderr}")
@@ -333,23 +340,23 @@ def on_install(args):
                 # Single package installation
                 cmd = install_commands[provider]
                 print(f"📦 Running: {' '.join(cmd)}")
-                
+
                 result = subprocess.run(
                     [sys.executable, '-m'] + cmd[1:],  # Use current Python interpreter
                     capture_output=True,
                     text=True
                 )
-                
+
                 if result.returncode != 0:
-                    print(f"❌ Installation failed")
+                    print("❌ Installation failed")
                     print(f"Error: {result.stderr}")
                     return 1
-            
+
             print(f"✅ {provider} installed successfully!")
-            
+
             # Provide next steps
             if provider in ['openai', 'elevenlabs', 'google-tts', 'google_tts']:
-                print(f"\n💡 Next steps:")
+                print("\n💡 Next steps:")
                 if provider == 'openai':
                     print("   Set your API key: tts config set openai_api_key YOUR_KEY")
                 elif provider == 'elevenlabs':
@@ -358,49 +365,49 @@ def on_install(args):
                     print("   Set up authentication:")
                     print("   • API key: tts config set google_api_key YOUR_KEY")
                     print("   • Or service account: tts config set google_credentials_path /path/to/credentials.json")
-            
+
             # Test the installation
             print(f"\n🧪 Testing {provider}...")
             engine = get_engine()
             test_result = engine.test_provider(provider.replace('-', '_'))
-            
+
             if test_result.get('available', False):
                 print(f"✅ {provider} is working correctly!")
             else:
                 error = test_result.get('error', 'Unknown error')
                 print(f"⚠️  {provider} installed but not fully configured: {error}")
-            
+
             return 0
-            
+
         except subprocess.CalledProcessError as e:
             print(f"❌ Installation failed: {e}")
             return 1
         except Exception as e:
             print(f"❌ Unexpected error during installation: {e}")
             return 1
-            
+
     except Exception as e:
         print(f"Error in install command: {e}")
         return 1
 
 
-def on_info(provider):
+def on_info(provider: Optional[str]) -> int:
     """Handle the info command"""
     try:
         engine = get_engine()
-        
+
         if provider:
             # Handle provider shortcuts
             resolved_provider = handle_provider_shortcuts(provider)
-            
+
             if resolved_provider and resolved_provider.startswith('@'):
                 shortcut = resolved_provider[1:]
                 print(f"Error: Unknown provider shortcut '@{shortcut}'", file=sys.stderr)
                 print(f"Available providers: {', '.join('@' + k for k in PROVIDER_SHORTCUTS.keys())}", file=sys.stderr)
                 sys.exit(1)
-            
+
             provider_name = resolved_provider or provider
-            
+
             info = engine.get_provider_info(provider_name)
             if info:
                 print(f"📋 Provider: {provider_name}")
@@ -411,7 +418,7 @@ def on_info(provider):
                     elif key == "description":
                         print(f"📝 Description: {value}")
                     elif key == "options":
-                        print(f"⚙️  Options:")
+                        print("⚙️  Options:")
                         for opt_key, opt_value in value.items():
                             print(f"   • {opt_key}: {opt_value}")
                     elif key == "output_formats":
@@ -434,7 +441,7 @@ def on_info(provider):
             print("📋 TTS Provider Information")
             print("==========================")
             available = engine.get_available_providers()
-            
+
             for provider_name in available:
                 info = engine.get_provider_info(provider_name)
                 if info:
@@ -452,35 +459,41 @@ def on_info(provider):
                         print(f"   💡 Use: @{shortcut} or {provider_name}")
                     else:
                         print(f"   💡 Use: {provider_name}")
-            
-            print(f"\n💡 Get detailed info: tts info <provider>")
-            print(f"Example: tts info @edge")
-        
+
+            print("\n💡 Get detailed info: tts info <provider>")
+            print("Example: tts info @edge")
+
         return 0
     except Exception as e:
         print(f"Error in info command: {e}")
         return 1
 
 
-def on_document(document_path, options, save, output, format, voice, clone, json, debug, doc_format, ssml_platform, emotion_profile, rate, pitch):
+def on_document(
+    document_path: str, options: tuple, save: bool, output: Optional[str],
+    format: Optional[str], voice: Optional[str], clone: Optional[str], json: bool, debug: bool,
+    doc_format: str, ssml_platform: str, emotion_profile: str,
+    rate: Optional[str], pitch: Optional[str]
+) -> int:
     """Handle the document command"""
     try:
         from pathlib import Path
+
         from tts.document_processing.parser_factory import DocumentParserFactory
-        
+
         # Check if document file exists
         doc_file = Path(document_path)
         if not doc_file.exists():
             print(f"Error: Document file not found: {document_path}")
             return 1
-        
+
         # Read document content
         try:
             content = doc_file.read_text(encoding='utf-8')
         except UnicodeDecodeError:
             print(f"Error: Unable to read document as UTF-8: {document_path}")
             return 1
-        
+
         # Parse document using factory
         factory = DocumentParserFactory()
         semantic_elements = factory.parse_document(
@@ -488,49 +501,49 @@ def on_document(document_path, options, save, output, format, voice, clone, json
             filename=document_path,
             format_override=doc_format
         )
-        
+
         if not semantic_elements:
             print("Warning: No content found in document")
             return 1
-        
+
         # Extract text from semantic elements
         text_parts = []
         for element in semantic_elements:
             if hasattr(element, 'content') and element.content:
                 text_parts.append(element.content)
-        
+
         if not text_parts:
             print("Warning: No text content extracted from document")
             return 1
-        
+
         final_text = " ".join(text_parts)
-        
+
         if debug:
             print(f"Extracted {len(semantic_elements)} elements")
             print(f"Text length: {len(final_text)} characters")
-        
+
         # Get TTS engine and synthesize
         engine = get_engine()
-        
+
         # Create output parameters
-        output_params = {
+        output_params: Dict[str, Any] = {
             'debug': debug
         }
-        
+
         if rate:
             output_params['rate'] = rate
         if pitch:
             output_params['pitch'] = pitch
         if format:
             output_params['format'] = format
-            
+
         # Determine if we should save or stream
         if save or output:
             # Save mode
             if not output:
                 # Generate output filename based on input
                 output = doc_file.with_suffix('.mp3').name
-            
+
             output_params['stream'] = False
             result = engine.synthesize_text(
                 text=final_text,
@@ -538,7 +551,7 @@ def on_document(document_path, options, save, output, format, voice, clone, json
                 output_path=output,
                 **output_params
             )
-            
+
             if result:
                 print(f"Document audio saved to: {output}")
                 return 0
@@ -553,9 +566,9 @@ def on_document(document_path, options, save, output, format, voice, clone, json
                 output_path=None,
                 **output_params
             )
-            
+
             return 0 if result else 1
-        
+
     except Exception as e:
         if debug:
             import traceback
@@ -564,55 +577,56 @@ def on_document(document_path, options, save, output, format, voice, clone, json
         return 1
 
 
-def on_voice_load(voice_files):
+def on_voice_load(voice_files: tuple) -> int:
     """Handle the voice load command"""
     try:
-        from tts.voice_manager import VoiceManager
         from pathlib import Path
-        
+
+        from tts.voice_manager import VoiceManager
+
         if not voice_files:
             print("Error: No voice files specified")
             print("Usage: tts voice load <voice_file> [voice_file2] ...")
             return 1
-        
+
         manager = VoiceManager()
         loaded_count = 0
         failed_count = 0
-        
+
         for voice_file in voice_files:
             voice_path = Path(voice_file)
-            
+
             # Check if file exists
             if not voice_path.exists():
                 print(f"❌ Voice file not found: {voice_file}")
                 failed_count += 1
                 continue
-            
+
             # Check if already loaded
             if manager.is_voice_loaded(str(voice_path)):
                 print(f"ℹ️  Voice already loaded: {voice_path.name}")
                 continue
-            
+
             try:
                 print(f"🔄 Loading voice: {voice_path.name}...")
                 success = manager.load_voice(str(voice_path))
-                
+
                 if success:
                     print(f"✅ Successfully loaded: {voice_path.name}")
                     loaded_count += 1
                 else:
                     print(f"❌ Failed to load: {voice_path.name}")
                     failed_count += 1
-                    
+
             except Exception as e:
                 print(f"❌ Error loading {voice_path.name}: {e}")
                 failed_count += 1
-        
+
         # Summary
         total = len(voice_files)
-        print(f"\n📊 Voice Loading Summary:")
+        print("\n📊 Voice Loading Summary:")
         print(f"   Total: {total}, Loaded: {loaded_count}, Failed: {failed_count}")
-        
+
         # Show currently loaded voices
         loaded_voices = manager.get_loaded_voices()
         if loaded_voices:
@@ -620,77 +634,78 @@ def on_voice_load(voice_files):
             for voice_info in loaded_voices:
                 voice_path = Path(voice_info['path'])
                 print(f"   • {voice_path.name}")
-        
+
         return 0 if failed_count == 0 else 1
-        
+
     except Exception as e:
         print(f"Error in voice load command: {e}")
         return 1
 
 
-def on_voice_unload(voice_files, all):
+def on_voice_unload(voice_files: tuple, all: bool) -> int:
     """Handle the voice unload command"""
     try:
-        from tts.voice_manager import VoiceManager
         from pathlib import Path
-        
+
+        from tts.voice_manager import VoiceManager
+
         manager = VoiceManager()
-        
+
         # Handle unload all
         if all:
             try:
                 print("🔄 Unloading all voices...")
                 unloaded_count = manager.unload_all_voices()
-                
+
                 if unloaded_count > 0:
                     print(f"✅ Successfully unloaded {unloaded_count} voices")
                 else:
                     print("ℹ️  No voices were loaded")
-                    
+
                 return 0
-                
+
             except Exception as e:
                 print(f"❌ Error unloading all voices: {e}")
                 return 1
-        
+
         # Handle specific voice files
         if not voice_files:
             print("Error: No voice files specified")
             print("Usage: tts voice unload <voice_file> [voice_file2] ...")
             print("       tts voice unload --all")
             return 1
-        
+
         unloaded_count = 0
         failed_count = 0
-        
+
         for voice_file in voice_files:
             voice_path = Path(voice_file)
-            
+
             # Check if voice is loaded
             if not manager.is_voice_loaded(str(voice_path)):
                 print(f"ℹ️  Voice not loaded: {voice_path.name}")
                 continue
-            
+
             try:
                 print(f"🔄 Unloading voice: {voice_path.name}...")
                 success = manager.unload_voice(str(voice_path))
-                
+
                 if success:
                     print(f"✅ Successfully unloaded: {voice_path.name}")
                     unloaded_count += 1
                 else:
                     print(f"❌ Failed to unload: {voice_path.name}")
                     failed_count += 1
-                    
+
             except Exception as e:
                 print(f"❌ Error unloading {voice_path.name}: {e}")
                 failed_count += 1
-        
+
         # Summary
         total = len(voice_files)
-        print(f"\n📊 Voice Unloading Summary:")
+        print("\n📊 Voice Unloading Summary:")
         print(f"   Total: {total}, Unloaded: {unloaded_count}, Failed: {failed_count}")
-        
+
         # Show remaining loaded voices
         loaded_voices = manager.get_loaded_voices()
         if loaded_voices:
@@ -700,25 +715,26 @@ def on_voice_unload(voice_files, all):
                 print(f"   • {voice_path.name}")
         else:
             print("\n✨ No voices currently loaded")
-        
+
         return 0 if failed_count == 0 else 1
-        
+
     except Exception as e:
         print(f"Error in voice unload command: {e}")
         return 1
 
 
-def on_voice_status():
+def on_voice_status() -> int:
     """Handle the voice status command"""
     try:
-        from tts.voice_manager import VoiceManager
         from pathlib import Path
-        
+
+        from tts.voice_manager import VoiceManager
+
         manager = VoiceManager()
-        
+
         print("🎤 Voice Manager Status")
         print("======================")
-        
+
         # Check if server is running
         if manager._is_server_running():
             print("✅ Chatterbox server: Running")
@@ -726,83 +742,83 @@ def on_voice_status():
         else:
             print("❌ Chatterbox server: Not running")
             print("💡 Server will start automatically when loading voices")
-        
+
         # Get loaded voices
         loaded_voices = manager.get_loaded_voices()
-        
+
         if not loaded_voices:
             print("\n📭 No voices currently loaded")
             print("💡 Use 'tts voice load <voice_file>' to load voices for fast synthesis")
         else:
             print(f"\n🎤 Loaded Voices ({len(loaded_voices)}):")
             print("   " + "=" * 50)
-            
+
             for i, voice_info in enumerate(loaded_voices, 1):
                 voice_path = Path(voice_info['path'])
                 print(f"   {i}. {voice_path.name}")
                 print(f"      📁 Path: {voice_path}")
-                
+
                 # Show file size if available
                 if voice_path.exists():
                     size_mb = voice_path.stat().st_size / (1024 * 1024)
                     print(f"      📏 Size: {size_mb:.1f} MB")
                 else:
-                    print(f"      ⚠️  File not found at original location")
-                
+                    print("      ⚠️  File not found at original location")
+
                 # Show additional info if available
                 if 'loaded_at' in voice_info:
                     print(f"      ⏰ Loaded: {voice_info['loaded_at']}")
-                
+
                 print()  # Empty line between voices
-        
+
         # Show memory usage hint
         if loaded_voices:
             print("💡 Tips:")
             print("   • Use 'tts voice unload <voice_file>' to free memory")
             print("   • Use 'tts voice unload --all' to unload all voices")
             print("   • Loaded voices provide faster synthesis with Chatterbox")
-        
+
         return 0
-        
+
     except Exception as e:
         print(f"Error in voice status command: {e}")
         return 1
 
 
-def on_status():
+def on_status() -> int:
     """Handle the status command"""
     try:
         engine = get_engine()
         config = load_config()
-        
+
         print("🩺 TTS System Status")
         print("==================")
-        
-        print(f"\n📋 Available Providers:")
+
+        print("\n📋 Available Providers:")
         available = engine.get_available_providers()
         for provider in available:
             try:
                 test_result = engine.test_provider(provider)
                 status = "✅" if test_result.get('available', False) else "❌"
                 print(f"  {status} {provider}")
-            except:
+            except Exception:
                 print(f"  ❓ {provider} (status unknown)")
-        
-        print(f"\n⚙️  Configuration:")
+
+        print("\n⚙️  Configuration:")
         print(f"  Default voice: {config.get('voice', 'Not set')}")
         print(f"  Config file: {config.get('config_path', 'Default location')}")
-        
+
         return 0
     except Exception as e:
         print(f"Error in status command: {e}")
         return 1
 
 
-def on_config(action, key, value):
+def on_config(action: Optional[str], key: Optional[str], value: Optional[str]) -> int:
     """Handle the config command"""
     try:
         config = load_config()
-        
+
         if action == "show" or not action:
             print("🔧 TTS Configuration")
             print("===================")
@@ -817,7 +833,7 @@ def on_config(action, key, value):
             print(f"Set {key} = {value}")
         else:
             print("Usage: config [show|get|set] [key] [value]")
-            
+
         return 0
     except Exception as e:
         print(f"Error in config command: {e}")

@@ -15,7 +15,7 @@ class TTSProvider(ABC):
     """
 
     @abstractmethod
-    def synthesize(self, text: str, output_path: str, **kwargs: Any) -> None:
+    def synthesize(self, text: str, output_path: Optional[str], **kwargs: Any) -> None:
         """Synthesize speech from text and save to output path.
 
         This is the core method that all providers must implement. It should
