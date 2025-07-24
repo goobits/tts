@@ -145,17 +145,6 @@ class TestPhase1ProviderShortcuts:
         assert 'Available providers:' in result.output
 
 
-class TestPhase1OptionPrecedence:
-    """Tests for Phase 1 option precedence functionality"""
-
-    def test_option_precedence_warning_logic(self):
-        """Test that option precedence logic works correctly"""
-        # Skip test - check_option_precedence function not implemented
-        # This functionality may not be needed in current implementation
-        import pytest
-        pytest.skip("check_option_precedence not implemented")
-
-
 class TestPhase1CommandParity:
     """Tests for Phase 1 command parity (new syntax verification)"""
 
