@@ -9,7 +9,7 @@ external dependencies or mocks. They test core business logic for:
 """
 
 
-from tts_cli.config import (
+from tts.config import (
     CONFIG_DEFAULTS,
     _parse_env_value,
     get_config_value,

@@ -38,9 +38,9 @@ class TTSEngine:
         if name in self._loaded_providers:
             return self._loaded_providers[name]
 
-        # Use the existing load_provider function from the tts module
+        # Use the existing load_provider function from the cli module
         # We need to import it here to avoid circular imports
-        from .tts import load_provider as main_load_provider
+        from .cli import load_provider as main_load_provider
 
         try:
             provider_class = main_load_provider(name)

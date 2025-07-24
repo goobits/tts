@@ -10,7 +10,7 @@ without requiring external dependencies or mocks. They test:
 
 import pytest
 
-from tts_cli.exceptions import (
+from tts.exceptions import (
     AudioPlaybackError,
     AuthenticationError,
     DependencyError,

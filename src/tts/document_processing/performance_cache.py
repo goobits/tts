@@ -6,8 +6,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from tts_cli.document_processing.base_parser import SemanticElement
-from tts_cli.document_processing.parser_factory import DocumentParserFactory
+from tts.document_processing.base_parser import SemanticElement
+from tts.document_processing.parser_factory import DocumentParserFactory
 
 
 class DocumentCache:

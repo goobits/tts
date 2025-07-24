@@ -3,8 +3,8 @@
 import re
 from typing import Any, Dict, List
 
-from tts_cli.document_processing.base_parser import SemanticElement, SemanticType
-from tts_cli.speech_synthesis.emotion_detector import ContentEmotionDetector
+from tts.document_processing.base_parser import SemanticElement, SemanticType
+from tts.speech_synthesis.emotion_detector import ContentEmotionDetector
 
 
 class AdvancedEmotionDetector(ContentEmotionDetector):

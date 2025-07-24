@@ -22,7 +22,7 @@ echo "✅ Test run completed!"
 if python3 -c "import pytest_cov" 2>/dev/null; then
     echo ""
     echo "📈 Generating coverage report..."
-    python3 -m pytest tests/ --cov=tts_cli --cov-report=term-missing --cov-report=html:htmlcov
+    python3 -m pytest tests/ --cov=tts --cov-report=term-missing --cov-report=html:htmlcov
     echo ""
     echo "📋 Coverage report saved to htmlcov/index.html"
 else

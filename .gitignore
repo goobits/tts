@@ -22,8 +22,9 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Virtual environments
+# Virtual environments (keep locally, never commit)
 venv/
+test_env/
 env/
 ENV/
 .venv/
@@ -88,10 +89,13 @@ dmypy.json
 .cache/
 models/
 
-# TTS specific
-test.mp3
-test.wav
+# TTS specific output files
+output.wav
+output.mp3
 
 # Build and development artifacts that might get created
 goobits_tts.egg-info/
 *.egg-info/
+
+# Backup files
+*.bak

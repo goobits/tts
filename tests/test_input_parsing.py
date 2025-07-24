@@ -5,7 +5,7 @@ plain text inputs, extracting parameters and text content appropriately.
 Tests pure functions without requiring external dependencies.
 """
 
-from tts_cli.tts import parse_input
+from tts.cli import parse_input
 
 
 class TestParseInput:

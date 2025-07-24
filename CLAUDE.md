@@ -44,6 +44,11 @@ Additionally, TTS CLI now includes advanced document-to-speech capabilities:
 ```bash
 ./test.sh               # Main test runner with coverage
 python -m pytest tests/ -v    # Direct pytest execution
+
+# CLI-specific testing
+python -m pytest tests/test_cli.py -v           # Detailed CLI functionality tests
+python -m pytest tests/test_cli_smoke.py -v     # Comprehensive CLI smoke tests  
+python test_cli_quick.py                        # Quick CLI validation script
 ```
 
 **Code Quality:**
@@ -51,14 +56,14 @@ python -m pytest tests/ -v    # Direct pytest execution
 ruff check .                                              # Lint code 
 ruff check . --fix                                        # Auto-fix linting issues
 black .                                                   # Format code (line-length 100)
-mypy tts_cli/                                            # Type checking
+mypy src/tts/                                            # Type checking
 ```
 
 **Note:** If tools are installed via pipx, use the full path:
 ```bash
 ~/.local/share/pipx/venvs/goobits-tts/bin/ruff check .    # Lint code
 ~/.local/share/pipx/venvs/goobits-tts/bin/black .         # Format code  
-~/.local/share/pipx/venvs/goobits-tts/bin/mypy tts_cli/   # Type checking
+~/.local/share/pipx/venvs/goobits-tts/bin/mypy src/tts/   # Type checking
 ```
 
 **Building:**
@@ -71,13 +76,15 @@ make build              # Alternative build command
 
 ### Core Components
 
-1. **tts_cli/tts.py** - Main CLI entry point with Click commands
-2. **tts_cli/base.py** - Abstract `TTSProvider` base class
-3. **tts_cli/config.py** - Configuration management with XDG compliance
-4. **tts_cli/voice_manager.py** - Voice loading/caching for fast access
-5. **tts_cli/providers/** - Provider implementations
-6. **tts_cli/document_processing/** - Document parsing (HTML, JSON, Markdown)
-7. **tts_cli/speech_synthesis/** - Emotion detection and SSML generation
+1. **src/tts/cli.py** - Main CLI entry point with generated commands
+2. **src/tts/app_hooks.py** - Hook implementations connecting CLI to TTS functionality
+3. **src/tts/core.py** - Core TTS engine with provider management
+4. **src/tts/base.py** - Abstract `TTSProvider` base class
+5. **src/tts/config.py** - Configuration management with XDG compliance
+6. **src/tts/voice_manager.py** - Voice loading/caching for fast access
+7. **src/tts/providers/** - Provider implementations
+8. **src/tts/document_processing/** - Document parsing (HTML, JSON, Markdown)
+9. **src/tts/speech_synthesis/** - Emotion detection and SSML generation
 
 ### Provider Architecture
 
@@ -85,7 +92,7 @@ All providers inherit from `TTSProvider` and implement:
 - `synthesize(text, output_path, **kwargs)` - Core synthesis method
 - `get_info()` - Returns provider capabilities and sample voices
 
-Provider loading is dynamic via the `PROVIDERS` dict in `tts.py:21-27`.
+Provider loading is dynamic via the `PROVIDERS_REGISTRY` dict in `src/tts/app_hooks.py:16-22`.
 
 ### Configuration System
 
@@ -165,7 +172,7 @@ voice_manager.load_voice("/path/to/voice.wav")  # Pre-load for speed
 ```
 
 ### Interactive Voice Browser
-Advanced curses-based interface in `tts_cli/tts.py` with:
+Advanced curses-based interface in `src/tts/cli.py` with:
 - Three-panel layout (filters, voices, preview)
 - Mouse and keyboard navigation
 - Real-time voice preview with background audio playback
@@ -202,10 +209,12 @@ The `tts install` command handles complex dependency management, especially for 
 
 ## Important Files to Understand
 
-- `tts_cli/tts.py` - Main CLI entry point with provider registry
-- `tts_cli/config.py` - Configuration management with voice parsing logic  
-- `tts_cli/voice_browser.py` - Interactive voice browser implementation
-- `tts_cli/providers/` - Provider implementations (Edge TTS, Chatterbox, etc.)
+- `src/tts/cli.py` - Generated CLI entry point with dynamic command loading
+- `src/tts/app_hooks.py` - Hook implementations that provide actual TTS functionality
+- `src/tts/core.py` - Core TTS engine with provider management and synthesis logic
+- `src/tts/config.py` - Configuration management with voice parsing logic  
+- `src/tts/voice_browser.py` - Interactive voice browser implementation
+- `src/tts/providers/` - Provider implementations (Edge TTS, Chatterbox, etc.)
 - `setup.sh` - Installation script (use this for all installs)
 - `pyproject.toml` - Package configuration and dependencies
 

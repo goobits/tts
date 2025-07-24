@@ -287,7 +287,7 @@ python -m pytest tests/ -v  # Direct pytest execution
 ```bash
 black .                      # Format code (line-length 100)
 ruff check .                 # Lint code 
-mypy tts_cli/               # Type checking
+mypy src/tts/               # Type checking
 ```
 
 ### Building

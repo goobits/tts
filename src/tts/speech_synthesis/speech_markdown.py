@@ -2,7 +2,7 @@
 
 from typing import List
 
-from tts_cli.document_processing.base_parser import SemanticElement, SemanticType
+from tts.document_processing.base_parser import SemanticElement, SemanticType
 
 
 class SpeechMarkdownConverter:

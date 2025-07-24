@@ -5,7 +5,7 @@ region, and gender information from voice names across different
 providers. Tests pure business logic without external dependencies.
 """
 
-from tts_cli.voice_browser import analyze_voice
+from tts.voice_browser import analyze_voice
 
 
 class TestVoiceQualityAnalysis:

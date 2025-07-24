@@ -13,7 +13,7 @@ test: ## Run all tests
 
 test-cov: ## Run tests with coverage report
 	@echo "📊 Running tests with coverage..."
-	python3 -m pytest tests/ --cov=tts_cli --cov-report=term-missing --cov-report=html:htmlcov
+	python3 -m pytest tests/ --cov=tts --cov-report=term-missing --cov-report=html:htmlcov
 
 test-fast: ## Run tests quickly (no coverage)
 	@echo "⚡ Running fast tests..."
@@ -21,15 +21,15 @@ test-fast: ## Run tests quickly (no coverage)
 
 lint: ## Run linting with ruff
 	@echo "🔍 Running linter..."
-	ruff check tts_cli/ tests/
+	ruff check src/tts/ tests/
 
 format: ## Format code with black
 	@echo "🎨 Formatting code..."
-	black tts_cli/ tests/ --line-length 100
+	black src/tts/ tests/ --line-length 100
 
 type-check: ## Run type checking with mypy
 	@echo "🔎 Running type checker..."
-	mypy tts_cli/
+	mypy src/tts/
 
 quality: format lint type-check ## Run all code quality checks
 	@echo "✨ All quality checks completed!"

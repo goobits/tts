@@ -3,8 +3,8 @@
 import re
 from typing import Any, Dict, List
 
-from tts_cli.document_processing.base_parser import SemanticElement
-from tts_cli.document_processing.parser_factory import DocumentParserFactory
+from tts.document_processing.base_parser import SemanticElement
+from tts.document_processing.parser_factory import DocumentParserFactory
 
 # TextFormatter removed - not needed for document processing
 
@@ -183,7 +183,7 @@ class MixedContentProcessor:
             return ""
 
         # Import speech synthesis components
-        from tts_cli.speech_synthesis.speech_markdown import SpeechMarkdownConverter
+        from tts.speech_synthesis.speech_markdown import SpeechMarkdownConverter
 
         # Convert to speech markdown
         converter = SpeechMarkdownConverter()

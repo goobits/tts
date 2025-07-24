@@ -27,15 +27,15 @@ all = [ "openai>=1.0.0", "google-cloud-texttospeech>=2.0.0", "elevenlabs>=1.0.0"
 dev = [ "pytest>=7.0", "pytest-asyncio", "pytest-cov", "black", "ruff", "mypy", "build", "twine",]
 
 [project.scripts]
-goobits-tts = "tts_cli.tts:cli_entry"
-tts = "tts.generated_cli:cli_entry"
+goobits-tts = "tts.cli:cli_entry"
+tts = "tts.cli:cli_entry"
 
 [project.urls]
 Homepage = "https://github.com/mudcube/tts-cli"
 "Bug Tracker" = "https://github.com/mudcube/tts-cli/issues"
 
 [tool.setuptools]
-packages = [ "tts_cli", "tts_cli.providers",]
+packages = [ "tts", "tts.providers", "tts.document_processing", "tts.speech_synthesis",]
 
 [tool.black]
 line-length = 128
@@ -52,7 +52,7 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 
 [tool.setuptools.package-dir]
-"" = "."
+"" = "src"
 
 [tool.ruff.lint]
 select = [ "E", "W", "F", "I", "B",]

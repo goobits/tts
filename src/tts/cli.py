@@ -69,6 +69,62 @@ except (ImportError, FileNotFoundError):
     # No hooks module found, use default behavior
     pass
 
+def load_provider(provider_name: str):
+    """Load a TTS provider by name.
+    
+    Args:
+        provider_name: Name of the provider (e.g., 'edge_tts', 'openai_tts')
+        
+    Returns:
+        Provider class
+    """
+    import importlib
+    from typing import Type
+    from .base import TTSProvider
+    
+    # Provider module mapping
+    provider_modules = {
+        'edge_tts': 'tts.providers.edge_tts',
+        'openai_tts': 'tts.providers.openai_tts',
+        'elevenlabs': 'tts.providers.elevenlabs', 
+        'google_tts': 'tts.providers.google_tts',
+        'chatterbox': 'tts.providers.chatterbox',
+    }
+    
+    if provider_name not in provider_modules:
+        raise ImportError(f"Unknown provider: {provider_name}")
+    
+    module_path = provider_modules[provider_name]
+    
+    try:
+        # Import the provider module
+        module = importlib.import_module(module_path)
+        
+        # Get the provider class (assuming it follows naming convention)
+        provider_class_name = provider_name.replace('_', '').title() + 'Provider'
+        if provider_name == 'edge_tts':
+            provider_class_name = 'EdgeTTSProvider'
+        elif provider_name == 'openai_tts':
+            provider_class_name = 'OpenAITTSProvider'
+        elif provider_name == 'elevenlabs':
+            provider_class_name = 'ElevenLabsProvider'
+        elif provider_name == 'google_tts':
+            provider_class_name = 'GoogleTTSProvider'
+        elif provider_name == 'chatterbox':
+            provider_class_name = 'ChatterboxProvider'
+            
+        provider_class = getattr(module, provider_class_name)
+        
+        # Verify it's a TTSProvider subclass
+        if not issubclass(provider_class, TTSProvider):
+            raise ImportError(f"Provider class {provider_class_name} is not a TTSProvider subclass")
+            
+        return provider_class
+        
+    except (ImportError, AttributeError) as e:
+        raise ImportError(f"Failed to load provider {provider_name}: {e}") from e
+
+
 def load_plugins(cli_group):
     """Load plugins from the conventional plugin directory."""
     # Define plugin directories to search
@@ -219,8 +275,16 @@ def show_help_json(ctx, param, value):
         {
           "name": "text",
           "desc": "Text to speak",
+          "nargs": null,
+          "choices": null,
+          "required": false
+        },
+        {
+          "name": "options",
+          "desc": "Additional options",
           "nargs": "*",
-          "choices": null
+          "choices": null,
+          "required": true
         }
       ],
       "options": [
@@ -228,70 +292,32 @@ def show_help_json(ctx, param, value):
           "name": "voice",
           "short": "v",
           "type": "str",
-          "desc": "Voice ID or name",
+          "desc": "🎤 Voice to use (e.g., en-GB-SoniaNeural for edge_tts)",
           "default": null,
           "choices": null
         },
         {
-          "name": "provider",
-          "short": "p",
+          "name": "rate",
+          "short": null,
           "type": "str",
-          "desc": "TTS provider to use",
+          "desc": "⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)",
           "default": null,
-          "choices": null
-        },
-        {
-          "name": "model",
-          "short": "m",
-          "type": "str",
-          "desc": "Model to use (provider-specific)",
-          "default": null,
-          "choices": null
-        },
-        {
-          "name": "speed",
-          "short": "s",
-          "type": "float",
-          "desc": "Speech speed (0.5-2.0)",
-          "default": 1.0,
           "choices": null
         },
         {
           "name": "pitch",
           "short": null,
-          "type": "float",
-          "desc": "Voice pitch adjustment",
-          "default": null,
-          "choices": null
-        },
-        {
-          "name": "language",
-          "short": "l",
           "type": "str",
-          "desc": "Language code (e.g., en-US)",
+          "desc": "🎵 Pitch adjustment (e.g., +5Hz, -10Hz)",
           "default": null,
           "choices": null
         },
         {
-          "name": "emotion",
+          "name": "debug",
           "short": null,
-          "type": "str",
-          "desc": "Emotional tone",
+          "type": "flag",
+          "desc": "🔍 Show debug information during processing",
           "default": null,
-          "choices": [
-            "neutral",
-            "happy",
-            "sad",
-            "angry",
-            "excited"
-          ]
-        },
-        {
-          "name": "wait",
-          "short": "w",
-          "type": "bool",
-          "desc": "Wait for speech to complete",
-          "default": true,
           "choices": null
         }
       ],
@@ -305,8 +331,16 @@ def show_help_json(ctx, param, value):
         {
           "name": "text",
           "desc": "Text to save as audio",
+          "nargs": null,
+          "choices": null,
+          "required": false
+        },
+        {
+          "name": "options",
+          "desc": "Additional options",
           "nargs": "*",
-          "choices": null
+          "choices": null,
+          "required": true
         }
       ],
       "options": [
@@ -314,31 +348,7 @@ def show_help_json(ctx, param, value):
           "name": "output",
           "short": "o",
           "type": "str",
-          "desc": "Output file path",
-          "default": "output.mp3",
-          "choices": null
-        },
-        {
-          "name": "voice",
-          "short": "v",
-          "type": "str",
-          "desc": "Voice ID or name",
-          "default": null,
-          "choices": null
-        },
-        {
-          "name": "provider",
-          "short": "p",
-          "type": "str",
-          "desc": "TTS provider to use",
-          "default": null,
-          "choices": null
-        },
-        {
-          "name": "model",
-          "short": "m",
-          "type": "str",
-          "desc": "Model to use (provider-specific)",
+          "desc": "💾 Output file path",
           "default": null,
           "choices": null
         },
@@ -346,8 +356,8 @@ def show_help_json(ctx, param, value):
           "name": "format",
           "short": "f",
           "type": "str",
-          "desc": "Audio format",
-          "default": "mp3",
+          "desc": "🔧 Audio output format",
+          "default": null,
           "choices": [
             "mp3",
             "wav",
@@ -356,24 +366,51 @@ def show_help_json(ctx, param, value):
           ]
         },
         {
-          "name": "quality",
-          "short": "q",
+          "name": "voice",
+          "short": "v",
           "type": "str",
-          "desc": "Audio quality",
-          "default": "high",
-          "choices": [
-            "low",
-            "medium",
-            "high",
-            "ultra"
-          ]
+          "desc": "🎤 Voice to use (e.g., en-GB-SoniaNeural for edge_tts)",
+          "default": null,
+          "choices": null
         },
         {
-          "name": "speed",
-          "short": "s",
-          "type": "float",
-          "desc": "Speech speed (0.5-2.0)",
-          "default": 1.0,
+          "name": "clone",
+          "short": null,
+          "type": "str",
+          "desc": "🎭 Audio file to clone voice from (deprecated: use --voice instead)",
+          "default": null,
+          "choices": null
+        },
+        {
+          "name": "json",
+          "short": null,
+          "type": "flag",
+          "desc": "🔧 Output results as JSON",
+          "default": null,
+          "choices": null
+        },
+        {
+          "name": "debug",
+          "short": null,
+          "type": "flag",
+          "desc": "🔍 Show debug information during processing",
+          "default": null,
+          "choices": null
+        },
+        {
+          "name": "rate",
+          "short": null,
+          "type": "str",
+          "desc": "⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)",
+          "default": null,
+          "choices": null
+        },
+        {
+          "name": "pitch",
+          "short": null,
+          "type": "str",
+          "desc": "🎵 Pitch adjustment (e.g., +5Hz, -10Hz)",
+          "default": null,
           "choices": null
         }
       ],
@@ -381,313 +418,312 @@ def show_help_json(ctx, param, value):
     },
     "voices": {
       "desc": "Browse and test voices interactively",
-      "icon": "🎭",
+      "icon": "🔍",
       "is_default": false,
-      "args": [],
-      "options": [
+      "args": [
         {
-          "name": "provider",
-          "short": "p",
-          "type": "str",
-          "desc": "Filter by provider",
-          "default": null,
-          "choices": null
-        },
-        {
-          "name": "language",
-          "short": "l",
-          "type": "str",
-          "desc": "Filter by language",
-          "default": null,
-          "choices": null
-        },
-        {
-          "name": "gender",
-          "short": "g",
-          "type": "str",
-          "desc": "Filter by gender",
-          "default": null,
-          "choices": [
-            "male",
-            "female",
-            "neutral"
-          ]
-        },
-        {
-          "name": "search",
-          "short": "s",
-          "type": "str",
-          "desc": "Search voices by name",
-          "default": null,
-          "choices": null
-        },
-        {
-          "name": "json",
-          "short": null,
-          "type": "flag",
-          "desc": "Output as JSON",
-          "default": null,
-          "choices": null
+          "name": "args",
+          "desc": "Additional arguments",
+          "nargs": "*",
+          "choices": null,
+          "required": false
         }
       ],
+      "options": [],
       "subcommands": null
     },
     "providers": {
-      "desc": "List available TTS providers",
-      "icon": "🏢",
+      "desc": "Available TTS providers and status",
+      "icon": "📋",
       "is_default": false,
-      "args": [],
-      "options": [
+      "args": [
         {
-          "name": "show-status",
-          "short": null,
-          "type": "bool",
-          "desc": "Show provider status",
-          "default": true,
-          "choices": null
-        },
-        {
-          "name": "json",
-          "short": null,
-          "type": "flag",
-          "desc": "Output as JSON",
-          "default": null,
-          "choices": null
+          "name": "provider_name",
+          "desc": "Provider name for setup instructions (optional)",
+          "nargs": null,
+          "choices": null,
+          "required": false
         }
       ],
+      "options": [],
       "subcommands": null
     },
-    "models": {
-      "desc": "List available models",
-      "icon": "🤖",
+    "install": {
+      "desc": "Install provider dependencies",
+      "icon": "📦",
+      "is_default": false,
+      "args": [
+        {
+          "name": "args",
+          "desc": "Provider and options (e.g., 'chatterbox gpu')",
+          "nargs": "*",
+          "choices": null,
+          "required": false
+        }
+      ],
+      "options": [],
+      "subcommands": null
+    },
+    "info": {
+      "desc": "Provider information and capabilities",
+      "icon": "👀",
       "is_default": false,
       "args": [
         {
           "name": "provider",
           "desc": "Provider name (optional)",
-          "nargs": "?",
-          "choices": null
+          "nargs": null,
+          "choices": null,
+          "required": false
+        }
+      ],
+      "options": [],
+      "subcommands": null
+    },
+    "document": {
+      "desc": "Convert documents to speech",
+      "icon": "📖",
+      "is_default": false,
+      "args": [
+        {
+          "name": "document_path",
+          "desc": "Path to document file",
+          "nargs": null,
+          "choices": null,
+          "required": true
+        },
+        {
+          "name": "options",
+          "desc": "Additional options",
+          "nargs": "*",
+          "choices": null,
+          "required": true
         }
       ],
       "options": [
         {
-          "name": "verbose",
-          "short": "v",
-          "type": "bool",
-          "desc": "Show detailed information",
-          "default": false,
-          "choices": null
-        },
-        {
-          "name": "json",
+          "name": "save",
           "short": null,
           "type": "flag",
-          "desc": "Output as JSON",
-          "default": null,
-          "choices": null
-        }
-      ],
-      "subcommands": null
-    },
-    "clone": {
-      "desc": "Clone a voice from audio",
-      "icon": "🎤",
-      "is_default": false,
-      "args": [
-        {
-          "name": "audio_file",
-          "desc": "Path to audio file for cloning",
-          "nargs": null,
-          "choices": null
-        }
-      ],
-      "options": [
-        {
-          "name": "name",
-          "short": "n",
-          "type": "str",
-          "desc": "Name for cloned voice",
+          "desc": "💾 Save processed audio to file",
           "default": null,
           "choices": null
         },
         {
-          "name": "provider",
-          "short": "p",
+          "name": "output",
+          "short": "o",
           "type": "str",
-          "desc": "Provider to use for cloning",
+          "desc": "📁 Output file path",
           "default": null,
           "choices": null
         },
         {
-          "name": "description",
-          "short": "d",
+          "name": "format",
+          "short": "f",
           "type": "str",
-          "desc": "Voice description",
+          "desc": "🔧 Audio output format",
           "default": null,
-          "choices": null
-        }
-      ],
-      "subcommands": null
-    },
-    "stream": {
-      "desc": "Stream audio in real-time",
-      "icon": "📡",
-      "is_default": false,
-      "args": [
-        {
-          "name": "text",
-          "desc": "Text to stream",
-          "nargs": "*",
-          "choices": null
-        }
-      ],
-      "options": [
+          "choices": [
+            "mp3",
+            "wav",
+            "ogg",
+            "flac"
+          ]
+        },
         {
           "name": "voice",
           "short": "v",
           "type": "str",
-          "desc": "Voice ID or name",
+          "desc": "🎤 Voice to use",
           "default": null,
           "choices": null
         },
         {
-          "name": "provider",
-          "short": "p",
-          "type": "str",
-          "desc": "TTS provider to use",
-          "default": null,
-          "choices": null
-        },
-        {
-          "name": "chunk-size",
+          "name": "clone",
           "short": null,
-          "type": "int",
-          "desc": "Streaming chunk size",
-          "default": 1024,
-          "choices": null
-        },
-        {
-          "name": "websocket",
-          "short": null,
-          "type": "bool",
-          "desc": "Use WebSocket streaming",
-          "default": false,
-          "choices": null
-        }
-      ],
-      "subcommands": null
-    },
-    "status": {
-      "desc": "Check system and provider status",
-      "icon": "✅",
-      "is_default": false,
-      "args": [],
-      "options": [
-        {
-          "name": "provider",
-          "short": "p",
           "type": "str",
-          "desc": "Check specific provider",
+          "desc": "🎭 Audio file to clone voice from (deprecated: use --voice instead)",
           "default": null,
-          "choices": null
-        },
-        {
-          "name": "verbose",
-          "short": "v",
-          "type": "bool",
-          "desc": "Show detailed status",
-          "default": false,
           "choices": null
         },
         {
           "name": "json",
           "short": null,
           "type": "flag",
-          "desc": "Output as JSON",
+          "desc": "🔧 Output results as JSON",
+          "default": null,
+          "choices": null
+        },
+        {
+          "name": "debug",
+          "short": null,
+          "type": "flag",
+          "desc": "🔍 Show debug information during processing",
+          "default": null,
+          "choices": null
+        },
+        {
+          "name": "doc-format",
+          "short": null,
+          "type": "str",
+          "desc": "📄 Document format",
+          "default": "auto",
+          "choices": [
+            "auto",
+            "markdown",
+            "html",
+            "json"
+          ]
+        },
+        {
+          "name": "ssml-platform",
+          "short": null,
+          "type": "str",
+          "desc": "🏧️ SSML platform",
+          "default": "generic",
+          "choices": [
+            "azure",
+            "google",
+            "amazon",
+            "generic"
+          ]
+        },
+        {
+          "name": "emotion-profile",
+          "short": null,
+          "type": "str",
+          "desc": "🎭 Emotion profile",
+          "default": "auto",
+          "choices": [
+            "technical",
+            "marketing",
+            "narrative",
+            "tutorial",
+            "auto"
+          ]
+        },
+        {
+          "name": "rate",
+          "short": null,
+          "type": "str",
+          "desc": "⚡ Speech rate adjustment",
+          "default": null,
+          "choices": null
+        },
+        {
+          "name": "pitch",
+          "short": null,
+          "type": "str",
+          "desc": "🎵 Pitch adjustment",
           "default": null,
           "choices": null
         }
       ],
       "subcommands": null
     },
-    "config": {
-      "desc": "Manage configuration",
-      "icon": "⚙️",
+    "voice": {
+      "desc": "Voice loading and caching",
+      "icon": "🎤",
       "is_default": false,
       "args": [],
       "options": [],
       "subcommands": {
-        "get": {
-          "desc": "Get a configuration value",
+        "load": {
+          "desc": "Load voice files into memory for fast access",
           "icon": null,
           "is_default": false,
           "args": [
             {
-              "name": "key",
-              "desc": "Configuration key",
-              "nargs": null,
-              "choices": null
+              "name": "voice_files",
+              "desc": "Voice files to load",
+              "nargs": "*",
+              "choices": null,
+              "required": true
             }
           ],
           "options": [],
           "subcommands": null
         },
-        "set": {
-          "desc": "Set a configuration value",
+        "unload": {
+          "desc": "Unload voice files from memory",
           "icon": null,
           "is_default": false,
           "args": [
             {
-              "name": "key",
-              "desc": "Configuration key",
-              "nargs": null,
-              "choices": null
-            },
+              "name": "voice_files",
+              "desc": "Voice files to unload",
+              "nargs": "*",
+              "choices": null,
+              "required": false
+            }
+          ],
+          "options": [
             {
-              "name": "value",
-              "desc": "Configuration value",
-              "nargs": null,
+              "name": "all",
+              "short": null,
+              "type": "flag",
+              "desc": "🧹 Unload all voices",
+              "default": null,
               "choices": null
             }
           ],
+          "subcommands": null
+        },
+        "status": {
+          "desc": "Show loaded voices and system status",
+          "icon": null,
+          "is_default": false,
+          "args": [],
           "options": [],
-          "subcommands": null
-        },
-        "list": {
-          "desc": "List all configuration",
-          "icon": null,
-          "is_default": false,
-          "args": [],
-          "options": [
-            {
-              "name": "show-secrets",
-              "short": null,
-              "type": "bool",
-              "desc": "Include API keys",
-              "default": false,
-              "choices": null
-            }
-          ],
-          "subcommands": null
-        },
-        "reset": {
-          "desc": "Reset configuration to defaults",
-          "icon": null,
-          "is_default": false,
-          "args": [],
-          "options": [
-            {
-              "name": "confirm",
-              "short": null,
-              "type": "bool",
-              "desc": "Skip confirmation prompt",
-              "default": false,
-              "choices": null
-            }
-          ],
           "subcommands": null
         }
       }
+    },
+    "status": {
+      "desc": "Check system and provider status",
+      "icon": "🩺",
+      "is_default": false,
+      "args": [],
+      "options": [],
+      "subcommands": null
+    },
+    "config": {
+      "desc": "Manage configuration",
+      "icon": "🔧",
+      "is_default": false,
+      "args": [
+        {
+          "name": "action",
+          "desc": "Configuration action",
+          "nargs": null,
+          "choices": [
+            "show",
+            "voice",
+            "provider",
+            "format",
+            "get",
+            "edit",
+            "set"
+          ],
+          "required": false
+        },
+        {
+          "name": "key",
+          "desc": "Configuration key",
+          "nargs": null,
+          "choices": null,
+          "required": false
+        },
+        {
+          "name": "value",
+          "desc": "Configuration value",
+          "nargs": null,
+          "choices": null,
+          "required": false
+        }
+      ],
+      "options": [],
+      "subcommands": null
     }
   },
   "command_groups": [
@@ -704,7 +740,8 @@ def show_help_json(ctx, param, value):
       "name": "Provider Management",
       "commands": [
         "providers",
-        "models"
+        "info",
+        "install"
       ],
       "icon": null
     },
@@ -719,8 +756,8 @@ def show_help_json(ctx, param, value):
     {
       "name": "Advanced Features",
       "commands": [
-        "clone",
-        "stream"
+        "voice",
+        "document"
       ],
       "icon": null
     }
@@ -743,6 +780,8 @@ def show_help_json(ctx, param, value):
 
   
     
+  
+
   
 
   
@@ -862,7 +901,7 @@ click.rich_click.COMMAND_GROUPS = {
         
         {
             "name": "Provider Management",
-            "commands": ['providers', 'models'],
+            "commands": ['providers', 'info', 'install'],
         },
         
         {
@@ -872,7 +911,7 @@ click.rich_click.COMMAND_GROUPS = {
         
         {
             "name": "Advanced Features",
-            "commands": ['clone', 'stream'],
+            "commands": ['voice', 'document'],
         },
         
     ]
@@ -885,53 +924,36 @@ click.rich_click.COMMAND_GROUPS = {
 
 @click.argument(
     "TEXT",
+    required=False
+)
+
+@click.argument(
+    "OPTIONS",
     nargs=-1
 )
 
 
 @click.option("-v", "--voice",
     type=str,
-    help="Voice ID or name"
+    help="🎤 Voice to use (e.g., en-GB-SoniaNeural for edge_tts)"
 )
 
-@click.option("-p", "--provider",
+@click.option("--rate",
     type=str,
-    help="TTS provider to use"
-)
-
-@click.option("-m", "--model",
-    type=str,
-    help="Model to use (provider-specific)"
-)
-
-@click.option("-s", "--speed",
-    type=float,
-    default=1.0,
-    help="Speech speed (0.5-2.0)"
+    help="⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)"
 )
 
 @click.option("--pitch",
-    type=float,
-    help="Voice pitch adjustment"
-)
-
-@click.option("-l", "--language",
     type=str,
-    help="Language code (e.g., en-US)"
+    help="🎵 Pitch adjustment (e.g., +5Hz, -10Hz)"
 )
 
-@click.option("--emotion",
-    type=click.Choice(['neutral', 'happy', 'sad', 'angry', 'excited']),
-    help="Emotional tone"
+@click.option("--debug",
+    is_flag=True,
+    help="🔍 Show debug information during processing"
 )
 
-@click.option("-w", "--wait",
-    type=bool,
-    default=True,
-    help="Wait for speech to complete"
-)
-
-def speak(text, voice, provider, model, speed, pitch, language, emotion, wait):
+def speak(text, options, voice, rate, pitch, debug):
     """🗣️  Speak text aloud"""
     # Check if hook function exists
     hook_name = f"on_speak"
@@ -939,7 +961,7 @@ def speak(text, voice, provider, model, speed, pitch, language, emotion, wait):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
         
-        result = hook_func(text, voice, provider, model, speed, pitch, language, emotion, wait)
+        result = hook_func(text, options, voice, rate, pitch, debug)
         
         return result
     else:
@@ -949,24 +971,18 @@ def speak(text, voice, provider, model, speed, pitch, language, emotion, wait):
         
         click.echo(f"  text: {text}")
         
+        click.echo(f"  options: {options}")
+        
         
         
         
         click.echo(f"  voice: {voice}")
         
-        click.echo(f"  provider: {provider}")
-        
-        click.echo(f"  model: {model}")
-        
-        click.echo(f"  speed: {speed}")
+        click.echo(f"  rate: {rate}")
         
         click.echo(f"  pitch: {pitch}")
         
-        click.echo(f"  language: {language}")
-        
-        click.echo(f"  emotion: {emotion}")
-        
-        click.echo(f"  wait: {wait}")
+        click.echo(f"  debug: {debug}")
         
         
 
@@ -977,50 +993,56 @@ def speak(text, voice, provider, model, speed, pitch, language, emotion, wait):
 
 @click.argument(
     "TEXT",
+    required=False
+)
+
+@click.argument(
+    "OPTIONS",
     nargs=-1
 )
 
 
 @click.option("-o", "--output",
     type=str,
-    default="output.mp3",
-    help="Output file path"
-)
-
-@click.option("-v", "--voice",
-    type=str,
-    help="Voice ID or name"
-)
-
-@click.option("-p", "--provider",
-    type=str,
-    help="TTS provider to use"
-)
-
-@click.option("-m", "--model",
-    type=str,
-    help="Model to use (provider-specific)"
+    help="💾 Output file path"
 )
 
 @click.option("-f", "--format",
     type=click.Choice(['mp3', 'wav', 'ogg', 'flac']),
-    default="mp3",
-    help="Audio format"
+    help="🔧 Audio output format"
 )
 
-@click.option("-q", "--quality",
-    type=click.Choice(['low', 'medium', 'high', 'ultra']),
-    default="high",
-    help="Audio quality"
+@click.option("-v", "--voice",
+    type=str,
+    help="🎤 Voice to use (e.g., en-GB-SoniaNeural for edge_tts)"
 )
 
-@click.option("-s", "--speed",
-    type=float,
-    default=1.0,
-    help="Speech speed (0.5-2.0)"
+@click.option("--clone",
+    type=str,
+    help="🎭 Audio file to clone voice from (deprecated: use --voice instead)"
 )
 
-def save(text, output, voice, provider, model, format, quality, speed):
+@click.option("--json",
+    is_flag=True,
+    help="🔧 Output results as JSON"
+)
+
+@click.option("--debug",
+    is_flag=True,
+    help="🔍 Show debug information during processing"
+)
+
+@click.option("--rate",
+    type=str,
+    help="⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)"
+)
+
+@click.option("--pitch",
+    type=str,
+    help="🎵 Pitch adjustment (e.g., +5Hz, -10Hz)"
+)
+
+def save(text, options, output, format, voice, clone, json, debug, rate, pitch):
     """💾 Save text as an audio file"""
     # Check if hook function exists
     hook_name = f"on_save"
@@ -1028,7 +1050,7 @@ def save(text, output, voice, provider, model, format, quality, speed):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
         
-        result = hook_func(text, output, voice, provider, model, format, quality, speed)
+        result = hook_func(text, options, output, format, voice, clone, json, debug, rate, pitch)
         
         return result
     else:
@@ -1038,22 +1060,26 @@ def save(text, output, voice, provider, model, format, quality, speed):
         
         click.echo(f"  text: {text}")
         
+        click.echo(f"  options: {options}")
+        
         
         
         
         click.echo(f"  output: {output}")
         
-        click.echo(f"  voice: {voice}")
-        
-        click.echo(f"  provider: {provider}")
-        
-        click.echo(f"  model: {model}")
-        
         click.echo(f"  format: {format}")
         
-        click.echo(f"  quality: {quality}")
+        click.echo(f"  voice: {voice}")
         
-        click.echo(f"  speed: {speed}")
+        click.echo(f"  clone: {clone}")
+        
+        click.echo(f"  json: {json}")
+        
+        click.echo(f"  debug: {debug}")
+        
+        click.echo(f"  rate: {rate}")
+        
+        click.echo(f"  pitch: {pitch}")
         
         
 
@@ -1062,41 +1088,22 @@ def save(text, output, voice, provider, model, format, quality, speed):
 
 @main.command()
 
-
-@click.option("-p", "--provider",
-    type=str,
-    help="Filter by provider"
+@click.argument(
+    "ARGS",
+    nargs=-1,
+    required=False
 )
 
-@click.option("-l", "--language",
-    type=str,
-    help="Filter by language"
-)
 
-@click.option("-g", "--gender",
-    type=click.Choice(['male', 'female', 'neutral']),
-    help="Filter by gender"
-)
-
-@click.option("-s", "--search",
-    type=str,
-    help="Search voices by name"
-)
-
-@click.option("--json",
-    is_flag=True,
-    help="Output as JSON"
-)
-
-def voices(provider, language, gender, search, json):
-    """🎭 Browse and test voices interactively"""
+def voices(args):
+    """🔍 Browse and test voices interactively"""
     # Check if hook function exists
     hook_name = f"on_voices"
     if app_hooks and hasattr(app_hooks, hook_name):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
         
-        result = hook_func(provider, language, gender, search, json)
+        result = hook_func(args)
         
         return result
     else:
@@ -1104,16 +1111,8 @@ def voices(provider, language, gender, search, json):
         click.echo(f"Executing voices command...")
         
         
+        click.echo(f"  args: {args}")
         
-        click.echo(f"  provider: {provider}")
-        
-        click.echo(f"  language: {language}")
-        
-        click.echo(f"  gender: {gender}")
-        
-        click.echo(f"  search: {search}")
-        
-        click.echo(f"  json: {json}")
         
         
 
@@ -1122,27 +1121,21 @@ def voices(provider, language, gender, search, json):
 
 @main.command()
 
-
-@click.option("--show-status",
-    type=bool,
-    default=True,
-    help="Show provider status"
+@click.argument(
+    "PROVIDER_NAME",
+    required=False
 )
 
-@click.option("--json",
-    is_flag=True,
-    help="Output as JSON"
-)
 
-def providers(show_status, json):
-    """🏢 List available TTS providers"""
+def providers(provider_name):
+    """📋 Available TTS providers and status"""
     # Check if hook function exists
     hook_name = f"on_providers"
     if app_hooks and hasattr(app_hooks, hook_name):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
         
-        result = hook_func(show_status, json)
+        result = hook_func(provider_name)
         
         return result
     else:
@@ -1150,10 +1143,41 @@ def providers(show_status, json):
         click.echo(f"Executing providers command...")
         
         
+        click.echo(f"  provider_name: {provider_name}")
         
-        click.echo(f"  show-status: {show_status}")
         
-        click.echo(f"  json: {json}")
+        
+
+
+
+
+@main.command()
+
+@click.argument(
+    "ARGS",
+    nargs=-1,
+    required=False
+)
+
+
+def install(args):
+    """📦 Install provider dependencies"""
+    # Check if hook function exists
+    hook_name = f"on_install"
+    if app_hooks and hasattr(app_hooks, hook_name):
+        # Call the hook with all parameters
+        hook_func = getattr(app_hooks, hook_name)
+        
+        result = hook_func(args)
+        
+        return result
+    else:
+        # Default placeholder behavior
+        click.echo(f"Executing install command...")
+        
+        
+        click.echo(f"  args: {args}")
+        
         
         
 
@@ -1164,46 +1188,28 @@ def providers(show_status, json):
 
 @click.argument(
     "PROVIDER",
-    nargs=1,
     required=False
 )
 
 
-@click.option("-v", "--verbose",
-    type=bool,
-    default=False,
-    help="Show detailed information"
-)
-
-@click.option("--json",
-    is_flag=True,
-    help="Output as JSON"
-)
-
-def models(provider, verbose, json):
-    """🤖 List available models"""
+def info(provider):
+    """👀 Provider information and capabilities"""
     # Check if hook function exists
-    hook_name = f"on_models"
+    hook_name = f"on_info"
     if app_hooks and hasattr(app_hooks, hook_name):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
         
-        result = hook_func(provider, verbose, json)
+        result = hook_func(provider)
         
         return result
     else:
         # Default placeholder behavior
-        click.echo(f"Executing models command...")
+        click.echo(f"Executing info command...")
         
         
         click.echo(f"  provider: {provider}")
         
-        
-        
-        
-        click.echo(f"  verbose: {verbose}")
-        
-        click.echo(f"  json: {json}")
         
         
 
@@ -1213,162 +1219,124 @@ def models(provider, verbose, json):
 @main.command()
 
 @click.argument(
-    "AUDIO_FILE"
+    "DOCUMENT_PATH"
 )
-
-
-@click.option("-n", "--name",
-    type=str,
-    help="Name for cloned voice"
-)
-
-@click.option("-p", "--provider",
-    type=str,
-    help="Provider to use for cloning"
-)
-
-@click.option("-d", "--description",
-    type=str,
-    help="Voice description"
-)
-
-def clone(audio_file, name, provider, description):
-    """🎤 Clone a voice from audio"""
-    # Check if hook function exists
-    hook_name = f"on_clone"
-    if app_hooks and hasattr(app_hooks, hook_name):
-        # Call the hook with all parameters
-        hook_func = getattr(app_hooks, hook_name)
-        
-        result = hook_func(audio_file, name, provider, description)
-        
-        return result
-    else:
-        # Default placeholder behavior
-        click.echo(f"Executing clone command...")
-        
-        
-        click.echo(f"  audio_file: {audio_file}")
-        
-        
-        
-        
-        click.echo(f"  name: {name}")
-        
-        click.echo(f"  provider: {provider}")
-        
-        click.echo(f"  description: {description}")
-        
-        
-
-
-
-
-@main.command()
 
 @click.argument(
-    "TEXT",
+    "OPTIONS",
     nargs=-1
 )
 
 
+@click.option("--save",
+    is_flag=True,
+    help="💾 Save processed audio to file"
+)
+
+@click.option("-o", "--output",
+    type=str,
+    help="📁 Output file path"
+)
+
+@click.option("-f", "--format",
+    type=click.Choice(['mp3', 'wav', 'ogg', 'flac']),
+    help="🔧 Audio output format"
+)
+
 @click.option("-v", "--voice",
     type=str,
-    help="Voice ID or name"
+    help="🎤 Voice to use"
 )
 
-@click.option("-p", "--provider",
+@click.option("--clone",
     type=str,
-    help="TTS provider to use"
-)
-
-@click.option("--chunk-size",
-    type=int,
-    default=1024,
-    help="Streaming chunk size"
-)
-
-@click.option("--websocket",
-    type=bool,
-    default=False,
-    help="Use WebSocket streaming"
-)
-
-def stream(text, voice, provider, chunk_size, websocket):
-    """📡 Stream audio in real-time"""
-    # Check if hook function exists
-    hook_name = f"on_stream"
-    if app_hooks and hasattr(app_hooks, hook_name):
-        # Call the hook with all parameters
-        hook_func = getattr(app_hooks, hook_name)
-        
-        result = hook_func(text, voice, provider, chunk_size, websocket)
-        
-        return result
-    else:
-        # Default placeholder behavior
-        click.echo(f"Executing stream command...")
-        
-        
-        click.echo(f"  text: {text}")
-        
-        
-        
-        
-        click.echo(f"  voice: {voice}")
-        
-        click.echo(f"  provider: {provider}")
-        
-        click.echo(f"  chunk-size: {chunk_size}")
-        
-        click.echo(f"  websocket: {websocket}")
-        
-        
-
-
-
-
-@main.command()
-
-
-@click.option("-p", "--provider",
-    type=str,
-    help="Check specific provider"
-)
-
-@click.option("-v", "--verbose",
-    type=bool,
-    default=False,
-    help="Show detailed status"
+    help="🎭 Audio file to clone voice from (deprecated: use --voice instead)"
 )
 
 @click.option("--json",
     is_flag=True,
-    help="Output as JSON"
+    help="🔧 Output results as JSON"
 )
 
-def status(provider, verbose, json):
-    """✅ Check system and provider status"""
+@click.option("--debug",
+    is_flag=True,
+    help="🔍 Show debug information during processing"
+)
+
+@click.option("--doc-format",
+    type=click.Choice(['auto', 'markdown', 'html', 'json']),
+    default="auto",
+    help="📄 Document format"
+)
+
+@click.option("--ssml-platform",
+    type=click.Choice(['azure', 'google', 'amazon', 'generic']),
+    default="generic",
+    help="🏧️ SSML platform"
+)
+
+@click.option("--emotion-profile",
+    type=click.Choice(['technical', 'marketing', 'narrative', 'tutorial', 'auto']),
+    default="auto",
+    help="🎭 Emotion profile"
+)
+
+@click.option("--rate",
+    type=str,
+    help="⚡ Speech rate adjustment"
+)
+
+@click.option("--pitch",
+    type=str,
+    help="🎵 Pitch adjustment"
+)
+
+def document(document_path, options, save, output, format, voice, clone, json, debug, doc_format, ssml_platform, emotion_profile, rate, pitch):
+    """📖 Convert documents to speech"""
     # Check if hook function exists
-    hook_name = f"on_status"
+    hook_name = f"on_document"
     if app_hooks and hasattr(app_hooks, hook_name):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
         
-        result = hook_func(provider, verbose, json)
+        result = hook_func(document_path, options, save, output, format, voice, clone, json, debug, doc_format, ssml_platform, emotion_profile, rate, pitch)
         
         return result
     else:
         # Default placeholder behavior
-        click.echo(f"Executing status command...")
+        click.echo(f"Executing document command...")
+        
+        
+        click.echo(f"  document_path: {document_path}")
+        
+        click.echo(f"  options: {options}")
         
         
         
-        click.echo(f"  provider: {provider}")
         
-        click.echo(f"  verbose: {verbose}")
+        click.echo(f"  save: {save}")
+        
+        click.echo(f"  output: {output}")
+        
+        click.echo(f"  format: {format}")
+        
+        click.echo(f"  voice: {voice}")
+        
+        click.echo(f"  clone: {clone}")
         
         click.echo(f"  json: {json}")
+        
+        click.echo(f"  debug: {debug}")
+        
+        click.echo(f"  doc-format: {doc_format}")
+        
+        click.echo(f"  ssml-platform: {ssml_platform}")
+        
+        click.echo(f"  emotion-profile: {emotion_profile}")
+        
+        click.echo(f"  rate: {rate}")
+        
+        click.echo(f"  pitch: {pitch}")
         
         
 
@@ -1376,65 +1344,163 @@ def status(provider, verbose, json):
 
 
 @main.group()
-def config():
-    """⚙️  Manage configuration"""
+def voice():
+    """🎤 Voice loading and caching"""
     pass
 
 
-@config.command()
+@voice.command()
 
 @click.argument(
-    "KEY"
+    "VOICE_FILES",
+    nargs=-1,
+    required=True
 )
 
 
-def get(key):
-    """Get a configuration value"""
+def load(voice_files):
+    """Load voice files into memory for fast access"""
     # Check if hook function exists
-    hook_name = f"on_config_get"
+    hook_name = f"on_voice_load"
     if app_hooks and hasattr(app_hooks, hook_name):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
         
-        result = hook_func(key)
+        result = hook_func(voice_files)
         
         return result
     else:
         # Default placeholder behavior
-        click.echo(f"Executing get command...")
+        click.echo(f"Executing load command...")
         
         
-        click.echo(f"  key: {key}")
+        click.echo(f"  voice_files: {voice_files}")
         
         
         
 
-@config.command()
-
-@click.argument(
-    "KEY"
-)
+@voice.command()
 
 @click.argument(
-    "VALUE"
+    "VOICE_FILES",
+    nargs=-1,
+    required=False
 )
 
 
-def set(key, value):
-    """Set a configuration value"""
+@click.option("--all",
+    is_flag=True,
+    help="🧹 Unload all voices"
+)
+
+def unload(voice_files, all):
+    """Unload voice files from memory"""
     # Check if hook function exists
-    hook_name = f"on_config_set"
+    hook_name = f"on_voice_unload"
     if app_hooks and hasattr(app_hooks, hook_name):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
         
-        result = hook_func(key, value)
+        result = hook_func(voice_files, all)
         
         return result
     else:
         # Default placeholder behavior
-        click.echo(f"Executing set command...")
+        click.echo(f"Executing unload command...")
         
+        
+        click.echo(f"  voice_files: {voice_files}")
+        
+        
+        
+        
+        click.echo(f"  all: {all}")
+        
+        
+
+@voice.command()
+
+
+def status():
+    """Show loaded voices and system status"""
+    # Check if hook function exists
+    hook_name = f"on_voice_status"
+    if app_hooks and hasattr(app_hooks, hook_name):
+        # Call the hook with all parameters
+        hook_func = getattr(app_hooks, hook_name)
+        
+        result = hook_func()
+        
+        return result
+    else:
+        # Default placeholder behavior
+        click.echo(f"Executing status command...")
+        
+        
+
+
+
+
+
+@main.command()
+
+
+def status():
+    """🩺 Check system and provider status"""
+    # Check if hook function exists
+    hook_name = f"on_status"
+    if app_hooks and hasattr(app_hooks, hook_name):
+        # Call the hook with all parameters
+        hook_func = getattr(app_hooks, hook_name)
+        
+        result = hook_func()
+        
+        return result
+    else:
+        # Default placeholder behavior
+        click.echo(f"Executing status command...")
+        
+        
+
+
+
+
+@main.command()
+
+@click.argument(
+    "ACTION",
+    required=False,
+    type=click.Choice(['show', 'voice', 'provider', 'format', 'get', 'edit', 'set'])
+)
+
+@click.argument(
+    "KEY",
+    required=False
+)
+
+@click.argument(
+    "VALUE",
+    required=False
+)
+
+
+def config(action, key, value):
+    """🔧 Manage configuration"""
+    # Check if hook function exists
+    hook_name = f"on_config"
+    if app_hooks and hasattr(app_hooks, hook_name):
+        # Call the hook with all parameters
+        hook_func = getattr(app_hooks, hook_name)
+        
+        result = hook_func(action, key, value)
+        
+        return result
+    else:
+        # Default placeholder behavior
+        click.echo(f"Executing config command...")
+        
+        
+        click.echo(f"  action: {action}")
         
         click.echo(f"  key: {key}")
         
@@ -1442,67 +1508,6 @@ def set(key, value):
         
         
         
-
-@config.command()
-
-
-@click.option("--show-secrets",
-    type=bool,
-    default=False,
-    help="Include API keys"
-)
-
-def list(show_secrets):
-    """List all configuration"""
-    # Check if hook function exists
-    hook_name = f"on_config_list"
-    if app_hooks and hasattr(app_hooks, hook_name):
-        # Call the hook with all parameters
-        hook_func = getattr(app_hooks, hook_name)
-        
-        result = hook_func(show_secrets)
-        
-        return result
-    else:
-        # Default placeholder behavior
-        click.echo(f"Executing list command...")
-        
-        
-        
-        click.echo(f"  show-secrets: {show_secrets}")
-        
-        
-
-@config.command()
-
-
-@click.option("--confirm",
-    type=bool,
-    default=False,
-    help="Skip confirmation prompt"
-)
-
-def reset(confirm):
-    """Reset configuration to defaults"""
-    # Check if hook function exists
-    hook_name = f"on_config_reset"
-    if app_hooks and hasattr(app_hooks, hook_name):
-        # Call the hook with all parameters
-        hook_func = getattr(app_hooks, hook_name)
-        
-        result = hook_func(confirm)
-        
-        return result
-    else:
-        # Default placeholder behavior
-        click.echo(f"Executing reset command...")
-        
-        
-        
-        click.echo(f"  confirm: {confirm}")
-        
-        
-
 
 
 
