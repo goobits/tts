@@ -234,6 +234,9 @@ def on_save(
 
 def on_voices(args: tuple) -> int:
     """Handle the voices command"""
+    import sys
+    import os
+    
     try:
         from tts.voice_browser import VoiceBrowser
         engine = get_engine()
@@ -241,10 +244,34 @@ def on_voices(args: tuple) -> int:
         # Create and launch voice browser
         browser = VoiceBrowser(PROVIDERS_REGISTRY, engine.load_provider)
         import curses
+        
+        # Try to reset terminal state before launching curses
+        try:
+            # Reset terminal to a clean state
+            os.system('stty sane')
+        except:
+            pass
+            
         curses.wrapper(browser.draw_interface)
         return 0
+    except ImportError as e:
+        print(f"Error: Could not import required module: {e}")
+        print("The voice browser requires the curses module.")
+        return 1
     except Exception as e:
         print(f"Error in voices command: {e}")
+        print(f"\nTerminal info:")
+        print(f"  TERM={os.environ.get('TERM', 'not set')}")
+        print(f"  Interactive: {sys.stdout.isatty()}")
+        print(f"  Terminal size: {os.get_terminal_size() if sys.stdout.isatty() else 'N/A'}")
+        
+        import traceback
+        traceback.print_exc()
+        
+        print("\nTroubleshooting:")
+        print("1. Try running: export TERM=xterm-256color")
+        print("2. Or run: reset && tts voices")
+        print("3. If in tmux/screen, try running outside of it")
         return 1
 
 
