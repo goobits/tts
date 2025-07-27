@@ -199,10 +199,11 @@ class VoiceBrowser:
 
         return filtered
 
-    def draw_interface(self, stdscr: Any) -> None:
+    def draw_interface(self, stdscr: Any, full_redraw: bool = True) -> None:
         """Draw the three-panel interface."""
         height, width = stdscr.getmaxyx()
-        stdscr.clear()
+        if full_redraw:
+            stdscr.clear()
 
         # Calculate panel widths
         filter_width = 20
@@ -256,6 +257,10 @@ class VoiceBrowser:
         self.draw_preview_panel(
             stdscr, 2, filter_width + voice_width + 1, preview_width-1, height-3, filtered_voices
         )
+        
+        # Only refresh if full redraw
+        if full_redraw:
+            stdscr.refresh()
 
     def draw_filters_panel(
         self, stdscr: Any, start_row: int, start_col: int, width: int, height: int
@@ -314,6 +319,28 @@ class VoiceBrowser:
                 stdscr.addstr(row, start_col + 1, f"{check} {region}"[:width-1], color)
                 row += 1
 
+    def clear_panel_area(self, stdscr: Any, start_row: int, start_col: int, width: int, height: int) -> None:
+        """Clear a specific panel area without affecting borders."""
+        for row in range(start_row, start_row + height):
+            stdscr.move(row, start_col)
+            stdscr.addstr(" " * width)
+    
+    def draw_header(self, stdscr: Any, filtered_voices: List[Tuple[str, str, int, str, str]]) -> None:
+        """Draw just the header line."""
+        height, width = stdscr.getmaxyx()
+        title = "TTS VOICE BROWSER v2.5"
+        search_display = f"Search: [{self.search_text:<15}] 🔍"
+        status = f"Showing: {len(filtered_voices)}/{len(self.all_voices)}"
+        if self.is_playing and self.playing_voice:
+            playing_status = f"Playing: ♪ {self.playing_voice}"
+        else:
+            playing_status = ""
+        
+        header = f"{title:<30} {search_display:<25} {status:<20} {playing_status}"
+        stdscr.move(0, 0)
+        stdscr.clrtoeol()
+        stdscr.addstr(0, 0, header[:width-1], curses.color_pair(2) | curses.A_BOLD)
+    
     def draw_voices_panel(self, stdscr: Any, start_row: int, start_col: int, width: int, height: int,
                          filtered_voices: List[Tuple[str, str, int, str, str]]) -> None:
         """Draw the voices list panel."""
@@ -354,7 +381,10 @@ class VoiceBrowser:
 
         # Navigation help at bottom
         if height > 5:
-            nav_help = "↑↓ Navigate  Double-Click/Space Play  Enter Select"[:width-1]
+            nav_help = "↑↓ Navigate  Space/Dbl-Click Play  Enter Set Voice  Q Quit"[:width-1]
+            # Clear the line first to avoid artifacts
+            stdscr.move(start_row + height - 1, start_col + 1)
+            stdscr.addstr(" " * (width - 2))
             stdscr.addstr(start_row + height - 1, start_col + 1, nav_help, curses.color_pair(8))
 
     def draw_preview_panel(self, stdscr: Any, start_row: int, start_col: int, width: int, height: int,
@@ -390,7 +420,7 @@ class VoiceBrowser:
 
             controls = [
                 "Click = Select", "Dbl-Click = Play", "Space = Play",
-                "Enter = Set", "/ = Search", "Q = Quit"
+                "Enter = Set Voice", "/ = Search", "Q/Esc = Quit"
             ]
             for control in controls:
                 if row >= start_row + height:
@@ -511,11 +541,14 @@ class VoiceBrowser:
                 if is_double_click:
                     # Double-click detected - trigger preview
                     message = f"DOUBLE-CLICK! Playing {filtered_voices[voice_idx][1][:20]}..."
+                    # Only update the header line, not the whole screen
+                    stdscr.move(0, 0)
+                    stdscr.clrtoeol()
                     stdscr.addstr(
                         0, 0, message[:width-1], curses.color_pair(5) | curses.A_BOLD
                     )
                     stdscr.refresh()
-                    curses.napms(1000)  # Show for 1 second
+                    curses.napms(500)  # Show for 0.5 second
 
                     provider, voice, quality, region, gender = filtered_voices[voice_idx]
                     self.start_voice_preview(provider, voice)
@@ -532,11 +565,14 @@ class VoiceBrowser:
                     # Show click feedback
                     voice_name = filtered_voices[voice_idx][1]
                     click_message = f"CLICK! Selected {voice_name[:25]}... (double-click to play)"
+                    # Only update the header line
+                    stdscr.move(0, 0)
+                    stdscr.clrtoeol()
                     stdscr.addstr(
                         0, 0, click_message[:width-1], curses.color_pair(7)
                     )
                     stdscr.refresh()
-                    curses.napms(500)  # Show for 0.5 seconds
+                    curses.napms(200)  # Show for 0.2 seconds
 
     def run(self) -> None:
         """Run the interactive voice browser."""
@@ -568,6 +604,13 @@ class VoiceBrowser:
                 stdscr.getch()
                 return
 
+            # Track previous state for selective updates
+            prev_pos = -1
+            prev_filters = None
+            prev_search = ""
+            prev_playing = None
+            needs_full_redraw = True
+            
             # Main browser loop
             while True:
                 try:
@@ -579,10 +622,44 @@ class VoiceBrowser:
                         self.current_pos = len(filtered_voices) - 1
                     elif self.current_pos < 0:
                         self.current_pos = 0
-
-                    # Draw interface
-                    self.draw_interface(stdscr)
-                    stdscr.refresh()
+                    
+                    # Check if we need full redraw
+                    filters_changed = prev_filters != self.filters
+                    search_changed = prev_search != self.search_text
+                    playing_changed = prev_playing != (self.is_playing, self.playing_voice)
+                    
+                    if filters_changed or search_changed or needs_full_redraw:
+                        needs_full_redraw = True
+                    
+                    # Draw interface (selective update)
+                    if needs_full_redraw:
+                        self.draw_interface(stdscr, full_redraw=True)
+                    else:
+                        # Calculate panel dimensions
+                        height, width = stdscr.getmaxyx()
+                        filter_width = 20
+                        preview_width = 18
+                        voice_width = width - filter_width - preview_width - 3
+                        
+                        # Only redraw the voices panel if position changed
+                        if prev_pos != self.current_pos:
+                            # Clear and redraw voice panel
+                            self.clear_panel_area(stdscr, 2, filter_width+1, voice_width-1, height-3)
+                            self.draw_voices_panel(stdscr, 2, filter_width+1, voice_width-1, height-3, filtered_voices)
+                            # Clear and redraw preview panel
+                            self.clear_panel_area(stdscr, 2, filter_width + voice_width + 1, preview_width-1, height-3)
+                            self.draw_preview_panel(stdscr, 2, filter_width + voice_width + 1, preview_width-1, height-3, filtered_voices)
+                        # Update header if playing status changed
+                        if playing_changed:
+                            self.draw_header(stdscr, filtered_voices)
+                        stdscr.refresh()
+                    
+                    # Update tracking variables
+                    prev_pos = self.current_pos
+                    prev_filters = self.filters.copy()
+                    prev_search = self.search_text
+                    prev_playing = (self.is_playing, self.playing_voice)
+                    needs_full_redraw = False
 
                     # Check if background playback finished
                     if self.is_playing and not self.audio_manager.is_playing():
@@ -608,6 +685,10 @@ class VoiceBrowser:
 
                             is_double_click = native_double_click or manual_double_click
                             self.handle_mouse_click(stdscr, mx, my, is_double_click)
+                            
+                            # Filter clicks require full redraw
+                            if mx < 20:  # Filter panel width
+                                needs_full_redraw = True
 
                         except curses.error:
                             # Mouse event parsing failed, ignore
@@ -651,10 +732,14 @@ class VoiceBrowser:
                             if set_setting("voice", voice_setting):
                                 # Show confirmation briefly
                                 height, width = stdscr.getmaxyx()
+                                # Only update the header line
+                                stdscr.move(0, 0)
+                                stdscr.clrtoeol()
                                 stdscr.addstr(0, 0, f"✅ Set default voice to {voice}"[:width-1],
                                             curses.color_pair(5) | curses.A_BOLD)
                                 stdscr.refresh()
                                 curses.napms(1500)
+                                # Continue running instead of exiting
 
                     elif key == ord(' '):
                         # Play voice preview

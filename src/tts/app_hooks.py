@@ -243,7 +243,6 @@ def on_voices(args: tuple) -> int:
 
         # Create and launch voice browser
         browser = VoiceBrowser(PROVIDERS_REGISTRY, engine.load_provider)
-        import curses
         
         # Try to reset terminal state before launching curses
         try:
@@ -252,7 +251,8 @@ def on_voices(args: tuple) -> int:
         except:
             pass
             
-        curses.wrapper(browser.draw_interface)
+        # Run the browser with its built-in curses wrapper
+        browser.run()
         return 0
     except ImportError as e:
         print(f"Error: Could not import required module: {e}")
