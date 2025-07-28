@@ -234,23 +234,23 @@ def on_save(
 
 def on_voices(args: tuple) -> int:
     """Handle the voices command"""
-    import sys
     import os
-    
+    import sys
+
     try:
         from tts.voice_browser import VoiceBrowser
         engine = get_engine()
 
         # Create and launch voice browser
         browser = VoiceBrowser(PROVIDERS_REGISTRY, engine.load_provider)
-        
+
         # Try to reset terminal state before launching curses
         try:
             # Reset terminal to a clean state
             os.system('stty sane')
-        except:
+        except Exception:
             pass
-            
+
         # Run the browser with its built-in curses wrapper
         browser.run()
         return 0
@@ -260,14 +260,14 @@ def on_voices(args: tuple) -> int:
         return 1
     except Exception as e:
         print(f"Error in voices command: {e}")
-        print(f"\nTerminal info:")
+        print("\nTerminal info:")
         print(f"  TERM={os.environ.get('TERM', 'not set')}")
         print(f"  Interactive: {sys.stdout.isatty()}")
         print(f"  Terminal size: {os.get_terminal_size() if sys.stdout.isatty() else 'N/A'}")
-        
+
         import traceback
         traceback.print_exc()
-        
+
         print("\nTroubleshooting:")
         print("1. Try running: export TERM=xterm-256color")
         print("2. Or run: reset && tts voices")

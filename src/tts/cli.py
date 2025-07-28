@@ -4,9 +4,9 @@ import importlib.util
 import os
 import sys
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, cast
 
-import rich_click as click
+import rich_click as click  # type: ignore
 from rich_click import RichGroup
 
 # Set up rich-click configuration globally
@@ -763,7 +763,8 @@ class DefaultGroup(RichGroup):
 
         try:
             # Try normal command resolution first
-            return super().resolve_command(ctx, args)
+            result = super().resolve_command(ctx, args)
+            return cast(Tuple[Optional[str], Optional[Any], List[str]], result)
         except click.UsageError:
             # If no command found and we have a default, use it
             # Check if stdin is coming from a pipe or redirection
@@ -927,7 +928,10 @@ click.rich_click.COMMAND_GROUPS = {
     help="🔍 Show debug information during processing"
 )
 
-def speak(text: Optional[str], options: Tuple[str, ...], voice: Optional[str], rate: Optional[str], pitch: Optional[str], debug: bool) -> Any:
+def speak(
+    text: Optional[str], options: Tuple[str, ...], voice: Optional[str],
+    rate: Optional[str], pitch: Optional[str], debug: bool
+) -> Any:
     """🗣️  Speak text aloud"""
     # Check if hook function exists
     hook_name = "on_speak"
@@ -1016,7 +1020,11 @@ def speak(text: Optional[str], options: Tuple[str, ...], voice: Optional[str], r
     help="🎵 Pitch adjustment (e.g., +5Hz, -10Hz)"
 )
 
-def save(text: Optional[str], options: Tuple[str, ...], output: Optional[str], format: Optional[str], voice: Optional[str], clone: Optional[str], json: bool, debug: bool, rate: Optional[str], pitch: Optional[str]) -> Any:
+def save(
+    text: Optional[str], options: Tuple[str, ...], output: Optional[str],
+    format: Optional[str], voice: Optional[str], clone: Optional[str],
+    json: bool, debug: bool, rate: Optional[str], pitch: Optional[str]
+) -> Any:
     """💾 Save text as an audio file"""
     # Check if hook function exists
     hook_name = "on_save"
@@ -1265,8 +1273,12 @@ def info(provider: Optional[str]) -> Any:
     help="🎵 Pitch adjustment"
 )
 
-def document(document_path: str, options: Tuple[str, ...], save: bool, output: Optional[str], format: Optional[str], voice: Optional[str], clone: Optional[str], json: bool, debug: bool,
-             doc_format: str, ssml_platform: str, emotion_profile: str, rate: Optional[str], pitch: Optional[str]) -> Any:
+def document(
+    document_path: str, options: Tuple[str, ...], save: bool, output: Optional[str],
+    format: Optional[str], voice: Optional[str], clone: Optional[str], json: bool,
+    debug: bool, doc_format: str, ssml_platform: str, emotion_profile: str,
+    rate: Optional[str], pitch: Optional[str]
+) -> Any:
     """📖 Convert documents to speech"""
     # Check if hook function exists
     hook_name = "on_document"
