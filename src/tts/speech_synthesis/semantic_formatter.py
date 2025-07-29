@@ -15,7 +15,7 @@ class SemanticFormatter:
             SemanticType.BOLD: "emphasis",
             SemanticType.ITALIC: "soft",
             SemanticType.CODE: "monotone",
-            SemanticType.TEXT: "normal"
+            SemanticType.TEXT: "normal",
         }
 
     def format_for_speech(self, elements: List[SemanticElement]) -> str:
@@ -31,7 +31,7 @@ class SemanticFormatter:
             if formatted_text:
                 speech_parts.append(formatted_text)
 
-        return ' '.join(speech_parts)
+        return " ".join(speech_parts)
 
     def _format_element(self, element: SemanticElement) -> str:
         """Format a single semantic element for speech."""

@@ -19,22 +19,22 @@ class SimpleTTSEngine:
 
         # Check for espeak
         try:
-            subprocess.run(['espeak', '--version'], capture_output=True, check=True)
-            engines.append('espeak')
+            subprocess.run(["espeak", "--version"], capture_output=True, check=True)
+            engines.append("espeak")
         except (subprocess.CalledProcessError, FileNotFoundError):
             pass
 
         # Check for festival
         try:
-            subprocess.run(['festival', '--version'], capture_output=True, check=True)
-            engines.append('festival')
+            subprocess.run(["festival", "--version"], capture_output=True, check=True)
+            engines.append("festival")
         except (subprocess.CalledProcessError, FileNotFoundError):
             pass
 
         # Check for say (macOS)
         try:
-            subprocess.run(['say', '-v', '?'], capture_output=True, check=True)
-            engines.append('say')
+            subprocess.run(["say", "-v", "?"], capture_output=True, check=True)
+            engines.append("say")
         except (subprocess.CalledProcessError, FileNotFoundError):
             pass
 
@@ -58,11 +58,11 @@ class SimpleTTSEngine:
         engine = self.available_engines[0]
 
         try:
-            if engine == 'espeak':
+            if engine == "espeak":
                 return self._speak_espeak(text, emotion)
-            elif engine == 'festival':
+            elif engine == "festival":
                 return self._speak_festival(text, emotion)
-            elif engine == 'say':
+            elif engine == "say":
                 return self._speak_say(text, emotion)
         except Exception as e:
             print(f"[TTS] Error with {engine}: {e}")
@@ -73,17 +73,17 @@ class SimpleTTSEngine:
 
     def _speak_espeak(self, text: str, emotion: str) -> bool:
         """Use espeak for TTS."""
-        cmd = ['espeak']
+        cmd = ["espeak"]
 
         # Adjust parameters based on emotion
         if emotion == "excited":
-            cmd.extend(['-p', '60', '-s', '180'])  # Higher pitch, faster
+            cmd.extend(["-p", "60", "-s", "180"])  # Higher pitch, faster
         elif emotion == "soft":
-            cmd.extend(['-p', '30', '-s', '120'])  # Lower pitch, slower
+            cmd.extend(["-p", "30", "-s", "120"])  # Lower pitch, slower
         elif emotion == "monotone":
-            cmd.extend(['-p', '40', '-s', '150'])  # Flat pitch, medium speed
+            cmd.extend(["-p", "40", "-s", "150"])  # Flat pitch, medium speed
         else:
-            cmd.extend(['-p', '50', '-s', '160'])  # Normal
+            cmd.extend(["-p", "50", "-s", "160"])  # Normal
 
         cmd.append(text)
 
@@ -93,22 +93,22 @@ class SimpleTTSEngine:
     def _speak_festival(self, text: str, emotion: str) -> bool:
         """Use festival for TTS."""
         # Festival doesn't have simple emotion control, just speak normally
-        result = subprocess.run(['festival', '--tts'], input=text, text=True, capture_output=True)
+        result = subprocess.run(["festival", "--tts"], input=text, text=True, capture_output=True)
         return result.returncode == 0
 
     def _speak_say(self, text: str, emotion: str) -> bool:
         """Use macOS say command for TTS."""
-        cmd = ['say']
+        cmd = ["say"]
 
         # Adjust voice based on emotion (if available)
         if emotion == "excited":
-            cmd.extend(['-v', 'Samantha', '-r', '200'])
+            cmd.extend(["-v", "Samantha", "-r", "200"])
         elif emotion == "soft":
-            cmd.extend(['-v', 'Whisper', '-r', '120'])
+            cmd.extend(["-v", "Whisper", "-r", "120"])
         elif emotion == "monotone":
-            cmd.extend(['-v', 'Ralph', '-r', '150'])
+            cmd.extend(["-v", "Ralph", "-r", "150"])
         else:
-            cmd.extend(['-r', '160'])
+            cmd.extend(["-r", "160"])
 
         cmd.append(text)
 
@@ -137,11 +137,11 @@ class SimpleTTSEngine:
 
         try:
             success = False
-            if engine == 'espeak':
+            if engine == "espeak":
                 success = self._speak_espeak(text, emotion)
-            elif engine == 'festival':
+            elif engine == "festival":
                 success = self._speak_festival(text, emotion)
-            elif engine == 'say':
+            elif engine == "say":
                 success = self._speak_say(text, emotion)
 
             # Add timing pause if specified
@@ -186,7 +186,7 @@ class SimpleTTSEngine:
             SemanticType.CODE_BLOCK: "monotone",
             SemanticType.LIST_ITEM: "normal",
             SemanticType.LINK: "normal",
-            SemanticType.TEXT: "normal"
+            SemanticType.TEXT: "normal",
         }
 
         return emotion_map.get(element.type, "normal")

@@ -28,7 +28,7 @@ dev = [ "pytest>=7.0", "pytest-asyncio", "pytest-cov", "black", "ruff", "mypy", 
 
 [project.scripts]
 goobits-tts = "tts.cli:cli_entry"
-tts = "tts.cli:cli_entry"
+tts = "goobits_tts.cli:cli_entry"
 
 [project.urls]
 Homepage = "https://github.com/mudcube/tts-cli"

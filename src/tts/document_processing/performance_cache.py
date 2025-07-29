@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from tts.config import get_config_value
 from tts.document_processing.base_parser import SemanticElement
 from tts.document_processing.parser_factory import DocumentParserFactory
 
@@ -36,11 +37,7 @@ class DocumentCache:
         else:
             return f"auto_{content_hash}.pkl"
 
-    def get_cached_elements(
-        self,
-        content: str,
-        format_hint: str = ""
-    ) -> Optional[List[SemanticElement]]:
+    def get_cached_elements(self, content: str, format_hint: str = "") -> Optional[List[SemanticElement]]:
         """Retrieve cached parsed elements if available and valid."""
         cache_key = self.get_cache_key(content, format_hint)
         cache_file = self.cache_dir / cache_key
@@ -49,21 +46,22 @@ class DocumentCache:
             return None
 
         try:
-            # Check cache age (expire after 24 hours by default)
+            # Check cache age (expire after configured TTL)
             file_age = time.time() - cache_file.stat().st_mtime
-            if file_age > 86400:  # 24 hours in seconds
+            cache_ttl = get_config_value("cache_file_ttl_seconds", 86400)
+            if file_age > cache_ttl:
                 cache_file.unlink()
                 self._remove_from_metadata(cache_key)
                 return None
 
             # Load cached elements
-            with open(cache_file, 'rb') as f:
+            with open(cache_file, "rb") as f:
                 cached_data = pickle.load(f)
 
             # Update access time in metadata
             self._update_access_time(cache_key)
 
-            elements: List[SemanticElement] = cached_data['elements']
+            elements: List[SemanticElement] = cached_data["elements"]
             return elements
 
         except (pickle.PickleError, KeyError, FileNotFoundError):
@@ -74,11 +72,7 @@ class DocumentCache:
             return None
 
     def cache_elements(
-        self,
-        content: str,
-        elements: List[SemanticElement],
-        format_hint: str = "",
-        processing_time: float = 0.0
+        self, content: str, elements: List[SemanticElement], format_hint: str = "", processing_time: float = 0.0
     ) -> None:
         """Cache parsed elements for future use."""
         cache_key = self.get_cache_key(content, format_hint)
@@ -87,15 +81,15 @@ class DocumentCache:
         try:
             # Prepare cache data
             cache_data = {
-                'elements': elements,
-                'content_length': len(content),
-                'format_hint': format_hint,
-                'processing_time': processing_time,
-                'cached_at': time.time()
+                "elements": elements,
+                "content_length": len(content),
+                "format_hint": format_hint,
+                "processing_time": processing_time,
+                "cached_at": time.time(),
             }
 
             # Write to cache file
-            with open(cache_file, 'wb') as f:
+            with open(cache_file, "wb") as f:
                 pickle.dump(cache_data, f)
 
             # Update metadata
@@ -114,7 +108,8 @@ class DocumentCache:
         if self.metadata_file.exists():
             try:
                 import json
-                with open(self.metadata_file, 'r') as f:
+
+                with open(self.metadata_file, "r") as f:
                     metadata: Dict[str, Any] = json.load(f)
                     return metadata
             except Exception:
@@ -125,7 +120,8 @@ class DocumentCache:
         """Save cache metadata to file."""
         try:
             import json
-            with open(self.metadata_file, 'w') as f:
+
+            with open(self.metadata_file, "w") as f:
                 json.dump(self.metadata, f, indent=2)
         except Exception:
             pass
@@ -137,11 +133,11 @@ class DocumentCache:
 
         self.metadata["files"][cache_key] = {
             "size": file_size,
-            "content_length": cache_data['content_length'],
-            "format_hint": cache_data['format_hint'],
-            "processing_time": cache_data['processing_time'],
-            "cached_at": cache_data['cached_at'],
-            "last_accessed": time.time()
+            "content_length": cache_data["content_length"],
+            "format_hint": cache_data["format_hint"],
+            "processing_time": cache_data["processing_time"],
+            "cached_at": cache_data["cached_at"],
+            "last_accessed": time.time(),
         }
 
         self.metadata["total_size"] = sum(f["size"] for f in self.metadata["files"].values())
@@ -166,10 +162,7 @@ class DocumentCache:
             return
 
         # Sort files by last access time (least recently used first)
-        files_by_access = sorted(
-            self.metadata["files"].items(),
-            key=lambda x: x[1]["last_accessed"]
-        )
+        files_by_access = sorted(self.metadata["files"].items(), key=lambda x: x[1]["last_accessed"])
 
         # Remove oldest files until under size limit
         for cache_key, _ in files_by_access:
@@ -193,8 +186,10 @@ class DocumentCache:
             avg_processing_time = total_time / total_files
 
             # Calculate hit rate (approximate based on access patterns)
-            recent_accesses = sum(1 for f in self.metadata["files"].values()
-                                if time.time() - f["last_accessed"] < 3600)  # Last hour
+            recent_window = get_config_value("cache_recent_access_window_seconds", 3600)
+            recent_accesses = sum(
+                1 for f in self.metadata["files"].values() if time.time() - f["last_accessed"] < recent_window
+            )
         else:
             avg_file_size = 0
             avg_processing_time = 0
@@ -207,7 +202,7 @@ class DocumentCache:
             "utilization": round(total_size_mb / (self.max_cache_size / (1024 * 1024)) * 100, 1),
             "avg_file_size_bytes": int(avg_file_size),
             "avg_processing_time_seconds": round(avg_processing_time, 3),
-            "recent_accesses": recent_accesses
+            "recent_accesses": recent_accesses,
         }
 
     def clear_cache(self) -> None:
@@ -239,15 +234,10 @@ class PerformanceOptimizer:
             "cache_hits": 0,
             "cache_misses": 0,
             "total_processing_time": 0.0,
-            "total_content_length": 0
+            "total_content_length": 0,
         }
 
-    def process_document(
-        self,
-        content: str,
-        format_hint: str = "auto",
-        max_chunk_size: int = 5000
-    ) -> List[SemanticElement]:
+    def process_document(self, content: str, format_hint: str = "auto", max_chunk_size: int = 5000) -> List[SemanticElement]:
         """Process document with caching and chunking optimization.
 
         Args:
@@ -294,12 +284,7 @@ class PerformanceOptimizer:
         """Parse a single document."""
         return self.parser_factory.parse_document(content, format_hint)
 
-    def _parse_large_document(
-        self,
-        content: str,
-        format_hint: str,
-        max_chunk_size: int
-    ) -> List[SemanticElement]:
+    def _parse_large_document(self, content: str, format_hint: str, max_chunk_size: int) -> List[SemanticElement]:
         """Parse large documents in intelligent chunks."""
 
         # Try to split by logical boundaries first
@@ -361,15 +346,15 @@ class PerformanceOptimizer:
         boundaries = []
 
         # Look for headers
-        for match in re.finditer(r'\n\s*#{1,6}\s+.+', content):
+        for match in re.finditer(r"\n\s*#{1,6}\s+.+", content):
             boundaries.append(match.start())
 
         # Look for HTML headers
-        for match in re.finditer(r'<h[1-6][^>]*>', content, re.IGNORECASE):
+        for match in re.finditer(r"<h[1-6][^>]*>", content, re.IGNORECASE):
             boundaries.append(match.start())
 
         # Look for major paragraph breaks
-        for match in re.finditer(r'\n\s*\n\s*\n', content):
+        for match in re.finditer(r"\n\s*\n\s*\n", content):
             boundaries.append(match.start())
 
         return sorted(set(boundaries))
@@ -378,7 +363,7 @@ class PerformanceOptimizer:
         """Split content by paragraphs, then sentences if needed."""
         import re
 
-        paragraphs = re.split(r'\n\s*\n', content)
+        paragraphs = re.split(r"\n\s*\n", content)
         chunks = []
         current_chunk = ""
 
@@ -406,7 +391,7 @@ class PerformanceOptimizer:
         """Split text by sentences as a last resort."""
         import re
 
-        sentences = re.split(r'[.!?]+', text)
+        sentences = re.split(r"[.!?]+", text)
         chunks = []
         current_chunk = ""
 
@@ -465,7 +450,7 @@ class PerformanceOptimizer:
             "cache_hits": 0,
             "cache_misses": 0,
             "total_processing_time": 0.0,
-            "total_content_length": 0
+            "total_content_length": 0,
         }
 
     def optimize_cache_size(self, target_hit_rate: float = 0.8) -> Dict:
@@ -480,7 +465,7 @@ class PerformanceOptimizer:
             "current_hit_rate": current_hit_rate,
             "target_hit_rate": target_hit_rate,
             "current_cache_size_mb": stats.get("cache_stats", {}).get("total_size_mb", 0),
-            "recommendations": []
+            "recommendations": [],
         }
 
         if current_hit_rate < target_hit_rate:

@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, TypedDict
 
 class VoiceSettings(TypedDict):
     """Voice settings for TTS synthesis."""
+
     stability: float
     similarity_boost: float
     style: float
@@ -13,6 +14,7 @@ class VoiceSettings(TypedDict):
 
 class ProviderInfo(TypedDict, total=False):
     """Provider information structure."""
+
     name: str
     description: str
     options: Dict[str, str]
@@ -32,6 +34,7 @@ class ProviderInfo(TypedDict, total=False):
 
 class AudioEnvironment(TypedDict):
     """Audio environment check result."""
+
     available: bool
     reason: str
     pulse_available: bool
@@ -40,6 +43,7 @@ class AudioEnvironment(TypedDict):
 
 class VoiceInfo(TypedDict):
     """Voice information structure."""
+
     voice_id: str
     name: str
     labels: Optional[Dict[str, str]]
@@ -62,6 +66,7 @@ class VoiceInfo(TypedDict):
 
 class Config(TypedDict, total=False):
     """Configuration structure."""
+
     default_voice: str
     default_provider: str
     output_format: str

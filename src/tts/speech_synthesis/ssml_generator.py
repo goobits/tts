@@ -7,6 +7,7 @@ from typing import Dict, List, Match, Tuple
 
 class SSMLPlatform(Enum):
     """Supported SSML platforms."""
+
     AZURE = "azure"
     GOOGLE = "google"
     AMAZON = "amazon"
@@ -44,7 +45,7 @@ class SSMLGenerator:
 
     def _convert_emotion_markers(self, content: str) -> str:
         """Convert (emotion)[text] to platform-specific prosody tags."""
-        pattern = r'\((\w+)\)\[([^\]]+)\]'
+        pattern = r"\((\w+)\)\[([^\]]+)\]"
 
         def replace_emotion(match: Match[str]) -> str:
             emotion = match.group(1)
@@ -60,7 +61,7 @@ class SSMLGenerator:
 
     def _convert_timing_markers(self, content: str) -> str:
         """Convert [1s], [500ms] to platform-specific break tags."""
-        pattern = r'\[(\d+(?:\.\d+)?)(s|ms)\]'
+        pattern = r"\[(\d+(?:\.\d+)?)(s|ms)\]"
 
         def replace_timing(match: Match[str]) -> str:
             value = match.group(1)
@@ -78,7 +79,7 @@ class SSMLGenerator:
 
     def _convert_emphasis_markers(self, content: str) -> str:
         """Convert **text** to platform-specific emphasis tags."""
-        pattern = r'\*\*([^\*]+)\*\*'
+        pattern = r"\*\*([^\*]+)\*\*"
 
         def replace_emphasis(match: Match[str]) -> str:
             text = match.group(1)
@@ -145,7 +146,7 @@ class SSMLGenerator:
             return f'<emphasis level="{level}">{text}</emphasis>'
 
         else:  # GENERIC
-            return f'<emphasis>{text}</emphasis>'
+            return f"<emphasis>{text}</emphasis>"
 
     def _wrap_with_speak_tag(self, content: str) -> str:
         """Wrap content with platform-specific speak tag."""
@@ -153,13 +154,13 @@ class SSMLGenerator:
             return f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">\n{content}\n</speak>'
 
         elif self.platform == SSMLPlatform.GOOGLE:
-            return f'<speak>\n{content}\n</speak>'
+            return f"<speak>\n{content}\n</speak>"
 
         elif self.platform == SSMLPlatform.AMAZON:
-            return f'<speak>\n{content}\n</speak>'
+            return f"<speak>\n{content}\n</speak>"
 
         else:  # GENERIC
-            return f'<speak>\n{content}\n</speak>'
+            return f"<speak>\n{content}\n</speak>"
 
     def _get_voice_mapping(self) -> Dict:
         """Get platform-specific voice and prosody mappings."""
@@ -168,7 +169,7 @@ class SSMLGenerator:
                 "excited": {"rate": "fast", "pitch": "+15%", "volume": "+20%"},
                 "soft": {"rate": "slow", "pitch": "-10%", "volume": "-10%"},
                 "monotone": {"rate": "medium", "pitch": "0%", "volume": "0%"},
-                "normal": {"rate": "medium", "pitch": "0%", "volume": "0%"}
+                "normal": {"rate": "medium", "pitch": "0%", "volume": "0%"},
             }
 
         elif self.platform == SSMLPlatform.GOOGLE:
@@ -176,7 +177,7 @@ class SSMLGenerator:
                 "excited": {"rate": "fast", "pitch": "+3st", "volume": "loud"},
                 "soft": {"rate": "slow", "pitch": "-2st", "volume": "soft"},
                 "monotone": {"rate": "medium", "pitch": "0st", "volume": "medium"},
-                "normal": {"rate": "medium", "pitch": "0st", "volume": "medium"}
+                "normal": {"rate": "medium", "pitch": "0st", "volume": "medium"},
             }
 
         elif self.platform == SSMLPlatform.AMAZON:
@@ -184,7 +185,7 @@ class SSMLGenerator:
                 "excited": {"rate": "fast", "pitch": "high", "volume": "loud"},
                 "soft": {"rate": "slow", "pitch": "low", "volume": "soft"},
                 "monotone": {"rate": "medium", "pitch": "medium", "volume": "medium"},
-                "normal": {"rate": "medium", "pitch": "medium", "volume": "medium"}
+                "normal": {"rate": "medium", "pitch": "medium", "volume": "medium"},
             }
 
         else:  # GENERIC
@@ -192,7 +193,7 @@ class SSMLGenerator:
                 "excited": {"rate": "fast", "pitch": "high", "volume": "loud"},
                 "soft": {"rate": "slow", "pitch": "low", "volume": "soft"},
                 "monotone": {"rate": "medium", "pitch": "medium", "volume": "medium"},
-                "normal": {"rate": "medium", "pitch": "medium", "volume": "medium"}
+                "normal": {"rate": "medium", "pitch": "medium", "volume": "medium"},
             }
 
     def _get_break_mapping(self) -> Dict:
@@ -208,28 +209,24 @@ class SSMLGenerator:
 
     def _get_emphasis_mapping(self) -> Dict:
         """Get platform-specific emphasis levels."""
-        return {
-            "strong": "strong",
-            "moderate": "moderate",
-            "reduced": "reduced"
-        }
+        return {"strong": "strong", "moderate": "moderate", "reduced": "reduced"}
 
     def validate_ssml(self, ssml: str) -> Tuple[bool, str]:
         """Validate generated SSML for platform compliance."""
         errors = []
 
         # Check for required speak tag
-        if not ssml.strip().startswith('<speak'):
+        if not ssml.strip().startswith("<speak"):
             errors.append("Missing <speak> root tag")
 
         # Check for balanced tags
         # Updated regex to properly capture self-closing tags
-        tags = re.findall(r'<(/?)([^>]+?)(/?)>', ssml)
+        tags = re.findall(r"<(/?)([^>]+?)(/?)>", ssml)
         open_tags: List[str] = []
 
         for start_slash, tag_content, end_slash in tags:
             # Extract tag name
-            tag_name = tag_content.split()[0] if ' ' in tag_content else tag_content
+            tag_name = tag_content.split()[0] if " " in tag_content else tag_content
 
             if start_slash:  # Closing tag </tag>
                 if open_tags and open_tags[-1] == tag_name:

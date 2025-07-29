@@ -40,7 +40,7 @@ class ElevenLabsProvider(TTSProvider):
         "josh": "Deep and authoritative male voice",
         "arnold": "Crisp and commanding male voice",
         "adam": "Professional and clear male voice",
-        "sam": "Natural and conversational male voice"
+        "sam": "Natural and conversational male voice",
     }
 
     def __init__(self) -> None:
@@ -52,14 +52,9 @@ class ElevenLabsProvider(TTSProvider):
         """Make authenticated request to ElevenLabs API."""
         api_key = get_api_key("elevenlabs")
         if not api_key:
-            raise AuthenticationError(
-                "ElevenLabs API key not found. Set with: tts config elevenlabs_api_key YOUR_KEY"
-            )
+            raise AuthenticationError("ElevenLabs API key not found. Set with: tts config elevenlabs_api_key YOUR_KEY")
 
-        headers = {
-            "xi-api-key": api_key,
-            "Content-Type": "application/json"
-        }
+        headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
 
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
 
@@ -86,18 +81,16 @@ class ElevenLabsProvider(TTSProvider):
                             "category": voice.get("category", "generated"),
                             "description": voice.get("description", "Custom voice"),
                             "gender": voice.get("labels", {}).get("gender", "unknown"),
-                            "age": voice.get("labels", {}).get("age", "unknown")
+                            "age": voice.get("labels", {}).get("age", "unknown"),
                         }
                         voices.append(voice_info)
 
                     self._voices_cache = voices
                 else:
-                    self.logger.warning(
-                        f"Failed to fetch ElevenLabs voices: {response.status_code}"
-                    )
+                    self.logger.warning(f"Failed to fetch ElevenLabs voices: {response.status_code}")
                     self._voices_cache = []
 
-            except Exception as e:
+            except (requests.RequestException, ValueError, KeyError) as e:
                 self.logger.warning(f"Failed to fetch ElevenLabs voices: {e}")
                 self._voices_cache = []
 
@@ -106,8 +99,8 @@ class ElevenLabsProvider(TTSProvider):
     def _get_voice_id(self, voice_name: str) -> Optional[str]:
         """Get voice ID from voice name."""
         # Check if it's already a voice ID (32 char hex string)
-        voice_id_length = get_config_value('elevenlabs_voice_id_length')
-        is_hex = all(c in '0123456789abcdef' for c in voice_name.lower())
+        voice_id_length = get_config_value("elevenlabs_voice_id_length")
+        is_hex = all(c in "0123456789abcdef" for c in voice_name.lower())
         if len(voice_name) == voice_id_length and is_hex:
             return voice_name
 
@@ -127,7 +120,7 @@ class ElevenLabsProvider(TTSProvider):
             "josh": "TxGEqnHWrfWFMLpVQ3VQ",
             "arnold": "VR6AewLTigWG4xSOukaG",
             "adam": "pNInz6obpgDQGcFmaJgB",
-            "sam": "yoZ06aMxZJJ28mfd3POQ"
+            "sam": "yoZ06aMxZJJ28mfd3POQ",
         }
 
         return voice_id_map.get(voice_name.lower())
@@ -138,13 +131,9 @@ class ElevenLabsProvider(TTSProvider):
         voice = kwargs.get("voice", "rachel")  # Default voice
         stream = kwargs.get("stream", "false").lower() in ("true", "1", "yes")
         output_format = kwargs.get("output_format", "wav")
-        stability = float(kwargs.get(
-            "stability", str(get_config_value('elevenlabs_default_stability'))
-        ))
-        similarity_boost = float(kwargs.get(
-            "similarity_boost", str(get_config_value('elevenlabs_default_similarity_boost'))
-        ))
-        style = float(kwargs.get("style", str(get_config_value('elevenlabs_default_style'))))
+        stability = float(kwargs.get("stability", str(get_config_value("elevenlabs_default_stability"))))
+        similarity_boost = float(kwargs.get("similarity_boost", str(get_config_value("elevenlabs_default_similarity_boost"))))
+        style = float(kwargs.get("style", str(get_config_value("elevenlabs_default_style"))))
 
         # Handle SSML (ElevenLabs doesn't support SSML, so strip tags)
         if is_ssml(text):
@@ -173,28 +162,20 @@ class ElevenLabsProvider(TTSProvider):
                 payload = {
                     "text": text,
                     "model_id": "eleven_monolingual_v1",  # or "eleven_multilingual_v2"
-                    "voice_settings": {
-                        "stability": stability,
-                        "similarity_boost": similarity_boost,
-                        "style": style
-                    }
+                    "voice_settings": {"stability": stability, "similarity_boost": similarity_boost, "style": style},
                 }
 
                 self.logger.info(f"Generating speech with ElevenLabs voice '{voice_name}' (ID: {voice_id})")
 
                 # Make synthesis request
-                response = self._make_request(
-                    "POST",
-                    f"/text-to-speech/{voice_id}",
-                    json=payload
-                )
+                response = self._make_request("POST", f"/text-to-speech/{voice_id}", json=payload)
 
                 if response.status_code != 200:
                     # Use standardized HTTP error mapping
                     try:
                         error_detail = response.json().get("detail", {})
                         if isinstance(error_detail, dict):
-                            detail_text = error_detail.get('message', 'Unknown error')
+                            detail_text = error_detail.get("message", "Unknown error")
                         else:
                             detail_text = str(error_detail)
                     except (ValueError, KeyError, AttributeError):
@@ -204,7 +185,7 @@ class ElevenLabsProvider(TTSProvider):
                     raise map_http_error(response.status_code, detail_text, "ElevenLabs")
 
                 # Save audio content to temporary file
-                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp_file:
+                with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
                     tmp_path = tmp_file.name
                     tmp_file.write(response.content)
 
@@ -213,6 +194,7 @@ class ElevenLabsProvider(TTSProvider):
                     # Direct save
                     if output_path is not None:
                         import shutil
+
                         shutil.move(tmp_path, output_path)
                 else:
                     # Convert using ffmpeg
@@ -220,19 +202,21 @@ class ElevenLabsProvider(TTSProvider):
                         convert_audio(tmp_path, output_path, output_format)
                     # Clean up temp file
                     import os
+
                     os.unlink(tmp_path)
 
         except requests.RequestException as e:
-            if 'response' in locals():
+            if "response" in locals():
                 # Use standardized HTTP error mapping for request exceptions too
                 raise map_http_error(response.status_code, str(e), "ElevenLabs") from e
             else:
                 raise NetworkError(f"ElevenLabs network error: {e}") from e
-        except Exception as e:
+        except (IOError, OSError, ValueError, RuntimeError) as e:
             raise ProviderError(f"ElevenLabs TTS synthesis failed: {e}") from e
 
-    def _stream_realtime(self, text: str, voice_id: str, voice_name: str,
-                        stability: float, similarity_boost: float, style: float) -> None:
+    def _stream_realtime(
+        self, text: str, voice_id: str, voice_name: str, stability: float, similarity_boost: float, style: float
+    ) -> None:
         """Stream TTS audio in real-time with minimal latency."""
 
         try:
@@ -241,38 +225,26 @@ class ElevenLabsProvider(TTSProvider):
 
             # Check for audio environment first
             audio_env = check_audio_environment()
-            if not audio_env['available']:
+            if not audio_env["available"]:
                 self.logger.warning(f"Audio streaming not available: {audio_env['reason']}")
                 # Fallback to temporary file method
                 return self._stream_via_tempfile(text, voice_id, voice_name, stability, similarity_boost, style)
 
             # Start ffplay process for streaming
-            ffplay_process = create_ffplay_process(
-                logger=self.logger,
-                format_args=['-f', 'mp3']
-            )
+            ffplay_process = create_ffplay_process(logger=self.logger, format_args=["-f", "mp3"])
 
             try:
                 # Prepare request for streaming
                 api_key = get_api_key("elevenlabs")
                 if not api_key:
-                    raise ProviderError(
-                        "ElevenLabs API key not found. Set with: tts config elevenlabs_api_key YOUR_KEY"
-                    )
+                    raise ProviderError("ElevenLabs API key not found. Set with: tts config elevenlabs_api_key YOUR_KEY")
 
-                headers = {
-                    "xi-api-key": api_key,
-                    "Content-Type": "application/json"
-                }
+                headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
 
                 payload = {
                     "text": text,
                     "model_id": "eleven_monolingual_v1",
-                    "voice_settings": {
-                        "stability": stability,
-                        "similarity_boost": similarity_boost,
-                        "style": style
-                    }
+                    "voice_settings": {"stability": stability, "similarity_boost": similarity_boost, "style": style},
                 }
 
                 url = f"{self.base_url}/text-to-speech/{voice_id}/stream"
@@ -301,7 +273,7 @@ class ElevenLabsProvider(TTSProvider):
                 first_chunk_time = None
 
                 # ElevenLabs streams in chunks
-                for chunk in response.iter_content(chunk_size=get_config_value('http_streaming_chunk_size')):
+                for chunk in response.iter_content(chunk_size=get_config_value("http_streaming_chunk_size")):
                     if chunk:
                         chunk_count += 1
 
@@ -318,7 +290,7 @@ class ElevenLabsProvider(TTSProvider):
                                 bytes_written += len(chunk)
 
                             # Log progress every N chunks
-                            if chunk_count % get_config_value('streaming_progress_interval') == 0:
+                            if chunk_count % get_config_value("streaming_progress_interval") == 0:
                                 self.logger.debug(f"Streamed {chunk_count} chunks, {bytes_written} bytes")
 
                         except BrokenPipeError:
@@ -326,7 +298,7 @@ class ElevenLabsProvider(TTSProvider):
                             if ffplay_process.poll() is not None:
                                 stderr_output = ""
                                 if ffplay_process.stderr is not None:
-                                    stderr_output = ffplay_process.stderr.read().decode('utf-8', errors='ignore')
+                                    stderr_output = ffplay_process.stderr.read().decode("utf-8", errors="ignore")
                                 self.logger.warning(
                                     f"FFplay ended early (exit code: {ffplay_process.returncode}): {stderr_output}"
                                 )
@@ -338,32 +310,30 @@ class ElevenLabsProvider(TTSProvider):
                 try:
                     if ffplay_process.stdin is not None:
                         ffplay_process.stdin.close()
-                    exit_code = ffplay_process.wait(timeout=get_config_value('ffplay_timeout'))
+                    exit_code = ffplay_process.wait(timeout=get_config_value("ffplay_timeout"))
 
                     # Calculate and log timing metrics
                     total_time = time.time() - start_time
                     if first_chunk_time:
                         latency = first_chunk_time - start_time
                         self.logger.info(
-                            f"ElevenLabs streaming optimization: First audio in {latency:.1f}s, "
-                            f"Total: {total_time:.1f}s"
+                            f"ElevenLabs streaming optimization: First audio in {latency:.1f}s, Total: {total_time:.1f}s"
                         )
 
                     self.logger.debug(
-                        f"Audio streaming completed. Chunks: {chunk_count}, Bytes: {bytes_written}, "
-                        f"Exit code: {exit_code}"
+                        f"Audio streaming completed. Chunks: {chunk_count}, Bytes: {bytes_written}, Exit code: {exit_code}"
                     )
                 except subprocess.TimeoutExpired:
                     self.logger.warning("FFplay process timeout, terminating")
                     ffplay_process.terminate()
 
-            except Exception as e:
+            except (BrokenPipeError, IOError, OSError, subprocess.SubprocessError) as e:
                 self.logger.error(f"Audio streaming failed: {e}")
                 # Ensure ffplay is terminated
                 if ffplay_process.poll() is None:
                     ffplay_process.terminate()
                     try:
-                        ffplay_process.wait(timeout=get_config_value('ffplay_termination_timeout'))
+                        ffplay_process.wait(timeout=get_config_value("ffplay_termination_timeout"))
                     except subprocess.TimeoutExpired:
                         ffplay_process.kill()
 
@@ -373,7 +343,7 @@ class ElevenLabsProvider(TTSProvider):
                     ) from e
                 raise ProviderError(f"Audio streaming failed: {e}") from e
 
-        except Exception as e:
+        except (requests.RequestException, ConnectionError, ValueError, RuntimeError) as e:
             if "authentication" in str(e).lower() or "api_key" in str(e).lower():
                 self.logger.error(f"Authentication error during ElevenLabs streaming: {e}")
                 raise ProviderError(f"ElevenLabs API authentication failed: {e}") from e
@@ -384,47 +354,42 @@ class ElevenLabsProvider(TTSProvider):
                 self.logger.error(f"ElevenLabs TTS streaming failed: {e}")
                 raise ProviderError(f"ElevenLabs TTS streaming failed: {e}") from e
 
-
-    def _stream_via_tempfile(self, text: str, voice_id: str, voice_name: str,
-                            stability: float, similarity_boost: float, style: float) -> None:
+    def _stream_via_tempfile(
+        self, text: str, voice_id: str, voice_name: str, stability: float, similarity_boost: float, style: float
+    ) -> None:
         """Fallback streaming method using temporary file when direct streaming fails."""
+
         def synthesize_to_file(text: str, output_path: str, **kwargs: Any) -> None:
             payload = {
                 "text": text,
                 "model_id": "eleven_monolingual_v1",
                 "voice_settings": {
-                    "stability": kwargs['stability'],
-                    "similarity_boost": kwargs['similarity_boost'],
-                    "style": kwargs['style']
-                }
+                    "stability": kwargs["stability"],
+                    "similarity_boost": kwargs["similarity_boost"],
+                    "style": kwargs["style"],
+                },
             }
 
-            response = self._make_request(
-                "POST",
-                f"/text-to-speech/{kwargs['voice_id']}",
-                json=payload
-            )
+            response = self._make_request("POST", f"/text-to-speech/{kwargs['voice_id']}", json=payload)
 
             if response.status_code != 200:
                 error_msg = f"ElevenLabs API error {response.status_code}: {response.text[:200]}"
                 raise ProviderError(error_msg)
 
-            with open(output_path, 'wb') as f:
+            with open(output_path, "wb") as f:
                 f.write(response.content)
 
         stream_via_tempfile(
             synthesize_func=synthesize_to_file,
             text=text,
             logger=self.logger,
-            file_suffix='.mp3',
+            file_suffix=".mp3",
             voice_id=voice_id,
             voice_name=voice_name,
             stability=stability,
             similarity_boost=similarity_boost,
-            style=style
+            style=style,
         )
-
-
 
     def get_info(self) -> Optional[ProviderInfo]:
         """Get provider information including available voices."""
@@ -443,42 +408,43 @@ class ElevenLabsProvider(TTSProvider):
                 voice_list.append(f"... and {len(all_voices) - 15} more voices")
 
             # Get actual voice names for the browser
-            voice_names = [v['name'] for v in all_voices]
+            voice_names = [v["name"] for v in all_voices]
 
-        except Exception:
+        except (requests.RequestException, ValueError, KeyError, AttributeError):
             voice_list = [f"{name}: {desc}" for name, desc in self.DEFAULT_VOICES.items()]
             voice_names = list(self.DEFAULT_VOICES.keys())
             custom_voices = []
             premade_voices = []
 
-        return cast(ProviderInfo, {
-            "name": "ElevenLabs",
-            "description": (
-                f"Premium voice cloning with "
-                f"{len(all_voices) if 'all_voices' in locals() else '10+'} voices"
-            ),
-            "api_status": api_status,
-            "sample_voices": list(self.DEFAULT_VOICES.keys()),
-            "all_voices": voice_names if 'voice_names' in locals() else list(self.DEFAULT_VOICES.keys()),
-            "all_voices_display": (
-                voice_list if 'voice_list' in locals()
-                else [f"{name}: {desc}" for name, desc in self.DEFAULT_VOICES.items()]
-            ),
-            "voice_descriptions": self.DEFAULT_VOICES,
-            "custom_voices": len(custom_voices) if custom_voices else "Unknown",
-            "options": {
-                "voice": f"Voice to use (e.g., {list(self.DEFAULT_VOICES.keys())[0]})",
-                "stability": "Voice stability (0.0-1.0, default: 0.5)",
-                "similarity_boost": "Voice similarity boost (0.0-1.0, default: 0.5)",
-                "style": "Style exaggeration (0.0-1.0, default: 0.0)",
-                "stream": "Stream directly to speakers instead of saving to file (true/false)"
+        return cast(
+            ProviderInfo,
+            {
+                "name": "ElevenLabs",
+                "description": (f"Premium voice cloning with {len(all_voices) if 'all_voices' in locals() else '10+'} voices"),
+                "api_status": api_status,
+                "sample_voices": list(self.DEFAULT_VOICES.keys()),
+                "all_voices": voice_names if "voice_names" in locals() else list(self.DEFAULT_VOICES.keys()),
+                "all_voices_display": (
+                    voice_list
+                    if "voice_list" in locals()
+                    else [f"{name}: {desc}" for name, desc in self.DEFAULT_VOICES.items()]
+                ),
+                "voice_descriptions": self.DEFAULT_VOICES,
+                "custom_voices": len(custom_voices) if custom_voices else "Unknown",
+                "options": {
+                    "voice": f"Voice to use (e.g., {list(self.DEFAULT_VOICES.keys())[0]})",
+                    "stability": "Voice stability (0.0-1.0, default: 0.5)",
+                    "similarity_boost": "Voice similarity boost (0.0-1.0, default: 0.5)",
+                    "style": "Style exaggeration (0.0-1.0, default: 0.0)",
+                    "stream": "Stream directly to speakers instead of saving to file (true/false)",
+                },
+                "features": {
+                    "ssml_support": False,
+                    "voice_cloning": True,
+                    "languages": "Multiple languages",
+                    "quality": "Premium (voice cloning available)",
+                },
+                "pricing": "Starting at $5/month (subscription required)",
+                "output_format": "MP3 (converted to other formats via ffmpeg)",
             },
-            "features": {
-                "ssml_support": False,
-                "voice_cloning": True,
-                "languages": "Multiple languages",
-                "quality": "Premium (voice cloning available)"
-            },
-            "pricing": "Starting at $5/month (subscription required)",
-            "output_format": "MP3 (converted to other formats via ffmpeg)"
-        })
+        )

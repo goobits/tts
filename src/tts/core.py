@@ -48,6 +48,7 @@ class TTSEngine:
         try:
             # Import the provider module dynamically
             import importlib
+
             module = importlib.import_module(module_path)
 
             # Find the provider class in the module
@@ -55,37 +56,35 @@ class TTSEngine:
             provider_class = None
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
-                if (isinstance(attr, type) and
-                    issubclass(attr, TTSProvider) and
-                    attr is not TTSProvider):
+                if isinstance(attr, type) and issubclass(attr, TTSProvider) and attr is not TTSProvider:
                     provider_class = attr
                     break
 
             if not provider_class:
-                raise ProviderLoadError(
-                    f"No TTSProvider subclass found in module {module_path}"
-                )
+                raise ProviderLoadError(f"No TTSProvider subclass found in module {module_path}")
 
             self._loaded_providers[name] = provider_class
             return provider_class
 
         except ImportError as e:
             raise ProviderLoadError(f"Failed to import provider module {module_path}: {e}") from e
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             raise ProviderLoadError(f"Failed to load provider {name}: {e}") from e
 
     def get_available_providers(self) -> list[str]:
         """Get list of available provider names."""
         return list(self.providers_registry.keys())
 
-    def synthesize_text(self,
-                       text: str,
-                       output_path: Optional[str] = None,
-                       provider_name: Optional[str] = None,
-                       voice: Optional[str] = None,
-                       stream: bool = True,
-                       output_format: str = "wav",
-                       **kwargs: Any) -> Optional[str]:
+    def synthesize_text(
+        self,
+        text: str,
+        output_path: Optional[str] = None,
+        provider_name: Optional[str] = None,
+        voice: Optional[str] = None,
+        stream: bool = True,
+        output_format: str = "wav",
+        **kwargs: Any,
+    ) -> Optional[str]:
         """Synthesize text to speech.
 
         Args:
@@ -118,7 +117,7 @@ class TTSEngine:
             elif not voice:
                 # No voice specified - use provider's default or None
                 # Don't use config default if it's for a different provider
-                default_voice = config.get('voice', 'edge_tts:en-US-JennyNeural')
+                default_voice = config.get("voice", "edge_tts:en-US-JennyNeural")
                 default_provider, default_voice_name = parse_voice_setting(default_voice)
                 if default_provider == provider_name:
                     voice = default_voice_name
@@ -132,12 +131,12 @@ class TTSEngine:
                     voice = voice_name
             else:
                 # Use default voice from config
-                default_voice = config.get('voice', 'edge_tts:en-US-JennyNeural')
+                default_voice = config.get("voice", "edge_tts:en-US-JennyNeural")
                 provider_name, voice = parse_voice_setting(default_voice)
 
         if not provider_name:
             # Fallback to edge_tts if no provider detected
-            provider_name = 'edge_tts'
+            provider_name = "edge_tts"
 
         # Load and instantiate provider
         try:
@@ -148,17 +147,13 @@ class TTSEngine:
             raise TTSError(f"Provider {provider_name} unavailable: {e}") from e
 
         # Prepare synthesis parameters
-        synthesis_kwargs = {
-            'voice': voice,
-            'stream': stream,
-            'output_format': output_format,
-            **kwargs
-        }
+        synthesis_kwargs = {"voice": voice, "stream": stream, "output_format": output_format, **kwargs}
 
         # Generate output path if needed
         if not stream and not output_path:
             import tempfile
-            suffix = f'.{output_format}' if output_format else '.wav'
+
+            suffix = f".{output_format}" if output_format else ".wav"
             with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
                 output_path = tmp.name
 
@@ -169,22 +164,18 @@ class TTSEngine:
                 provider.synthesize(text, None, **synthesis_kwargs)
                 return None
             else:
-                self.logger.info(
-                    f"Synthesizing audio to {output_path} with {provider_name} provider"
-                )
+                self.logger.info(f"Synthesizing audio to {output_path} with {provider_name} provider")
                 provider.synthesize(text, output_path, **synthesis_kwargs)
 
                 # Verify output file was created
                 if output_path and Path(output_path).exists():
                     file_size = Path(output_path).stat().st_size
-                    self.logger.info(
-                        f"Synthesis completed. File: {output_path} ({file_size} bytes)"
-                    )
+                    self.logger.info(f"Synthesis completed. File: {output_path} ({file_size} bytes)")
                     return output_path
                 else:
                     raise TTSError("Synthesis completed but output file not found")
 
-        except Exception as e:
+        except (IOError, OSError, RuntimeError, ValueError) as e:
             self.logger.error(f"Synthesis failed: {e}")
             raise TTSError(f"Synthesis failed: {e}") from e
 
@@ -201,7 +192,7 @@ class TTSEngine:
             provider_class = self.load_provider(provider_name)
             provider = provider_class()
             return provider.get_info()
-        except (ProviderNotFoundError, ProviderLoadError, Exception) as e:
+        except (ProviderNotFoundError, ProviderLoadError, AttributeError, RuntimeError) as e:
             self.logger.warning(f"Could not get info for provider {provider_name}: {e}")
             return None
 
@@ -217,13 +208,13 @@ class TTSEngine:
             try:
                 info = self.get_provider_info(provider_name)
                 if info:
-                    voices = info.get('all_voices') or info.get('sample_voices', [])
+                    voices = info.get("all_voices") or info.get("sample_voices", [])
                     if not isinstance(voices, list):
                         voices = []
                     all_voices[provider_name] = voices
                 else:
                     all_voices[provider_name] = []
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, RuntimeError) as e:
                 self.logger.warning(f"Error getting voices for {provider_name}: {e}")
                 all_voices[provider_name] = []
 
@@ -250,12 +241,12 @@ class TTSEngine:
             if not info:
                 return False
 
-            voices = info.get('all_voices') or info.get('sample_voices', [])
+            voices = info.get("all_voices") or info.get("sample_voices", [])
             if not isinstance(voices, list):
                 voices = []
             return voice in voices
 
-        except Exception:
+        except (AttributeError, KeyError, ValueError):
             return False
 
     def test_provider(self, provider_name: str) -> Dict[str, Any]:
@@ -267,13 +258,7 @@ class TTSEngine:
         Returns:
             Dictionary with test results
         """
-        result = {
-            'provider': provider_name,
-            'available': False,
-            'error': None,
-            'voice_count': 0,
-            'sample_voices': []
-        }
+        result = {"provider": provider_name, "available": False, "error": None, "voice_count": 0, "sample_voices": []}
 
         try:
             provider_class = self.load_provider(provider_name)
@@ -281,19 +266,21 @@ class TTSEngine:
             info = provider.get_info()
 
             if info:
-                voices = info.get('all_voices') or info.get('sample_voices', [])
+                voices = info.get("all_voices") or info.get("sample_voices", [])
                 if not isinstance(voices, list):
                     voices = []
-                result.update({
-                    'available': True,
-                    'voice_count': len(voices),
-                    'sample_voices': voices[:5]  # First 5 voices as samples
-                })
+                result.update(
+                    {
+                        "available": True,
+                        "voice_count": len(voices),
+                        "sample_voices": voices[:5],  # First 5 voices as samples
+                    }
+                )
             else:
-                result['error'] = 'No provider info available'
+                result["error"] = "No provider info available"
 
-        except Exception as e:
-            result['error'] = str(e)
+        except (ProviderNotFoundError, ProviderLoadError, AttributeError, RuntimeError) as e:
+            result["error"] = str(e)
 
         return result
 

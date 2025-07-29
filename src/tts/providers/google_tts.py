@@ -9,7 +9,7 @@ import requests  # type: ignore
 
 from ..audio_utils import convert_audio, stream_audio_file
 from ..base import TTSProvider
-from ..config import get_api_key, is_ssml
+from ..config import get_api_key, get_config_value, is_ssml
 from ..exceptions import (
     AuthenticationError,
     DependencyError,
@@ -53,9 +53,7 @@ class GoogleTTSProvider(TTSProvider):
         if self._client is None:
             api_key = get_api_key("google")
             if not api_key:
-                raise AuthenticationError(
-                    "Google Cloud API key not found. Set with: tts config google_api_key YOUR_KEY"
-                )
+                raise AuthenticationError("Google Cloud API key not found. Set with: tts config google_api_key YOUR_KEY")
 
             # Determine authentication method
             if api_key.startswith("AIza"):
@@ -68,6 +66,7 @@ class GoogleTTSProvider(TTSProvider):
                     import json
 
                     from google.cloud import texttospeech  # type: ignore
+
                     credentials_info = json.loads(api_key)
                     self._client = texttospeech.TextToSpeechClient.from_service_account_info(credentials_info)
                     self._auth_method = "service_account"
@@ -77,12 +76,13 @@ class GoogleTTSProvider(TTSProvider):
                     ) from None
                 except json.JSONDecodeError as e:
                     raise ProviderError(f"Invalid service account JSON: {e}") from e
-            elif len(api_key) > 100:
+            elif len(api_key) > get_config_value("google_service_account_json_min_length", 100):
                 # Assume it's a service account JSON string without braces
                 try:
                     import json
 
                     from google.cloud import texttospeech  # type: ignore
+
                     credentials_info = json.loads("{" + api_key + "}")
                     self._client = texttospeech.TextToSpeechClient.from_service_account_info(credentials_info)
                     self._auth_method = "service_account"
@@ -103,9 +103,7 @@ class GoogleTTSProvider(TTSProvider):
         """Make authenticated request to Google Cloud TTS REST API (for API key auth)."""
         api_key = get_api_key("google")
         if not api_key:
-            raise AuthenticationError(
-                "Google Cloud API key not found. Set with: tts config google_api_key YOUR_KEY"
-            )
+            raise AuthenticationError("Google Cloud API key not found. Set with: tts config google_api_key YOUR_KEY")
 
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         params = {"key": api_key}
@@ -126,7 +124,7 @@ class GoogleTTSProvider(TTSProvider):
         elif api_key.startswith("AIza"):
             api_status = "✅ Configured (API Key)"
             auth_method = "API Key"
-        elif api_key.startswith("{") or len(api_key) > 100:
+        elif api_key.startswith("{") or len(api_key) > get_config_value("google_service_account_json_min_length", 100):
             api_status = "✅ Configured (Service Account)"
             auth_method = "Service Account"
         else:
@@ -153,16 +151,16 @@ class GoogleTTSProvider(TTSProvider):
                 "voice": "Voice to use (e.g., en-US-Neural2-A)",
                 "speaking_rate": "Speaking rate (0.25-4.0, default: 1.0)",
                 "pitch": "Pitch adjustment (-20.0 to 20.0, default: 0.0)",
-                "stream": "Stream directly to speakers instead of saving to file (true/false)"
+                "stream": "Stream directly to speakers instead of saving to file (true/false)",
             },
             "features": {
                 "ssml_support": True,
                 "voice_cloning": False,
                 "languages": "40+ languages",
-                "quality": "Highest (Neural2, WaveNet, Standard voices)"
+                "quality": "Highest (Neural2, WaveNet, Standard voices)",
             },
             "pricing": "$4 per 1M characters (WaveNet/Neural2), $0.4/1M (Standard)",
-            "output_format": "WAV 16kHz (converted to other formats via ffmpeg)"
+            "output_format": "WAV 16kHz (converted to other formats via ffmpeg)",
         }
 
     def _get_all_voices(self) -> List[str]:
@@ -195,7 +193,7 @@ class GoogleTTSProvider(TTSProvider):
                 else:
                     self.logger.warning(f"Failed to fetch voices: HTTP {response.status_code}")
                     self._voices_cache = []
-        except Exception as e:
+        except (requests.RequestException, ValueError, KeyError) as e:
             self.logger.warning(f"Failed to fetch Google voices: {e}")
             self._voices_cache = []
 
@@ -245,23 +243,16 @@ class GoogleTTSProvider(TTSProvider):
                 else:
                     synthesis_input = texttospeech.SynthesisInput(text=text)
 
-                voice_selection = texttospeech.VoiceSelectionParams(
-                    language_code=language_code,
-                    name=voice_name
-                )
+                voice_selection = texttospeech.VoiceSelectionParams(language_code=language_code, name=voice_name)
 
                 audio_config = texttospeech.AudioConfig(
                     audio_encoding=texttospeech.AudioEncoding.LINEAR16,  # WAV format
                     speaking_rate=speaking_rate,
-                    pitch=pitch
+                    pitch=pitch,
                 )
 
                 # Perform synthesis
-                response = client.synthesize_speech(
-                    input=synthesis_input,
-                    voice=voice_selection,
-                    audio_config=audio_config
-                )
+                response = client.synthesize_speech(input=synthesis_input, voice=voice_selection, audio_config=audio_config)
 
                 audio_content = response.audio_content
                 self.logger.info("Synthesis completed via service account")
@@ -269,25 +260,17 @@ class GoogleTTSProvider(TTSProvider):
             else:
                 # Use REST API with API key
                 payload = {
-                    "input": {
-                        "ssml" if use_ssml else "text": text
-                    },
-                    "voice": {
-                        "languageCode": language_code,
-                        "name": voice_name
-                    },
+                    "input": {"ssml" if use_ssml else "text": text},
+                    "voice": {"languageCode": language_code, "name": voice_name},
                     "audioConfig": {
                         "audioEncoding": "LINEAR16",  # WAV format
                         "speakingRate": speaking_rate,
-                        "pitch": pitch
-                    }
+                        "pitch": pitch,
+                    },
                 }
 
                 response = self._make_request(
-                    "POST",
-                    "/text:synthesize",
-                    json=payload,
-                    headers={"Content-Type": "application/json"}
+                    "POST", "/text:synthesize", json=payload, headers={"Content-Type": "application/json"}
                 )
 
                 if response.status_code != 200:
@@ -295,9 +278,9 @@ class GoogleTTSProvider(TTSProvider):
                     try:
                         error_detail = response.json()
                         if "error" in error_detail:
-                            detail_text = error_detail['error'].get('message', 'Unknown error')
+                            detail_text = error_detail["error"].get("message", "Unknown error")
                         else:
-                            detail_text = 'Unknown error'
+                            detail_text = "Unknown error"
                     except (ValueError, KeyError, AttributeError):
                         # JSON parsing failed or missing expected keys
                         detail_text = response.text
@@ -310,7 +293,7 @@ class GoogleTTSProvider(TTSProvider):
                 self.logger.info("Synthesis completed via API key")
 
             # Save audio content to temporary file
-            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_file:
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
                 tmp_path = tmp_file.name
                 tmp_file.write(audio_content)
 
@@ -319,6 +302,7 @@ class GoogleTTSProvider(TTSProvider):
                 stream_audio_file(tmp_path)
                 # Clean up temp file
                 import os
+
                 os.unlink(tmp_path)
             else:
                 # Convert and save to final output path
@@ -327,10 +311,12 @@ class GoogleTTSProvider(TTSProvider):
                         convert_audio(tmp_path, output_path, output_format)
                         # Clean up temp file
                         import os
+
                         os.unlink(tmp_path)
                     else:
                         # For WAV, just move the file
                         import shutil
+
                         shutil.move(tmp_path, output_path)
 
         except requests.RequestException as e:
@@ -341,7 +327,7 @@ class GoogleTTSProvider(TTSProvider):
                 raise QuotaError(f"Google Cloud quota/billing issue: {e}") from e
             else:
                 raise NetworkError(f"Google Cloud TTS request failed: {e}") from e
-        except Exception as e:
+        except (ImportError, IOError, OSError, ValueError, RuntimeError) as e:
             error_str = str(e).lower()
             if "authentication" in error_str or "api_key" in error_str or "credentials" in error_str:
                 raise AuthenticationError(f"Google Cloud authentication failed: {e}") from e
@@ -349,5 +335,3 @@ class GoogleTTSProvider(TTSProvider):
                 raise QuotaError(f"Google Cloud quota/billing issue: {e}") from e
             else:
                 raise ProviderError(f"Google TTS synthesis failed: {e}") from e
-
-

@@ -32,9 +32,9 @@ class VoiceManager:
                 raise TTSError(f"Chatterbox server script not found: {script_path}")
 
             self.logger.info("Starting chatterbox server...")
-            self._server_process = subprocess.Popen([
-                "python", str(script_path)
-            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self._server_process = subprocess.Popen(
+                ["python", str(script_path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
 
             # Wait for server to start
             for _ in range(30):  # Wait up to 30 seconds
@@ -70,7 +70,7 @@ class VoiceManager:
 
                 # Send command
                 command_str = json.dumps(command) + "\n"
-                sock.sendall(command_str.encode('utf-8'))
+                sock.sendall(command_str.encode("utf-8"))
 
                 # Receive response
                 response_data = b""
@@ -80,7 +80,7 @@ class VoiceManager:
                         break
                     response_data += chunk
 
-                response_str = response_data.decode('utf-8').strip()
+                response_str = response_data.decode("utf-8").strip()
                 result: Dict[str, Any] = json.loads(response_str)
                 return result
 
@@ -100,13 +100,10 @@ class VoiceManager:
         if not voice_file.exists():
             raise TTSError(f"Voice file not found: {voice_file}")
 
-        if voice_file.suffix.lower() not in ['.wav', '.mp3', '.flac', '.ogg']:
+        if voice_file.suffix.lower() not in [".wav", ".mp3", ".flac", ".ogg"]:
             raise TTSError(f"Unsupported audio format: {voice_file.suffix}")
 
-        command = {
-            "action": "load_voice",
-            "voice_path": str(voice_file)
-        }
+        command = {"action": "load_voice", "voice_path": str(voice_file)}
 
         response = self._send_command(command)
 
@@ -120,10 +117,7 @@ class VoiceManager:
         """Unload a voice file from server memory"""
         voice_file = Path(voice_path).resolve()
 
-        command = {
-            "action": "unload_voice",
-            "voice_path": str(voice_file)
-        }
+        command = {"action": "unload_voice", "voice_path": str(voice_file)}
 
         try:
             response = self._send_command(command)
@@ -176,7 +170,7 @@ class VoiceManager:
         loaded_voices = self.get_loaded_voices()
 
         for voice_info in loaded_voices:
-            if Path(voice_info['path']).resolve() == voice_file:
+            if Path(voice_info["path"]).resolve() == voice_file:
                 return True
         return False
 
@@ -184,18 +178,14 @@ class VoiceManager:
         """Use server to synthesize with a loaded voice"""
         voice_file = Path(voice_path).resolve()
 
-        command = {
-            "action": "synthesize",
-            "text": text,
-            "voice_path": str(voice_file),
-            "options": kwargs
-        }
+        command = {"action": "synthesize", "text": text, "voice_path": str(voice_file), "options": kwargs}
 
         response = self._send_command(command)
 
         if response.get("status") == "success":
             # Get audio data (base64 encoded)
             import base64
+
             audio_data = base64.b64decode(response["audio_data"])
             return audio_data
         else:

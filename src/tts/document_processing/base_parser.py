@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 class SemanticType(Enum):
     """Types of semantic elements that can be extracted from documents."""
+
     TEXT = "text"
     HEADING = "heading"
     BOLD = "bold"
@@ -23,6 +24,7 @@ class SemanticType(Enum):
 @dataclass
 class SemanticElement:
     """Represents a semantic element extracted from a document."""
+
     type: SemanticType
     content: str
     level: Optional[int] = None  # For headings (1-6), list nesting, etc.

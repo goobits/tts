@@ -19,19 +19,17 @@ class EdgeTTSProvider(TTSProvider):
         self.edge_tts: Optional[Any] = None
         self.logger = logging.getLogger(__name__)
         self._executor = ThreadPoolExecutor(
-            max_workers=get_config_value('thread_pool_max_workers'),
-            thread_name_prefix="edge_tts"
+            max_workers=get_config_value("thread_pool_max_workers"), thread_name_prefix="edge_tts"
         )
 
     def _lazy_load(self) -> None:
         if self.edge_tts is None:
             try:
                 import edge_tts  # type: ignore
+
                 self.edge_tts = edge_tts
             except ImportError:
-                raise DependencyError(
-                    "edge-tts not installed. Please install with: pip install edge-tts"
-                ) from None
+                raise DependencyError("edge-tts not installed. Please install with: pip install edge-tts") from None
 
     def _run_async_safely(self, coro: Any) -> Any:
         """Safely run async coroutine, handling existing event loops."""
@@ -48,8 +46,7 @@ class EdgeTTSProvider(TTSProvider):
             raise
 
     async def _synthesize_async(
-        self, text: str, output_path: str, voice: str,
-        rate: str, pitch: str, output_format: str = "mp3"
+        self, text: str, output_path: str, voice: str, rate: str, pitch: str, output_format: str = "mp3"
     ) -> None:
         try:
             self.logger.debug(f"Creating Edge TTS communication with voice: {voice}")
@@ -63,7 +60,8 @@ class EdgeTTSProvider(TTSProvider):
             else:
                 # For other formats, save as MP3 first then convert
                 import tempfile
-                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+
+                with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
                     mp3_path = tmp.name
 
                 self.logger.debug(f"Saving MP3 to temporary file: {mp3_path}")
@@ -73,25 +71,17 @@ class EdgeTTSProvider(TTSProvider):
                 convert_with_cleanup(mp3_path, output_path, output_format)
         except ConnectionError as e:
             self.logger.error(f"Network connection error during Edge TTS synthesis: {e}")
-            raise NetworkError(
-                f"Edge TTS connection failed: {e}. Check your internet connection and try again."
-            ) from e
+            raise NetworkError(f"Edge TTS connection failed: {e}. Check your internet connection and try again.") from e
         except OSError as e:
             self.logger.error(f"File system error during Edge TTS synthesis: {e}")
             raise ProviderError(f"Edge TTS file operation failed: {e}") from e
-        except Exception as e:
+        except (RuntimeError, ValueError, AttributeError) as e:
             error_msg = str(e).lower()
-            if any(keyword in error_msg for keyword in [
-                "internet", "network", "connection", "dns", "timeout"
-            ]):
+            if any(keyword in error_msg for keyword in ["internet", "network", "connection", "dns", "timeout"]):
                 self.logger.error(f"Network-related error during Edge TTS synthesis: {e}")
-                raise NetworkError(
-                    f"Edge TTS network error: {e}. Check your internet connection and try again."
-                ) from e
+                raise NetworkError(f"Edge TTS network error: {e}. Check your internet connection and try again.") from e
             else:
-                self.logger.error(
-                    f"Edge TTS synthesis failed with unexpected error: {type(e).__name__}: {e}"
-                )
+                self.logger.error(f"Edge TTS synthesis failed with unexpected error: {type(e).__name__}: {e}")
                 raise ProviderError(f"Edge TTS synthesis failed: {type(e).__name__}: {e}") from e
 
     async def _stream_async(self, text: str, voice: str, rate: str, pitch: str) -> None:
@@ -100,6 +90,7 @@ class EdgeTTSProvider(TTSProvider):
 
         try:
             import time
+
             start_time = time.time()
             self.logger.debug(f"Starting Edge TTS streaming with voice: {voice}")
             if self.edge_tts is None:
@@ -108,7 +99,7 @@ class EdgeTTSProvider(TTSProvider):
 
             # Check for audio environment first
             audio_env = check_audio_environment()
-            if not audio_env['available']:
+            if not audio_env["available"]:
                 self.logger.warning(f"Audio streaming not available: {audio_env['reason']}")
                 # Fallback to temporary file method
                 return await self._stream_via_tempfile(text, voice, rate, pitch)
@@ -117,16 +108,18 @@ class EdgeTTSProvider(TTSProvider):
             try:
                 # Use more robust ffplay options
                 ffplay_cmd = [
-                    'ffplay',
-                    '-nodisp',           # No video display
-                    '-autoexit',         # Exit when done
-                    '-loglevel', 'quiet', # Reduce ffplay output
-                    '-i', 'pipe:0'       # Read from stdin
+                    "ffplay",
+                    "-nodisp",  # No video display
+                    "-autoexit",  # Exit when done
+                    "-loglevel",
+                    "quiet",  # Reduce ffplay output
+                    "-i",
+                    "pipe:0",  # Read from stdin
                 ]
 
                 # Add audio device options if available
-                if audio_env['pulse_available']:
-                    ffplay_cmd.extend(['-f', 'pulse'])
+                if audio_env["pulse_available"]:
+                    ffplay_cmd.extend(["-f", "pulse"])
 
                 self.logger.debug(f"Starting ffplay with command: {' '.join(ffplay_cmd)}")
                 ffplay_process = subprocess.Popen(
@@ -134,13 +127,11 @@ class EdgeTTSProvider(TTSProvider):
                     stdin=subprocess.PIPE,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.PIPE,
-                    bufsize=0  # Unbuffered for real-time streaming
+                    bufsize=0,  # Unbuffered for real-time streaming
                 )
             except FileNotFoundError:
                 self.logger.error("FFplay not found for audio streaming")
-                raise DependencyError(
-                    "ffplay not found. Please install ffmpeg to use audio streaming."
-                ) from None
+                raise DependencyError("ffplay not found. Please install ffmpeg to use audio streaming.") from None
 
             try:
                 # Stream audio data with improved error handling
@@ -153,49 +144,41 @@ class EdgeTTSProvider(TTSProvider):
                 playback_started = False
 
                 async for chunk in communicate.stream():
-                    if chunk['type'] == 'audio':
+                    if chunk["type"] == "audio":
                         chunk_count += 1
 
                         # Log when we get the first chunk (latency measurement)
                         if chunk_count == 1:
                             import time
+
                             first_chunk_time = time.time()
-                            self.logger.debug(
-                                "First audio chunk received - starting immediate playback"
-                            )
+                            self.logger.debug("First audio chunk received - starting immediate playback")
 
                         try:
                             # Write chunk immediately to start playback ASAP
                             if ffplay_process.stdin:
-                                ffplay_process.stdin.write(chunk['data'])
+                                ffplay_process.stdin.write(chunk["data"])
                                 ffplay_process.stdin.flush()  # Force immediate write
-                            bytes_written += len(chunk['data'])
+                            bytes_written += len(chunk["data"])
 
                             # Mark playback as started after first few chunks
-                            threshold = get_config_value('streaming_playback_start_threshold')
+                            threshold = get_config_value("streaming_playback_start_threshold")
                             if chunk_count == threshold and not playback_started:
                                 playback_started = True
-                                self.logger.debug(
-                                    "Optimized streaming: Playback should have started"
-                                )
+                                self.logger.debug("Optimized streaming: Playback should have started")
 
                             # Log progress every N chunks
-                            if chunk_count % get_config_value('streaming_progress_interval') == 0:
-                                self.logger.debug(
-                                    f"Streamed {chunk_count} chunks, {bytes_written} bytes"
-                                )
+                            if chunk_count % get_config_value("streaming_progress_interval") == 0:
+                                self.logger.debug(f"Streamed {chunk_count} chunks, {bytes_written} bytes")
 
                         except BrokenPipeError:
                             # Check if ffplay process ended early
                             if ffplay_process.poll() is not None:
                                 stderr_output = ""
                                 if ffplay_process.stderr:
-                                    stderr_output = ffplay_process.stderr.read().decode(
-                                        'utf-8', errors='ignore'
-                                    )
+                                    stderr_output = ffplay_process.stderr.read().decode("utf-8", errors="ignore")
                                 self.logger.warning(
-                                    f"FFplay ended early (exit code: {ffplay_process.returncode}): "
-                                    f"{stderr_output}"
+                                    f"FFplay ended early (exit code: {ffplay_process.returncode}): {stderr_output}"
                                 )
                                 break
                             else:
@@ -211,21 +194,17 @@ class EdgeTTSProvider(TTSProvider):
                     total_time = time.time() - start_time
                     if first_chunk_time:
                         latency = first_chunk_time - start_time
-                        self.logger.info(
-                            f"Streaming optimization: First audio in {latency:.1f}s, "
-                            f"Total: {total_time:.1f}s"
-                        )
+                        self.logger.info(f"Streaming optimization: First audio in {latency:.1f}s, Total: {total_time:.1f}s")
 
                     self.logger.debug(
-                        f"Audio streaming completed. Chunks: {chunk_count}, "
-                        f"Bytes: {bytes_written}, Exit code: {exit_code}"
+                        f"Audio streaming completed. Chunks: {chunk_count}, Bytes: {bytes_written}, Exit code: {exit_code}"
                     )
                 except KeyboardInterrupt:
                     # Clean shutdown on Ctrl+C
                     if ffplay_process.poll() is None:
                         ffplay_process.terminate()
                     raise
-                except Exception as e:
+                except (subprocess.SubprocessError, OSError) as e:
                     self.logger.error(f"FFplay process error: {e}")
                     ffplay_process.terminate()
 
@@ -234,58 +213,54 @@ class EdgeTTSProvider(TTSProvider):
                 if ffplay_process.poll() is None:
                     ffplay_process.terminate()
                 raise
-            except Exception as e:
+            except (BrokenPipeError, IOError, OSError, RuntimeError) as e:
                 self.logger.error(f"Audio streaming failed: {e}")
                 # Ensure ffplay is terminated
                 if ffplay_process.poll() is None:
                     ffplay_process.terminate()
                     try:
-                        ffplay_process.wait(timeout=get_config_value('ffplay_termination_timeout'))
+                        ffplay_process.wait(timeout=get_config_value("ffplay_termination_timeout"))
                     except subprocess.TimeoutExpired:
                         ffplay_process.kill()
 
                 if "internet" in str(e).lower() or "network" in str(e).lower():
-                    raise NetworkError(
-                        "Network error during streaming. Check your internet connection."
-                    ) from e
+                    raise NetworkError("Network error during streaming. Check your internet connection.") from e
                 elif isinstance(e, BrokenPipeError):
                     raise AudioPlaybackError(
-                        "Audio streaming failed: Audio device may not be available or "
-                        "configured properly."
+                        "Audio streaming failed: Audio device may not be available or configured properly."
                     ) from e
                 raise ProviderError(f"Audio streaming failed: {e}") from e
 
         except KeyboardInterrupt:
             # Propagate without logging
             raise
-        except Exception as e:
+        except (ConnectionError, OSError, RuntimeError, ValueError) as e:
             error_str = str(e).lower()
             if "internet" in error_str or "network" in error_str or "connection" in error_str:
                 self.logger.error(f"Network error during Edge TTS streaming: {e}")
-                raise NetworkError(
-                    "Edge TTS requires internet connection. Check your network and try again."
-                ) from e
+                raise NetworkError("Edge TTS requires internet connection. Check your network and try again.") from e
             else:
                 self.logger.error(f"Edge TTS streaming failed: {e}")
                 raise ProviderError(f"Edge TTS streaming failed: {e}") from e
 
-
     async def _stream_via_tempfile(self, text: str, voice: str, rate: str, pitch: str) -> None:
         """Fallback streaming method using temporary file when direct streaming fails"""
+
         # Use the shared utility with async wrapper
         def sync_synthesize(text: str, output_path: str, **kwargs: Any) -> None:
             # Run async synthesis in sync context using proper event loop handling
-            self._run_async_safely(self._synthesize_async(text, output_path, kwargs['voice'],
-                                                          kwargs['rate'], kwargs['pitch'], "mp3"))
+            self._run_async_safely(
+                self._synthesize_async(text, output_path, kwargs["voice"], kwargs["rate"], kwargs["pitch"], "mp3")
+            )
 
         stream_via_tempfile(
             synthesize_func=sync_synthesize,
             text=text,
             logger=self.logger,
-            file_suffix='.mp3',
+            file_suffix=".mp3",
             voice=voice,
             rate=rate,
-            pitch=pitch
+            pitch=pitch,
         )
 
     def synthesize(self, text: str, output_path: Optional[str], **kwargs: Any) -> None:
@@ -314,9 +289,7 @@ class EdgeTTSProvider(TTSProvider):
         else:
             if output_path is None:
                 raise ValueError("output_path is required when not streaming")
-            self._run_async_safely(
-                self._synthesize_async(text, output_path, voice, rate, pitch, output_format)
-            )
+            self._run_async_safely(self._synthesize_async(text, output_path, voice, rate, pitch, output_format))
 
     def get_info(self) -> Optional[ProviderInfo]:
         self._lazy_load()
@@ -324,6 +297,7 @@ class EdgeTTSProvider(TTSProvider):
         # Get available voices
         voices = []
         try:
+
             async def get_voices() -> Any:
                 if self.edge_tts is None:
                     raise ProviderError("Edge TTS module not loaded")
@@ -335,7 +309,7 @@ class EdgeTTSProvider(TTSProvider):
             # Network issues, asyncio problems, or edge-tts import failures
             self.logger.warning(f"Could not fetch voice list from Edge TTS: {e}")
             voices = ["en-US-JennyNeural", "en-US-GuyNeural", "en-GB-SoniaNeural"]
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             # Unexpected errors
             self.logger.error(f"Unexpected error fetching Edge TTS voices: {e}")
             voices = ["en-US-JennyNeural", "en-US-GuyNeural", "en-GB-SoniaNeural"]
@@ -347,9 +321,9 @@ class EdgeTTSProvider(TTSProvider):
                 "voice": "Voice name (default: en-US-JennyNeural)",
                 "rate": "Speech rate adjustment (e.g., +20%, -10%)",
                 "pitch": "Pitch adjustment (e.g., +5Hz, -10Hz)",
-                "stream": "Stream directly to speakers instead of saving to file (true/false)"
+                "stream": "Stream directly to speakers instead of saving to file (true/false)",
             },
             "output_formats": ["MP3"],
-            "sample_voices": voices if voices else []
+            "sample_voices": voices if voices else [],
         }
         return result

@@ -16,7 +16,7 @@ class SpeechMarkdownConverter:
             SemanticType.LINK: {"after": "[250ms]"},
             SemanticType.BOLD: {"after": ""},
             SemanticType.ITALIC: {"after": ""},
-            SemanticType.TEXT: {"after": ""}
+            SemanticType.TEXT: {"after": ""},
         }
 
         self.emotion_map = {
@@ -27,7 +27,7 @@ class SpeechMarkdownConverter:
             SemanticType.CODE_BLOCK: "monotone",
             SemanticType.LIST_ITEM: "normal",
             SemanticType.LINK: "normal",
-            SemanticType.TEXT: "normal"
+            SemanticType.TEXT: "normal",
         }
 
     def convert_elements(self, elements: List[SemanticElement]) -> str:

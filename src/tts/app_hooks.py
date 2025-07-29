@@ -14,11 +14,11 @@ from tts.core import get_tts_engine
 
 # Provider registry - this should match what was in the original CLI
 PROVIDERS_REGISTRY = {
-    'edge_tts': 'tts.providers.edge_tts',
-    'openai_tts': 'tts.providers.openai_tts',
-    'elevenlabs': 'tts.providers.elevenlabs',
-    'google_tts': 'tts.providers.google_tts',
-    'chatterbox': 'tts.providers.chatterbox',
+    "edge_tts": "tts.providers.edge_tts",
+    "openai_tts": "tts.providers.openai_tts",
+    "elevenlabs": "tts.providers.elevenlabs",
+    "google_tts": "tts.providers.google_tts",
+    "chatterbox": "tts.providers.chatterbox",
 }
 
 # Provider shortcuts mapping for @provider syntax
@@ -27,7 +27,7 @@ PROVIDER_SHORTCUTS = {
     "openai": "openai_tts",
     "elevenlabs": "elevenlabs",
     "google": "google_tts",
-    "chatterbox": "chatterbox"
+    "chatterbox": "chatterbox",
 }
 
 
@@ -38,7 +38,7 @@ def parse_provider_shortcuts(args: list) -> tuple[Optional[str], list]:
 
     # Check if first argument is a provider shortcut
     first_arg = args[0]
-    if first_arg.startswith('@'):
+    if first_arg.startswith("@"):
         shortcut = first_arg[1:]  # Remove @
         if shortcut in PROVIDER_SHORTCUTS:
             provider_name = PROVIDER_SHORTCUTS[shortcut]
@@ -56,7 +56,7 @@ def handle_provider_shortcuts(provider_arg: Optional[str]) -> Optional[str]:
     if not provider_arg:
         return None
 
-    if provider_arg.startswith('@'):
+    if provider_arg.startswith("@"):
         shortcut = provider_arg[1:]  # Remove @
         if shortcut in PROVIDER_SHORTCUTS:
             return PROVIDER_SHORTCUTS[shortcut]
@@ -71,14 +71,14 @@ def get_engine() -> Any:
     """Get or create TTS engine instance"""
     try:
         return get_tts_engine()
-    except Exception:
+    except (ImportError, AttributeError, RuntimeError):
         from tts.core import initialize_tts_engine
+
         return initialize_tts_engine(PROVIDERS_REGISTRY)
 
 
 def on_speak(
-    text: Optional[str], options: tuple, voice: Optional[str],
-    rate: Optional[str], pitch: Optional[str], debug: bool
+    text: Optional[str], options: tuple, voice: Optional[str], rate: Optional[str], pitch: Optional[str], debug: bool, **kwargs
 ) -> int:
     """Handle the speak command"""
     try:
@@ -93,10 +93,10 @@ def on_speak(
             all_args.extend(options)
 
         # Check if first argument is a provider shortcut
-        if all_args and all_args[0].startswith('@'):
+        if all_args and all_args[0].startswith("@"):
             provider_name, remaining_args = parse_provider_shortcuts(all_args)
             # Handle invalid shortcuts
-            if provider_name and provider_name.startswith('@'):
+            if provider_name and provider_name.startswith("@"):
                 shortcut = provider_name[1:]
                 print(f"Error: Unknown provider shortcut '@{shortcut}'", file=sys.stderr)
                 print(f"Available providers: {', '.join('@' + k for k in PROVIDER_SHORTCUTS.keys())}", file=sys.stderr)
@@ -124,14 +124,14 @@ def on_speak(
 
         # Create output parameters
         output_params: Dict[str, Any] = {
-            'stream': True,  # For speaking, we want to stream to speakers
-            'debug': debug
+            "stream": True,  # For speaking, we want to stream to speakers
+            "debug": debug,
         }
 
         if rate:
-            output_params['rate'] = rate
+            output_params["rate"] = rate
         if pitch:
-            output_params['pitch'] = pitch
+            output_params["pitch"] = pitch
 
         # Synthesize the text
         result = engine.synthesize_text(
@@ -139,23 +139,28 @@ def on_speak(
             voice=voice,
             provider_name=provider_name,
             output_path=None,  # None means stream to speakers
-            **output_params
+            **output_params,
         )
 
         return 0 if result else 1
 
-    except Exception as e:
-        if debug:
-            import traceback
-            traceback.print_exc()
-        print(f"Error in speak command: {e}")
-        return 1
+    except Exception:
+        # Re-raise to let CLI handle it with user-friendly messages
+        raise
 
 
 def on_save(
-    text: Optional[str], options: tuple, output: Optional[str], format: Optional[str],
-    voice: Optional[str], clone: Optional[str], json: bool, debug: bool,
-    rate: Optional[str], pitch: Optional[str]
+    text: Optional[str],
+    options: tuple,
+    output: Optional[str],
+    format: Optional[str],
+    voice: Optional[str],
+    clone: Optional[str],
+    json: bool,
+    debug: bool,
+    rate: Optional[str],
+    pitch: Optional[str],
+    **kwargs,
 ) -> int:
     """Handle the save command"""
     try:
@@ -170,10 +175,10 @@ def on_save(
             all_args.extend(options)
 
         # Check if first argument is a provider shortcut
-        if all_args and all_args[0].startswith('@'):
+        if all_args and all_args[0].startswith("@"):
             provider_name, remaining_args = parse_provider_shortcuts(all_args)
             # Handle invalid shortcuts
-            if provider_name and provider_name.startswith('@'):
+            if provider_name and provider_name.startswith("@"):
                 shortcut = provider_name[1:]
                 print(f"Error: Unknown provider shortcut '@{shortcut}'", file=sys.stderr)
                 print(f"Available providers: {', '.join('@' + k for k in PROVIDER_SHORTCUTS.keys())}", file=sys.stderr)
@@ -198,24 +203,20 @@ def on_save(
 
         # Create output parameters
         output_params: Dict[str, Any] = {
-            'stream': False,  # For saving, we don't stream
-            'debug': debug
+            "stream": False,  # For saving, we don't stream
+            "debug": debug,
         }
 
         if rate:
-            output_params['rate'] = rate
+            output_params["rate"] = rate
         if pitch:
-            output_params['pitch'] = pitch
+            output_params["pitch"] = pitch
         if format:
-            output_params['format'] = format
+            output_params["format"] = format
 
         # Synthesize the text
         result = engine.synthesize_text(
-            text=final_text,
-            voice=voice,
-            provider_name=provider_name,
-            output_path=output,
-            **output_params
+            text=final_text, voice=voice, provider_name=provider_name, output_path=output, **output_params
         )
 
         if result:
@@ -224,21 +225,19 @@ def on_save(
         else:
             return 1
 
-    except Exception as e:
-        if debug:
-            import traceback
-            traceback.print_exc()
-        print(f"Error in save command: {e}")
-        return 1
+    except Exception:
+        # Re-raise to let CLI handle it with user-friendly messages
+        raise
 
 
-def on_voices(args: tuple) -> int:
+def on_voices(args: tuple, **kwargs) -> int:
     """Handle the voices command"""
     import os
     import sys
 
     try:
         from tts.voice_browser import VoiceBrowser
+
         engine = get_engine()
 
         # Create and launch voice browser
@@ -247,25 +246,21 @@ def on_voices(args: tuple) -> int:
         # Try to reset terminal state before launching curses
         try:
             # Reset terminal to a clean state
-            os.system('stty sane')
-        except Exception:
+            os.system("stty sane")
+        except OSError:
             pass
 
         # Run the browser with its built-in curses wrapper
         browser.run()
         return 0
-    except ImportError as e:
-        print(f"Error: Could not import required module: {e}")
-        print("The voice browser requires the curses module.")
-        return 1
-    except Exception as e:
-        print(f"Error in voices command: {e}")
-        print("\nTerminal info:")
-        print(f"  TERM={os.environ.get('TERM', 'not set')}")
+    except Exception:
+        # Re-raise to let CLI handle it with user-friendly messages
+        raise
         print(f"  Interactive: {sys.stdout.isatty()}")
         print(f"  Terminal size: {os.get_terminal_size() if sys.stdout.isatty() else 'N/A'}")
 
         import traceback
+
         traceback.print_exc()
 
         print("\nTroubleshooting:")
@@ -275,7 +270,7 @@ def on_voices(args: tuple) -> int:
         return 1
 
 
-def on_providers(provider_name: Optional[str]) -> int:
+def on_providers(provider_name: Optional[str], **kwargs) -> int:
     """Handle the providers command"""
     try:
         engine = get_engine()
@@ -299,12 +294,12 @@ def on_providers(provider_name: Optional[str]) -> int:
                 print(f"  • {provider}")
 
         return 0
-    except Exception as e:
+    except (KeyError, AttributeError, ValueError) as e:
         print(f"Error in providers command: {e}")
         return 1
 
 
-def on_install(args: tuple) -> int:
+def on_install(args: tuple, **kwargs) -> int:
     """Handle the install command"""
     try:
         import subprocess
@@ -328,13 +323,13 @@ def on_install(args: tuple) -> int:
 
         # Provider installation mappings
         install_commands = {
-            'edge-tts': ['pip', 'install', 'edge-tts'],
-            'edge_tts': ['pip', 'install', 'edge-tts'],
-            'openai': ['pip', 'install', 'openai'],
-            'elevenlabs': ['pip', 'install', 'elevenlabs'],
-            'google-tts': ['pip', 'install', 'google-cloud-texttospeech'],
-            'google_tts': ['pip', 'install', 'google-cloud-texttospeech'],
-            'chatterbox': ['pip', 'install', 'torch', 'torchaudio', 'transformers', 'librosa']
+            "edge-tts": ["pip", "install", "edge-tts"],
+            "edge_tts": ["pip", "install", "edge-tts"],
+            "openai": ["pip", "install", "openai"],
+            "elevenlabs": ["pip", "install", "elevenlabs"],
+            "google-tts": ["pip", "install", "google-cloud-texttospeech"],
+            "google_tts": ["pip", "install", "google-cloud-texttospeech"],
+            "chatterbox": ["pip", "install", "torch", "torchaudio", "transformers", "librosa"],
         }
 
         if provider not in install_commands:
@@ -347,15 +342,11 @@ def on_install(args: tuple) -> int:
 
         try:
             # Special handling for chatterbox (multiple packages)
-            if provider == 'chatterbox':
-                packages = ['torch', 'torchaudio', 'transformers', 'librosa']
+            if provider == "chatterbox":
+                packages = ["torch", "torchaudio", "transformers", "librosa"]
                 for package in packages:
                     print(f"📦 Installing {package}...")
-                    result = subprocess.run(
-                        [sys.executable, '-m', 'pip', 'install', package],
-                        capture_output=True,
-                        text=True
-                    )
+                    result = subprocess.run([sys.executable, "-m", "pip", "install", package], capture_output=True, text=True)
 
                     if result.returncode != 0:
                         print(f"❌ Failed to install {package}")
@@ -369,9 +360,9 @@ def on_install(args: tuple) -> int:
                 print(f"📦 Running: {' '.join(cmd)}")
 
                 result = subprocess.run(
-                    [sys.executable, '-m'] + cmd[1:],  # Use current Python interpreter
+                    [sys.executable, "-m"] + cmd[1:],  # Use current Python interpreter
                     capture_output=True,
-                    text=True
+                    text=True,
                 )
 
                 if result.returncode != 0:
@@ -382,13 +373,13 @@ def on_install(args: tuple) -> int:
             print(f"✅ {provider} installed successfully!")
 
             # Provide next steps
-            if provider in ['openai', 'elevenlabs', 'google-tts', 'google_tts']:
+            if provider in ["openai", "elevenlabs", "google-tts", "google_tts"]:
                 print("\n💡 Next steps:")
-                if provider == 'openai':
+                if provider == "openai":
                     print("   Set your API key: tts config set openai_api_key YOUR_KEY")
-                elif provider == 'elevenlabs':
+                elif provider == "elevenlabs":
                     print("   Set your API key: tts config set elevenlabs_api_key YOUR_KEY")
-                elif provider in ['google-tts', 'google_tts']:
+                elif provider in ["google-tts", "google_tts"]:
                     print("   Set up authentication:")
                     print("   • API key: tts config set google_api_key YOUR_KEY")
                     print("   • Or service account: tts config set google_credentials_path /path/to/credentials.json")
@@ -396,12 +387,12 @@ def on_install(args: tuple) -> int:
             # Test the installation
             print(f"\n🧪 Testing {provider}...")
             engine = get_engine()
-            test_result = engine.test_provider(provider.replace('-', '_'))
+            test_result = engine.test_provider(provider.replace("-", "_"))
 
-            if test_result.get('available', False):
+            if test_result.get("available", False):
                 print(f"✅ {provider} is working correctly!")
             else:
-                error = test_result.get('error', 'Unknown error')
+                error = test_result.get("error", "Unknown error")
                 print(f"⚠️  {provider} installed but not fully configured: {error}")
 
             return 0
@@ -409,16 +400,16 @@ def on_install(args: tuple) -> int:
         except subprocess.CalledProcessError as e:
             print(f"❌ Installation failed: {e}")
             return 1
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError) as e:
             print(f"❌ Unexpected error during installation: {e}")
             return 1
 
-    except Exception as e:
+    except (ImportError, ValueError, KeyError) as e:
         print(f"Error in install command: {e}")
         return 1
 
 
-def on_info(provider: Optional[str]) -> int:
+def on_info(provider: Optional[str], **kwargs) -> int:
     """Handle the info command"""
     try:
         engine = get_engine()
@@ -427,7 +418,7 @@ def on_info(provider: Optional[str]) -> int:
             # Handle provider shortcuts
             resolved_provider = handle_provider_shortcuts(provider)
 
-            if resolved_provider and resolved_provider.startswith('@'):
+            if resolved_provider and resolved_provider.startswith("@"):
                 shortcut = resolved_provider[1:]
                 print(f"Error: Unknown provider shortcut '@{shortcut}'", file=sys.stderr)
                 print(f"Available providers: {', '.join('@' + k for k in PROVIDER_SHORTCUTS.keys())}", file=sys.stderr)
@@ -472,8 +463,8 @@ def on_info(provider: Optional[str]) -> int:
             for provider_name in available:
                 info = engine.get_provider_info(provider_name)
                 if info:
-                    name = info.get('name', provider_name)
-                    description = info.get('description', 'No description')
+                    name = info.get("name", provider_name)
+                    description = info.get("description", "No description")
                     print(f"\n🏢 {name}")
                     print(f"   {description}")
                     # Find shortcut
@@ -491,16 +482,27 @@ def on_info(provider: Optional[str]) -> int:
             print("Example: tts info @edge")
 
         return 0
-    except Exception as e:
+    except (KeyError, AttributeError, ValueError) as e:
         print(f"Error in info command: {e}")
         return 1
 
 
 def on_document(
-    document_path: str, options: tuple, save: bool, output: Optional[str],
-    format: Optional[str], voice: Optional[str], clone: Optional[str], json: bool, debug: bool,
-    doc_format: str, ssml_platform: str, emotion_profile: str,
-    rate: Optional[str], pitch: Optional[str]
+    document_path: str,
+    options: tuple,
+    save: bool,
+    output: Optional[str],
+    format: Optional[str],
+    voice: Optional[str],
+    clone: Optional[str],
+    json: bool,
+    debug: bool,
+    doc_format: str,
+    ssml_platform: str,
+    emotion_profile: str,
+    rate: Optional[str],
+    pitch: Optional[str],
+    **kwargs,
 ) -> int:
     """Handle the document command"""
     try:
@@ -516,18 +518,14 @@ def on_document(
 
         # Read document content
         try:
-            content = doc_file.read_text(encoding='utf-8')
+            content = doc_file.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             print(f"Error: Unable to read document as UTF-8: {document_path}")
             return 1
 
         # Parse document using factory
         factory = DocumentParserFactory()
-        semantic_elements = factory.parse_document(
-            content=content,
-            filename=document_path,
-            format_override=doc_format
-        )
+        semantic_elements = factory.parse_document(content=content, filename=document_path, format_override=doc_format)
 
         if not semantic_elements:
             print("Warning: No content found in document")
@@ -536,7 +534,7 @@ def on_document(
         # Extract text from semantic elements
         text_parts = []
         for element in semantic_elements:
-            if hasattr(element, 'content') and element.content:
+            if hasattr(element, "content") and element.content:
                 text_parts.append(element.content)
 
         if not text_parts:
@@ -553,31 +551,24 @@ def on_document(
         engine = get_engine()
 
         # Create output parameters
-        output_params: Dict[str, Any] = {
-            'debug': debug
-        }
+        output_params: Dict[str, Any] = {"debug": debug}
 
         if rate:
-            output_params['rate'] = rate
+            output_params["rate"] = rate
         if pitch:
-            output_params['pitch'] = pitch
+            output_params["pitch"] = pitch
         if format:
-            output_params['format'] = format
+            output_params["format"] = format
 
         # Determine if we should save or stream
         if save or output:
             # Save mode
             if not output:
                 # Generate output filename based on input
-                output = doc_file.with_suffix('.mp3').name
+                output = doc_file.with_suffix(".mp3").name
 
-            output_params['stream'] = False
-            result = engine.synthesize_text(
-                text=final_text,
-                voice=voice,
-                output_path=output,
-                **output_params
-            )
+            output_params["stream"] = False
+            result = engine.synthesize_text(text=final_text, voice=voice, output_path=output, **output_params)
 
             if result:
                 print(f"Document audio saved to: {output}")
@@ -586,25 +577,17 @@ def on_document(
                 return 1
         else:
             # Stream mode (default)
-            output_params['stream'] = True
-            result = engine.synthesize_text(
-                text=final_text,
-                voice=voice,
-                output_path=None,
-                **output_params
-            )
+            output_params["stream"] = True
+            result = engine.synthesize_text(text=final_text, voice=voice, output_path=None, **output_params)
 
             return 0 if result else 1
 
-    except Exception as e:
-        if debug:
-            import traceback
-            traceback.print_exc()
-        print(f"Error in document command: {e}")
-        return 1
+    except Exception:
+        # Re-raise to let CLI handle it with user-friendly messages
+        raise
 
 
-def on_voice_load(voice_files: tuple) -> int:
+def on_voice_load(voice_files: tuple, **kwargs) -> int:
     """Handle the voice load command"""
     try:
         from pathlib import Path
@@ -645,7 +628,7 @@ def on_voice_load(voice_files: tuple) -> int:
                     print(f"❌ Failed to load: {voice_path.name}")
                     failed_count += 1
 
-            except Exception as e:
+            except (IOError, OSError, ValueError) as e:
                 print(f"❌ Error loading {voice_path.name}: {e}")
                 failed_count += 1
 
@@ -659,17 +642,17 @@ def on_voice_load(voice_files: tuple) -> int:
         if loaded_voices:
             print(f"\n🎤 Currently Loaded Voices ({len(loaded_voices)}):")
             for voice_info in loaded_voices:
-                voice_path = Path(voice_info['path'])
+                voice_path = Path(voice_info["path"])
                 print(f"   • {voice_path.name}")
 
         return 0 if failed_count == 0 else 1
 
-    except Exception as e:
+    except (ImportError, IOError, OSError) as e:
         print(f"Error in voice load command: {e}")
         return 1
 
 
-def on_voice_unload(voice_files: tuple, all: bool) -> int:
+def on_voice_unload(voice_files: tuple, all: bool, **kwargs) -> int:
     """Handle the voice unload command"""
     try:
         from pathlib import Path
@@ -691,7 +674,7 @@ def on_voice_unload(voice_files: tuple, all: bool) -> int:
 
                 return 0
 
-            except Exception as e:
+            except (IOError, OSError, RuntimeError) as e:
                 print(f"❌ Error unloading all voices: {e}")
                 return 1
 
@@ -724,7 +707,7 @@ def on_voice_unload(voice_files: tuple, all: bool) -> int:
                     print(f"❌ Failed to unload: {voice_path.name}")
                     failed_count += 1
 
-            except Exception as e:
+            except (IOError, OSError, ValueError) as e:
                 print(f"❌ Error unloading {voice_path.name}: {e}")
                 failed_count += 1
 
@@ -738,19 +721,19 @@ def on_voice_unload(voice_files: tuple, all: bool) -> int:
         if loaded_voices:
             print(f"\n🎤 Still Loaded Voices ({len(loaded_voices)}):")
             for voice_info in loaded_voices:
-                voice_path = Path(voice_info['path'])
+                voice_path = Path(voice_info["path"])
                 print(f"   • {voice_path.name}")
         else:
             print("\n✨ No voices currently loaded")
 
         return 0 if failed_count == 0 else 1
 
-    except Exception as e:
+    except (ImportError, IOError, OSError) as e:
         print(f"Error in voice unload command: {e}")
         return 1
 
 
-def on_voice_status() -> int:
+def on_voice_status(**kwargs) -> int:
     """Handle the voice status command"""
     try:
         from pathlib import Path
@@ -781,7 +764,7 @@ def on_voice_status() -> int:
             print("   " + "=" * 50)
 
             for i, voice_info in enumerate(loaded_voices, 1):
-                voice_path = Path(voice_info['path'])
+                voice_path = Path(voice_info["path"])
                 print(f"   {i}. {voice_path.name}")
                 print(f"      📁 Path: {voice_path}")
 
@@ -793,7 +776,7 @@ def on_voice_status() -> int:
                     print("      ⚠️  File not found at original location")
 
                 # Show additional info if available
-                if 'loaded_at' in voice_info:
+                if "loaded_at" in voice_info:
                     print(f"      ⏰ Loaded: {voice_info['loaded_at']}")
 
                 print()  # Empty line between voices
@@ -807,12 +790,12 @@ def on_voice_status() -> int:
 
         return 0
 
-    except Exception as e:
+    except (ImportError, IOError, OSError, AttributeError) as e:
         print(f"Error in voice status command: {e}")
         return 1
 
 
-def on_status() -> int:
+def on_status(**kwargs) -> int:
     """Handle the status command"""
     try:
         engine = get_engine()
@@ -826,9 +809,9 @@ def on_status() -> int:
         for provider in available:
             try:
                 test_result = engine.test_provider(provider)
-                status = "✅" if test_result.get('available', False) else "❌"
+                status = "✅" if test_result.get("available", False) else "❌"
                 print(f"  {status} {provider}")
-            except Exception:
+            except (AttributeError, KeyError, RuntimeError):
                 print(f"  ❓ {provider} (status unknown)")
 
         print("\n⚙️  Configuration:")
@@ -836,12 +819,12 @@ def on_status() -> int:
         print(f"  Config file: {config.get('config_path', 'Default location')}")
 
         return 0
-    except Exception as e:
+    except (ImportError, KeyError, AttributeError) as e:
         print(f"Error in status command: {e}")
         return 1
 
 
-def on_config(action: Optional[str], key: Optional[str], value: Optional[str]) -> int:
+def on_config(action: Optional[str], key: Optional[str], value: Optional[str], **kwargs) -> int:
     """Handle the config command"""
     try:
         config = load_config()
@@ -850,7 +833,7 @@ def on_config(action: Optional[str], key: Optional[str], value: Optional[str]) -
             print("🔧 TTS Configuration")
             print("===================")
             for k, v in config.items():
-                if k != 'config_path':  # Skip internal keys
+                if k != "config_path":  # Skip internal keys
                     print(f"  {k}: {v}")
         elif action == "get" and key:
             print(config.get(key, "Not set"))
@@ -862,6 +845,6 @@ def on_config(action: Optional[str], key: Optional[str], value: Optional[str]) -
             print("Usage: config [show|get|set] [key] [value]")
 
         return 0
-    except Exception as e:
+    except (IOError, OSError, ValueError, KeyError) as e:
         print(f"Error in config command: {e}")
         return 1

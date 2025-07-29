@@ -18,7 +18,7 @@ class ContentEmotionDetector:
             SemanticType.CODE_BLOCK: {"emotion": "monotone", "intensity": 0.3},
             SemanticType.LIST_ITEM: {"emotion": "normal", "intensity": 0.5},
             SemanticType.LINK: {"emotion": "normal", "intensity": 0.5},
-            SemanticType.TEXT: {"emotion": "normal", "intensity": 0.5}
+            SemanticType.TEXT: {"emotion": "normal", "intensity": 0.5},
         }
 
         # Timing rules based on semantic types
@@ -30,7 +30,7 @@ class ContentEmotionDetector:
             SemanticType.CODE_BLOCK: {"pause_before": 0.5, "pause_after": 1.0},
             SemanticType.LIST_ITEM: {"pause_before": 0.0, "pause_after": 0.5},
             SemanticType.LINK: {"pause_before": 0.0, "pause_after": 0.25},
-            SemanticType.TEXT: {"pause_before": 0.0, "pause_after": 0.0}
+            SemanticType.TEXT: {"pause_before": 0.0, "pause_after": 0.0},
         }
 
     def detect_emotion(self, element: SemanticElement) -> Dict:
@@ -47,11 +47,7 @@ class ContentEmotionDetector:
         timing = self.timing_rules.get(element.type, {"pause_before": 0.0, "pause_after": 0.0})
 
         # Adjust based on element-specific rules
-        emotion_data = {
-            "emotion": base["emotion"],
-            "intensity": base["intensity"],
-            "timing": timing.copy()
-        }
+        emotion_data = {"emotion": base["emotion"], "intensity": base["intensity"], "timing": timing.copy()}
 
         # Apply content-based adjustments
         emotion_data = self._apply_content_rules(element, emotion_data)
@@ -66,23 +62,23 @@ class ContentEmotionDetector:
         content = element.content.lower()
 
         # Excitement indicators
-        if any(word in content for word in ['!', 'amazing', 'awesome', 'great', 'excellent']):
+        if any(word in content for word in ["!", "amazing", "awesome", "great", "excellent"]):
             if emotion_data["emotion"] in ["normal", "soft"]:
                 emotion_data["emotion"] = "excited"
                 emotion_data["intensity"] = min(1.0, emotion_data["intensity"] + 0.2)
 
         # Emphasis indicators
-        if any(word in content for word in ['important', 'note', 'warning', 'critical']):
+        if any(word in content for word in ["important", "note", "warning", "critical"]):
             emotion_data["intensity"] = min(1.0, emotion_data["intensity"] + 0.3)
 
         # Technical content indicators
-        if any(word in content for word in ['api', 'function', 'class', 'method', 'variable']):
+        if any(word in content for word in ["api", "function", "class", "method", "variable"]):
             if emotion_data["emotion"] == "normal":
                 emotion_data["emotion"] = "monotone"
                 emotion_data["intensity"] = 0.4
 
         # Question indicators
-        if content.strip().endswith('?'):
+        if content.strip().endswith("?"):
             emotion_data["timing"]["pause_after"] = max(0.3, emotion_data["timing"]["pause_after"])
 
         return emotion_data
@@ -104,8 +100,8 @@ class ContentEmotionDetector:
 
         # Code language adjustments
         if element.type == SemanticType.CODE_BLOCK:
-            language = element.metadata.get('language', 'unknown')
-            if language in ['python', 'javascript', 'rust']:
+            language = element.metadata.get("language", "unknown")
+            if language in ["python", "javascript", "rust"]:
                 # Slightly more engaging for popular languages
                 emotion_data["intensity"] = 0.4
             else:
@@ -113,8 +109,8 @@ class ContentEmotionDetector:
 
         # Link context
         if element.type == SemanticType.LINK:
-            url = element.metadata.get('url', '')
-            if 'github.com' in url or 'docs.' in url:
+            url = element.metadata.get("url", "")
+            if "github.com" in url or "docs." in url:
                 emotion_data["timing"]["pause_after"] = 0.4  # More time for technical links
 
         return emotion_data
@@ -128,13 +124,13 @@ class ContentEmotionDetector:
 
             # Flow adjustments based on previous/next elements
             if i > 0:
-                prev_element = elements[i-1]
+                prev_element = elements[i - 1]
                 if prev_element.type == SemanticType.HEADING:
                     # Reduce pause before if previous was a heading
                     emotion_data["timing"]["pause_before"] = max(0.0, emotion_data["timing"]["pause_before"] - 0.2)
 
             if i < len(elements) - 1:
-                next_element = elements[i+1]
+                next_element = elements[i + 1]
                 if next_element.type == SemanticType.HEADING:
                     # Add pause after if next is a heading
                     emotion_data["timing"]["pause_after"] = max(0.3, emotion_data["timing"]["pause_after"])

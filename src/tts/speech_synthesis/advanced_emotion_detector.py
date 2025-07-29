@@ -18,69 +18,137 @@ class AdvancedEmotionDetector(ContentEmotionDetector):
             "technical": {"base_intensity": 0.4, "emphasis_boost": 0.2, "pace": "steady"},
             "marketing": {"base_intensity": 0.7, "emphasis_boost": 0.3, "pace": "energetic"},
             "narrative": {"base_intensity": 0.6, "emphasis_boost": 0.2, "pace": "flowing"},
-            "tutorial": {"base_intensity": 0.5, "emphasis_boost": 0.25, "pace": "measured"}
+            "tutorial": {"base_intensity": 0.5, "emphasis_boost": 0.25, "pace": "measured"},
         }
 
         # Keywords for document type detection
         self.technical_keywords = {
-            'api', 'function', 'method', 'class', 'endpoint', 'configuration',
-            'implementation', 'algorithm', 'parameter', 'variable', 'debugging',
-            'compilation', 'runtime', 'framework', 'library', 'protocol',
-            'authentication', 'authorization', 'database', 'query', 'schema'
+            "api",
+            "function",
+            "method",
+            "class",
+            "endpoint",
+            "configuration",
+            "implementation",
+            "algorithm",
+            "parameter",
+            "variable",
+            "debugging",
+            "compilation",
+            "runtime",
+            "framework",
+            "library",
+            "protocol",
+            "authentication",
+            "authorization",
+            "database",
+            "query",
+            "schema",
         }
 
         self.marketing_keywords = {
-            'best', 'amazing', 'revolutionary', 'save', 'boost', 'transform',
-            'incredible', 'outstanding', 'perfect', 'ultimate', 'premium',
-            'exclusive', 'limited', 'offer', 'deal', 'discount', 'free',
-            'guarantee', 'proven', 'results', 'benefits', 'advantage'
+            "best",
+            "amazing",
+            "revolutionary",
+            "save",
+            "boost",
+            "transform",
+            "incredible",
+            "outstanding",
+            "perfect",
+            "ultimate",
+            "premium",
+            "exclusive",
+            "limited",
+            "offer",
+            "deal",
+            "discount",
+            "free",
+            "guarantee",
+            "proven",
+            "results",
+            "benefits",
+            "advantage",
         }
 
         self.narrative_keywords = {
-            'story', 'journey', 'experience', 'adventure', 'chapter',
-            'character', 'plot', 'scene', 'dialogue', 'narrative',
-            'tale', 'memoir', 'biography', 'personal', 'emotional',
-            'feeling', 'thought', 'memory', 'dream', 'hope'
+            "story",
+            "journey",
+            "experience",
+            "adventure",
+            "chapter",
+            "character",
+            "plot",
+            "scene",
+            "dialogue",
+            "narrative",
+            "tale",
+            "memoir",
+            "biography",
+            "personal",
+            "emotional",
+            "feeling",
+            "thought",
+            "memory",
+            "dream",
+            "hope",
         }
 
         self.tutorial_keywords = {
-            'step', 'guide', 'tutorial', 'instructions', 'follow',
-            'how to', 'procedure', 'process', 'walkthrough', 'example',
-            'demonstration', 'practice', 'exercise', 'lesson', 'learning',
-            'first', 'next', 'then', 'finally', 'complete', 'finish'
+            "step",
+            "guide",
+            "tutorial",
+            "instructions",
+            "follow",
+            "how to",
+            "procedure",
+            "process",
+            "walkthrough",
+            "example",
+            "demonstration",
+            "practice",
+            "exercise",
+            "lesson",
+            "learning",
+            "first",
+            "next",
+            "then",
+            "finally",
+            "complete",
+            "finish",
         }
 
         # Content pattern indicators
         self.content_patterns = {
-            'technical': [
-                r'`[^`]+`',  # inline code
-                r'```[\s\S]*?```',  # code blocks
-                r'\b\w+\(\)',  # function calls
-                r'\b[A-Z_]{3,}\b',  # constants (3+ chars, word boundaries)
-                r'https?://[^\s]+',  # URLs
-                r'\b\d+\.\d+\.\d+',  # version numbers
+            "technical": [
+                r"`[^`]+`",  # inline code
+                r"```[\s\S]*?```",  # code blocks
+                r"\b\w+\(\)",  # function calls
+                r"\b[A-Z_]{3,}\b",  # constants (3+ chars, word boundaries)
+                r"https?://[^\s]+",  # URLs
+                r"\b\d+\.\d+\.\d+",  # version numbers
             ],
-            'marketing': [
-                r'[!]{2,}',  # multiple exclamation marks
-                r'\b\d+%\s+off\b',  # percentage discounts
-                r'\$\d+',  # prices
-                r'\bfree\b',  # free offers
-                r'call.{0,10}action',  # call to action
+            "marketing": [
+                r"[!]{2,}",  # multiple exclamation marks
+                r"\b\d+%\s+off\b",  # percentage discounts
+                r"\$\d+",  # prices
+                r"\bfree\b",  # free offers
+                r"call.{0,10}action",  # call to action
             ],
-            'narrative': [
+            "narrative": [
                 r'"[^"]*"',  # quoted dialogue
-                r'\bi\s+\w+',  # first person narrative
-                r'\bwe\s+\w+',  # first person plural
-                r'\bonce\s+upon',  # story beginnings
-                r'\bsuddenly\b',  # narrative transitions
+                r"\bi\s+\w+",  # first person narrative
+                r"\bwe\s+\w+",  # first person plural
+                r"\bonce\s+upon",  # story beginnings
+                r"\bsuddenly\b",  # narrative transitions
             ],
-            'tutorial': [
-                r'\bstep\s+\d+',  # numbered steps
-                r'\b\d+\.\s',  # numbered lists
-                r'\bnow\s+\w+',  # instruction transitions
-                r'\blet\'s\s+\w+',  # tutorial language
-                r'\bmake\s+sure',  # verification instructions
-            ]
+            "tutorial": [
+                r"\bstep\s+\d+",  # numbered steps
+                r"\b\d+\.\s",  # numbered lists
+                r"\bnow\s+\w+",  # instruction transitions
+                r"\blet\'s\s+\w+",  # tutorial language
+                r"\bmake\s+sure",  # verification instructions
+            ],
         }
 
     def detect_document_type(self, elements: List[SemanticElement]) -> str:
@@ -92,32 +160,27 @@ class AdvancedEmotionDetector(ContentEmotionDetector):
         full_text = " ".join(element.content for element in elements).lower()
 
         # Count semantic type indicators
-        type_indicators = {
-            'technical': 0,
-            'marketing': 0,
-            'narrative': 0,
-            'tutorial': 0
-        }
+        type_indicators = {"technical": 0, "marketing": 0, "narrative": 0, "tutorial": 0}
 
         # Analyze semantic elements
         for element in elements:
             if element.type == SemanticType.CODE_BLOCK or element.type == SemanticType.CODE:
-                type_indicators['technical'] += 3
+                type_indicators["technical"] += 3
             elif element.type == SemanticType.HEADING:
                 content = element.content.lower()
                 if any(kw in content for kw in self.tutorial_keywords):
-                    type_indicators['tutorial'] += 2
+                    type_indicators["tutorial"] += 2
                 elif any(kw in content for kw in self.marketing_keywords):
-                    type_indicators['marketing'] += 2
+                    type_indicators["marketing"] += 2
                 elif any(kw in content for kw in self.technical_keywords):
-                    type_indicators['technical'] += 2
+                    type_indicators["technical"] += 2
 
         # Count keyword matches
         for doc_type, keywords in [
-            ('technical', self.technical_keywords),
-            ('marketing', self.marketing_keywords),
-            ('narrative', self.narrative_keywords),
-            ('tutorial', self.tutorial_keywords)
+            ("technical", self.technical_keywords),
+            ("marketing", self.marketing_keywords),
+            ("narrative", self.narrative_keywords),
+            ("tutorial", self.tutorial_keywords),
         ]:
             keyword_count = sum(1 for kw in keywords if kw in full_text)
             type_indicators[doc_type] += keyword_count
@@ -129,17 +192,17 @@ class AdvancedEmotionDetector(ContentEmotionDetector):
             pattern_count = 0
             for pattern in patterns:
                 # Use original case for constant detection, lowercase for others
-                search_text = original_text if pattern == r'\b[A-Z_]{3,}\b' else full_text
+                search_text = original_text if pattern == r"\b[A-Z_]{3,}\b" else full_text
                 matches = re.findall(pattern, search_text, re.IGNORECASE if search_text == full_text else 0)
                 pattern_count += len(matches)
             type_indicators[doc_type] += pattern_count
 
         # Additional heuristics
         if len([e for e in elements if e.type == SemanticType.LIST_ITEM]) > 3:
-            type_indicators['tutorial'] += 2
+            type_indicators["tutorial"] += 2
 
-        if any('!' in element.content for element in elements):
-            type_indicators['marketing'] += 1
+        if any("!" in element.content for element in elements):
+            type_indicators["marketing"] += 1
 
         # Return the type with highest score
         max_type = max(type_indicators.items(), key=lambda x: x[1])
@@ -166,7 +229,7 @@ class AdvancedEmotionDetector(ContentEmotionDetector):
 
             # Apply flow context
             if i > 0:
-                emotion_data = self._apply_flow_context(emotion_data, emotions[i-1], element)
+                emotion_data = self._apply_flow_context(emotion_data, emotions[i - 1], element)
 
             emotions.append(emotion_data)
 
@@ -191,8 +254,7 @@ class AdvancedEmotionDetector(ContentEmotionDetector):
             if emotion_data["emotion"] in ["normal", "soft"]:
                 emotion_data["emotion"] = "excited"
 
-            emotion_data["intensity"] = min(1.0,
-                emotion_data["intensity"] + settings["emphasis_boost"])
+            emotion_data["intensity"] = min(1.0, emotion_data["intensity"] + settings["emphasis_boost"])
 
             # Faster pace for marketing energy
             emotion_data["timing"]["pause_after"] *= 0.8
@@ -281,5 +343,5 @@ class AdvancedEmotionDetector(ContentEmotionDetector):
             "emotion_distribution": emotion_distribution,
             "average_intensity": round(avg_intensity, 2),
             "estimated_duration_seconds": round(total_timing, 1),
-            "document_characteristics": self.document_type_emotions[doc_type]
+            "document_characteristics": self.document_type_emotions[doc_type],
         }

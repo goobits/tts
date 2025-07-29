@@ -8,7 +8,8 @@ display_name: "TTS - Text to Speech"
 description: "Multi-provider text-to-speech with voice cloning"
 
 # CLI generation configuration
-cli_output_path: "src/{package_name}/cli.py"
+cli_output_path: "src/tts/cli.py"
+hooks_path: "src/tts/app_hooks.py"
 
 python:
   minimum_version: "3.8"

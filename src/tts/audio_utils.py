@@ -27,11 +27,7 @@ class AudioPlaybackManager:
         self._current_process: Optional[subprocess.Popen] = None
         self._process_lock = threading.Lock()
 
-    def play_with_tracking(
-        self,
-        audio_path: str,
-        timeout: Optional[int] = None
-    ) -> subprocess.Popen:
+    def play_with_tracking(self, audio_path: str, timeout: Optional[int] = None) -> subprocess.Popen:
         """Play audio with process tracking for background management.
 
         This method is intended for use cases like the voice browser where
@@ -52,7 +48,7 @@ class AudioPlaybackManager:
             AudioPlaybackError: If playback fails to start
         """
         if timeout is None:
-            timeout = get_config_value('ffmpeg_conversion_timeout')
+            timeout = get_config_value("ffmpeg_conversion_timeout")
 
         try:
             with self._process_lock:
@@ -60,9 +56,11 @@ class AudioPlaybackManager:
                 self._terminate_current_process()
 
                 # Start new process
-                process = subprocess.Popen([
-                    'ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', audio_path
-                ], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+                process = subprocess.Popen(
+                    ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", audio_path],
+                    stderr=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                )
 
                 self._current_process = process
                 self.logger.debug(f"Started audio playback with tracking: {audio_path}")
@@ -71,19 +69,12 @@ class AudioPlaybackManager:
 
         except FileNotFoundError as e:
             self.logger.warning(f"FFplay not available, audio saved to: {audio_path}")
-            raise DependencyError(
-                f"Audio generated but cannot play automatically. File saved to: {audio_path}"
-            ) from e
+            raise DependencyError(f"Audio generated but cannot play automatically. File saved to: {audio_path}") from e
         except Exception as e:
             self.logger.warning(f"Failed to start audio playback: {e}")
             raise AudioPlaybackError(f"Audio playback failed to start: {e}") from e
 
-    def play_and_forget(
-        self,
-        audio_path: str,
-        timeout: Optional[int] = None,
-        cleanup: bool = False
-    ) -> None:
+    def play_and_forget(self, audio_path: str, timeout: Optional[int] = None, cleanup: bool = False) -> None:
         """Play audio without tracking (fire-and-forget).
 
         This method is intended for regular TTS playback where the caller
@@ -99,31 +90,23 @@ class AudioPlaybackManager:
             AudioPlaybackError: If playback fails
         """
         if timeout is None:
-            timeout = get_config_value('ffmpeg_conversion_timeout')
+            timeout = get_config_value("ffmpeg_conversion_timeout")
 
         try:
             # Run and wait for completion
-            subprocess.run([
-                'ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', audio_path
-            ], check=True, timeout=timeout)
+            subprocess.run(["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", audio_path], check=True, timeout=timeout)
 
             self.logger.debug(f"Audio playback completed: {audio_path}")
 
         except FileNotFoundError as e:
             self.logger.warning(f"FFplay not available, audio saved to: {audio_path}")
-            raise DependencyError(
-                f"Audio generated but cannot play automatically. File saved to: {audio_path}"
-            ) from e
+            raise DependencyError(f"Audio generated but cannot play automatically. File saved to: {audio_path}") from e
         except subprocess.CalledProcessError as e:
             self.logger.warning(f"FFplay failed to play audio file: {e}")
-            raise AudioPlaybackError(
-                f"Audio generated but playback failed. File saved to: {audio_path}"
-            ) from e
+            raise AudioPlaybackError(f"Audio generated but playback failed. File saved to: {audio_path}") from e
         except subprocess.TimeoutExpired as e:
             self.logger.warning(f"FFplay playback timed out after {timeout} seconds")
-            raise AudioPlaybackError(
-                f"Audio playback timed out. File saved to: {audio_path}"
-            ) from e
+            raise AudioPlaybackError(f"Audio playback timed out. File saved to: {audio_path}") from e
         finally:
             if cleanup:
                 cleanup_file(audio_path, self.logger)
@@ -210,10 +193,7 @@ def get_audio_manager() -> AudioPlaybackManager:
 
 
 def play_audio_with_ffplay(
-    audio_path: str,
-    logger: Optional[logging.Logger] = None,
-    cleanup: bool = False,
-    timeout: Optional[int] = None
+    audio_path: str, logger: Optional[logging.Logger] = None, cleanup: bool = False, timeout: Optional[int] = None
 ) -> None:
     """
     Play an audio file using ffplay (legacy function, use AudioPlaybackManager instead).
@@ -262,11 +242,7 @@ def cleanup_file(file_path: str, logger: Optional[logging.Logger] = None) -> Non
 
 
 def stream_via_tempfile(
-    synthesize_func: Callable,
-    text: str,
-    logger: logging.Logger,
-    file_suffix: str = '.mp3',
-    **synthesis_kwargs: Any
+    synthesize_func: Callable, text: str, logger: logging.Logger, file_suffix: str = ".mp3", **synthesis_kwargs: Any
 ) -> None:
     """
     Fallback streaming method using temporary file when direct streaming fails.
@@ -300,9 +276,7 @@ def stream_via_tempfile(
 
 
 def create_ffplay_process(
-    logger: logging.Logger,
-    format_args: Optional[List[str]] = None,
-    additional_args: Optional[List[str]] = None
+    logger: logging.Logger, format_args: Optional[List[str]] = None, additional_args: Optional[List[str]] = None
 ) -> subprocess.Popen:
     """
     Create an ffplay process for streaming audio.
@@ -318,13 +292,13 @@ def create_ffplay_process(
     Raises:
         DependencyError: If ffplay is not available
     """
-    ffplay_cmd = ['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error']
+    ffplay_cmd = ["ffplay", "-nodisp", "-autoexit", "-loglevel", "error"]
 
     if format_args:
         ffplay_cmd.extend(format_args)
 
     # Add format from stdin
-    ffplay_cmd.extend(['-i', 'pipe:0'])
+    ffplay_cmd.extend(["-i", "pipe:0"])
 
     if additional_args:
         ffplay_cmd.extend(additional_args)
@@ -332,11 +306,7 @@ def create_ffplay_process(
     logger.debug(f"Starting ffplay process: {' '.join(ffplay_cmd)}")
 
     try:
-        process = subprocess.Popen(
-            ffplay_cmd,
-            stdin=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
+        process = subprocess.Popen(ffplay_cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         return process
     except FileNotFoundError as e:
         raise DependencyError(
@@ -347,11 +317,7 @@ def create_ffplay_process(
         ) from e
 
 
-def handle_ffplay_process_error(
-    process: subprocess.Popen,
-    logger: logging.Logger,
-    context: str = "streaming"
-) -> None:
+def handle_ffplay_process_error(process: subprocess.Popen, logger: logging.Logger, context: str = "streaming") -> None:
     """
     Handle errors from an ffplay process.
 
@@ -363,7 +329,7 @@ def handle_ffplay_process_error(
     if process.poll() is not None:
         stderr_output = ""
         if process.stderr:
-            stderr_output = process.stderr.read().decode('utf-8', errors='ignore')
+            stderr_output = process.stderr.read().decode("utf-8", errors="ignore")
         exit_code = process.returncode
 
         if exit_code != 0:
@@ -379,43 +345,35 @@ def check_audio_environment() -> Dict[str, Any]:
     Returns:
         Dict with 'available' (bool), 'reason' (str), and device availability flags
     """
-    result = {
-        'available': False,
-        'reason': 'Unknown',
-        'pulse_available': False,
-        'alsa_available': False
-    }
+    result = {"available": False, "reason": "Unknown", "pulse_available": False, "alsa_available": False}
 
     # Check for PulseAudio
-    if 'PULSE_SERVER' in os.environ:
-        result['pulse_available'] = True
-        result['available'] = True
-        result['reason'] = 'PulseAudio available'
+    if "PULSE_SERVER" in os.environ:
+        result["pulse_available"] = True
+        result["available"] = True
+        result["reason"] = "PulseAudio available"
         return result
 
     # Check for ALSA devices
     try:
-        if os.path.exists('/proc/asound/cards') and os.path.getsize('/proc/asound/cards') > 0:
-            result['alsa_available'] = True
-            result['available'] = True
-            result['reason'] = 'ALSA devices available'
+        if os.path.exists("/proc/asound/cards") and os.path.getsize("/proc/asound/cards") > 0:
+            result["alsa_available"] = True
+            result["available"] = True
+            result["reason"] = "ALSA devices available"
             return result
     except (ImportError, OSError, subprocess.SubprocessError) as e:
         logger.debug(f"ALSA check failed: {e}")
 
     # Check if we can reach audio system
     try:
-        subprocess.run(['aplay', '--version'],
-                     stdout=subprocess.DEVNULL,
-                     stderr=subprocess.DEVNULL,
-                     timeout=2)
-        result['available'] = True
-        result['reason'] = 'Audio system responsive'
+        subprocess.run(["aplay", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
+        result["available"] = True
+        result["reason"] = "Audio system responsive"
         return result
     except (FileNotFoundError, subprocess.SubprocessError, subprocess.TimeoutExpired) as e:
         logger.debug(f"Audio system check failed: {e}")
 
-    result['reason'] = 'No audio devices or audio system unavailable'
+    result["reason"] = "No audio devices or audio system unavailable"
     return result
 
 
@@ -446,15 +404,12 @@ def convert_audio(input_path: str, output_path: str, output_format: str) -> None
         ProviderError: If conversion fails
     """
     try:
-        subprocess.run([
-            'ffmpeg', '-i', input_path, '-y', output_path
-        ], stderr=subprocess.DEVNULL, check=True)
+        subprocess.run(["ffmpeg", "-i", input_path, "-y", output_path], stderr=subprocess.DEVNULL, check=True)
     except FileNotFoundError as e:
-        raise DependencyError(
-            "ffmpeg not found. Please install ffmpeg for format conversion."
-        ) from e
+        raise DependencyError("ffmpeg not found. Please install ffmpeg for format conversion.") from e
     except subprocess.CalledProcessError as e:
         from .exceptions import ProviderError
+
         raise ProviderError(f"Audio conversion failed: {e}") from e
 
 
@@ -480,9 +435,7 @@ def convert_with_cleanup(input_path: str, output_path: str, output_format: str) 
         cleanup_file(input_path, logger)
 
 
-def create_ffplay_process_simple(
-    args: Optional[List[str]] = None, **kwargs: Any
-) -> subprocess.Popen[Any]:
+def create_ffplay_process_simple(args: Optional[List[str]] = None, **kwargs: Any) -> subprocess.Popen[Any]:
     """Create and start an ffplay process with common settings (simple version).
 
     This is the simpler version from utils/audio.py with a different signature.
@@ -498,17 +451,12 @@ def create_ffplay_process_simple(
     Raises:
         DependencyError: If ffplay is not found
     """
-    cmd = ['ffplay']
+    cmd = ["ffplay"]
     if args:
         cmd.extend(args)
 
     # Set common defaults
-    default_kwargs = {
-        'stdin': subprocess.PIPE,
-        'stdout': subprocess.DEVNULL,
-        'stderr': subprocess.DEVNULL,
-        'bufsize': 0
-    }
+    default_kwargs = {"stdin": subprocess.PIPE, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL, "bufsize": 0}
     default_kwargs.update(kwargs)
 
     try:
@@ -529,15 +477,12 @@ def stream_audio_data(audio_data: bytes, format_args: Optional[List[str]] = None
         DependencyError: If ffplay is not found
         AudioPlaybackError: If streaming fails
     """
-    cmd = ['ffplay', '-nodisp', '-autoexit', '-']
+    cmd = ["ffplay", "-nodisp", "-autoexit", "-"]
     if format_args:
         cmd.extend(format_args)
 
     try:
-        process = subprocess.Popen(cmd,
-                                 stdin=subprocess.PIPE,
-                                 stdout=subprocess.DEVNULL,
-                                 stderr=subprocess.DEVNULL)
+        process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         process.communicate(input=audio_data)
 
@@ -560,9 +505,9 @@ def normalize_audio_path(path: str, default_format: str = "wav") -> str:
     Returns:
         Normalized path with proper extension
     """
-    if not path.lower().endswith(('.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac')):
-        if not path.endswith('.'):
-            path += '.'
+    if not path.lower().endswith((".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac")):
+        if not path.endswith("."):
+            path += "."
         path += default_format
     return path
 
@@ -577,10 +522,12 @@ def get_audio_duration(audio_path: str) -> float:
         Duration in seconds, or 0.0 if cannot be determined
     """
     try:
-        result = subprocess.run([
-            'ffprobe', '-v', 'quiet', '-show_entries', 'format=duration',
-            '-of', 'csv=p=0', audio_path
-        ], capture_output=True, text=True, timeout=5)
+        result = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration", "-of", "csv=p=0", audio_path],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
 
         if result.returncode == 0 and result.stdout.strip():
             return float(result.stdout.strip())
@@ -604,10 +551,9 @@ def validate_audio_file(audio_path: str) -> bool:
 
     try:
         # Use ffprobe to validate the file
-        result = subprocess.run([
-            'ffprobe', '-v', 'quiet', '-show_entries', 'format=format_name',
-            audio_path
-        ], capture_output=True, timeout=5)
+        result = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-show_entries", "format=format_name", audio_path], capture_output=True, timeout=5
+        )
 
         return result.returncode == 0
     except (FileNotFoundError, subprocess.SubprocessError, subprocess.TimeoutExpired):

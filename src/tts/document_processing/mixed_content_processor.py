@@ -21,30 +21,25 @@ class MixedContentProcessor:
 
         # Content type detection patterns
         self.document_indicators = [
-            r'<[^>]+>',  # HTML tags
-            r'#+\s',  # Markdown headers
-            r'```[\s\S]*?```',  # Code blocks
-            r'\[.*?\]\(.*?\)',  # Markdown links
-            r'^\s*[\-\*\+]\s',  # List items
-            r'^\s*\d+\.\s',  # Numbered lists
+            r"<[^>]+>",  # HTML tags
+            r"#+\s",  # Markdown headers
+            r"```[\s\S]*?```",  # Code blocks
+            r"\[.*?\]\(.*?\)",  # Markdown links
+            r"^\s*[\-\*\+]\s",  # List items
+            r"^\s*\d+\.\s",  # Numbered lists
             r'"[^"]*":\s*[{\[]',  # JSON structure
             r'{\s*"[^"]*"',  # JSON object start
         ]
 
         self.transcription_indicators = [
-            r'\b(?:um|uh|ah|er|mm)\b',  # Filler words
-            r'\b(?:like|you know|I mean)\b',  # Speech patterns
-            r'\b(?:gonna|wanna|gotta)\b',  # Contractions
-            r'\.{2,}',  # Pause indicators
-            r'\?\s*\?',  # Uncertainty markers
+            r"\b(?:um|uh|ah|er|mm)\b",  # Filler words
+            r"\b(?:like|you know|I mean)\b",  # Speech patterns
+            r"\b(?:gonna|wanna|gotta)\b",  # Contractions
+            r"\.{2,}",  # Pause indicators
+            r"\?\s*\?",  # Uncertainty markers
         ]
 
-    def process_mixed_content(
-        self,
-        content: str,
-        content_type: str = "auto",
-        format_hint: str = ""
-    ) -> str:
+    def process_mixed_content(self, content: str, content_type: str = "auto", format_hint: str = "") -> str:
         """Process content that might be document OR transcribed speech.
 
         Args:
@@ -106,24 +101,24 @@ class MixedContentProcessor:
         # Additional document heuristics
 
         # Structured headers (#, ##, <h1>)
-        if re.search(r'(^|\n)#{1,6}\s+\w+', content, re.MULTILINE):
+        if re.search(r"(^|\n)#{1,6}\s+\w+", content, re.MULTILINE):
             doc_score += 3
 
         # HTML structure
-        if re.search(r'<(html|head|body|div|p|h[1-6])', content, re.IGNORECASE):
+        if re.search(r"<(html|head|body|div|p|h[1-6])", content, re.IGNORECASE):
             doc_score += 5
 
         # JSON structure
-        if content.strip().startswith('{') and content.strip().endswith('}'):
+        if content.strip().startswith("{") and content.strip().endswith("}"):
             doc_score += 4
 
         # Formatted lists (-, *, <li>)
-        list_items = len(re.findall(r'^\s*[\-\*\+]\s+\w+', content, re.MULTILINE))
+        list_items = len(re.findall(r"^\s*[\-\*\+]\s+\w+", content, re.MULTILINE))
         if list_items >= 2:
             doc_score += list_items
 
         # Code blocks (```, <pre>)
-        code_blocks = len(re.findall(r'```[\s\S]*?```|<pre>[\s\S]*?</pre>', content))
+        code_blocks = len(re.findall(r"```[\s\S]*?```|<pre>[\s\S]*?</pre>", content))
         if code_blocks > 0:
             doc_score += code_blocks * 2
 
@@ -131,26 +126,23 @@ class MixedContentProcessor:
 
         # Conversational language
         conversation_patterns = [
-            r'\bi\s+(?:think|believe|feel|want|need)\b',
-            r'\byou\s+(?:know|see|think)\b',
-            r'\blet\'s\s+\w+',
-            r'\bwhat\s+do\s+you\b',
+            r"\bi\s+(?:think|believe|feel|want|need)\b",
+            r"\byou\s+(?:know|see|think)\b",
+            r"\blet\'s\s+\w+",
+            r"\bwhat\s+do\s+you\b",
         ]
         for pattern in conversation_patterns:
             if re.search(pattern, content_lower):
                 trans_score += 1
 
         # Incomplete sentences (common in speech)
-        sentences = re.split(r'[.!?]+', content)
+        sentences = re.split(r"[.!?]+", content)
         short_sentences = sum(1 for s in sentences if len(s.split()) <= 3 and len(s.strip()) > 0)
         if short_sentences >= 2:
             trans_score += short_sentences
 
         # Spoken numbers/entities
-        spoken_numbers = len(re.findall(
-            r'\b(?:one|two|three|four|five|six|seven|eight|nine|ten)\b',
-            content_lower
-        ))
+        spoken_numbers = len(re.findall(r"\b(?:one|two|three|four|five|six|seven|eight|nine|ten)\b", content_lower))
         trans_score += spoken_numbers
 
         # Decision logic
@@ -196,26 +188,24 @@ class MixedContentProcessor:
         content_type = self._detect_content_type(content, format_hint)
 
         # Count various indicators
-        doc_indicators = sum(len(re.findall(pattern, content, re.MULTILINE | re.IGNORECASE))
-                           for pattern in self.document_indicators)
+        doc_indicators = sum(
+            len(re.findall(pattern, content, re.MULTILINE | re.IGNORECASE)) for pattern in self.document_indicators
+        )
 
-        trans_indicators = sum(len(re.findall(pattern, content, re.MULTILINE | re.IGNORECASE))
-                             for pattern in self.transcription_indicators)
+        trans_indicators = sum(
+            len(re.findall(pattern, content, re.MULTILINE | re.IGNORECASE)) for pattern in self.transcription_indicators
+        )
 
         # Word and sentence statistics
         words = len(content.split())
-        sentences = len(re.split(r'[.!?]+', content))
+        sentences = len(re.split(r"[.!?]+", content))
         avg_sentence_length = words / max(sentences, 1)
 
         # Structure analysis
-        has_headers = bool(re.search(
-            r'(^|\n)#{1,6}\s+\w+|<h[1-6]', content, re.MULTILINE | re.IGNORECASE
-        ))
-        has_lists = bool(re.search(
-            r'^\s*[\-\*\+]\s+\w+|<li>', content, re.MULTILINE | re.IGNORECASE
-        ))
-        has_code = bool(re.search(r'```[\s\S]*?```|<pre>|<code>', content))
-        has_links = bool(re.search(r'\[.*?\]\(.*?\)|<a\s+href', content))
+        has_headers = bool(re.search(r"(^|\n)#{1,6}\s+\w+|<h[1-6]", content, re.MULTILINE | re.IGNORECASE))
+        has_lists = bool(re.search(r"^\s*[\-\*\+]\s+\w+|<li>", content, re.MULTILINE | re.IGNORECASE))
+        has_code = bool(re.search(r"```[\s\S]*?```|<pre>|<code>", content))
+        has_links = bool(re.search(r"\[.*?\]\(.*?\)|<a\s+href", content))
 
         return {
             "detected_type": content_type,
@@ -225,15 +215,15 @@ class MixedContentProcessor:
                 "sentence_count": sentences,
                 "avg_sentence_length": round(avg_sentence_length, 1),
                 "document_indicators": doc_indicators,
-                "transcription_indicators": trans_indicators
+                "transcription_indicators": trans_indicators,
             },
             "structure": {
                 "has_headers": has_headers,
                 "has_lists": has_lists,
                 "has_code_blocks": has_code,
-                "has_links": has_links
+                "has_links": has_links,
             },
-            "recommended_processing": self._get_processing_recommendation(content_type, content)
+            "recommended_processing": self._get_processing_recommendation(content_type, content),
         }
 
     def _calculate_confidence(self, doc_indicators: int, trans_indicators: int) -> float:
@@ -254,31 +244,27 @@ class MixedContentProcessor:
         recommendations: Dict[str, Any] = {
             "primary_processor": content_type,
             "fallback_processor": "transcription" if content_type == "document" else "document",
-            "suggested_options": suggestions
+            "suggested_options": suggestions,
         }
 
         # Add specific recommendations
         if content_type == "document":
-            if re.search(r'<[^>]+>', content):
+            if re.search(r"<[^>]+>", content):
                 suggestions.append("Use HTML parser for best results")
-            elif re.search(r'#{1,6}\s+', content):
+            elif re.search(r"#{1,6}\s+", content):
                 suggestions.append("Use Markdown parser for best results")
-            elif content.strip().startswith('{'):
+            elif content.strip().startswith("{"):
                 suggestions.append("Use JSON parser for best results")
 
         elif content_type == "transcription":
             if len(content.split()) > 50:
                 suggestions.append("Consider breaking into smaller chunks")
-            if re.search(r'\b(?:um|uh|ah|er)\b', content.lower()):
+            if re.search(r"\b(?:um|uh|ah|er)\b", content.lower()):
                 suggestions.append("Speech artifacts detected - will be cleaned")
 
         return recommendations
 
-    def process_batch_content(
-        self,
-        content_items: List[Dict[str, str]],
-        preserve_order: bool = True
-    ) -> List[str]:
+    def process_batch_content(self, content_items: List[Dict[str, str]], preserve_order: bool = True) -> List[str]:
         """Process multiple content items in batch.
 
         Args:
@@ -291,9 +277,9 @@ class MixedContentProcessor:
         results = []
 
         for item in content_items:
-            content = item.get('content', '')
-            content_type = item.get('type', 'auto')
-            format_hint = item.get('format_hint', '')
+            content = item.get("content", "")
+            content_type = item.get("type", "auto")
+            format_hint = item.get("format_hint", "")
 
             processed = self.process_mixed_content(content, content_type, format_hint)
             results.append(processed)
@@ -329,16 +315,18 @@ class MixedContentProcessor:
             f"Fallback: {analysis['recommended_processing']['fallback_processor']}",
         ]
 
-        if analysis['recommended_processing']['suggested_options']:
+        if analysis["recommended_processing"]["suggested_options"]:
             report_lines.append("Suggestions:")
-            for suggestion in analysis['recommended_processing']['suggested_options']:
+            for suggestion in analysis["recommended_processing"]["suggested_options"]:
                 report_lines.append(f"  - {suggestion}")
 
-        report_lines.extend([
-            "",
-            "=== Processed Output ===",
-            f"Length: {len(processed)} characters",
-            f"Preview: {processed[:100]}{'...' if len(processed) > 100 else ''}",
-        ])
+        report_lines.extend(
+            [
+                "",
+                "=== Processed Output ===",
+                f"Length: {len(processed)} characters",
+                f"Preview: {processed[:100]}{'...' if len(processed) > 100 else ''}",
+            ]
+        )
 
         return "\n".join(report_lines)

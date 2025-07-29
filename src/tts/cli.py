@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 """Auto-generated from goobits.yaml"""
-import importlib.util
 import os
 import sys
+import importlib.util
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, cast
-
-import rich_click as click  # type: ignore
-from rich_click import RichGroup
+import rich_click as click
+from rich_click import RichGroup, RichCommand
 
 # Set up rich-click configuration globally
-click.rich_click.USE_RICH_MARKUP = True
+click.rich_click.USE_RICH_MARKUP = True  
 click.rich_click.USE_MARKDOWN = False  # Disable markdown to avoid conflicts
 click.rich_click.MARKUP_MODE = "rich"
 
@@ -31,7 +29,7 @@ click.rich_click.SHOW_SUBCOMMAND_ALIASES = True
 click.rich_click.ALIGN_OPTIONS_SWITCHES = True
 click.rich_click.STYLE_OPTION = "#ff79c6"      # Dracula Pink - for option flags
 click.rich_click.STYLE_SWITCH = "#50fa7b"      # Dracula Green - for switches
-click.rich_click.STYLE_METAVAR = "#8BE9FD not bold"   # Light cyan - for argument types (OPTIONS, COMMAND)
+click.rich_click.STYLE_METAVAR = "#8BE9FD not bold"   # Light cyan - for argument types (OPTIONS, COMMAND)  
 click.rich_click.STYLE_METAVAR_SEPARATOR = "#6272a4"  # Dracula Comment
 click.rich_click.STYLE_HEADER_TEXT = "bold yellow"    # Bold yellow - for section headers
 click.rich_click.STYLE_EPILOGUE_TEXT = "#6272a4"      # Dracula Comment
@@ -56,23 +54,106 @@ click.rich_click.STYLE_COMMANDS_TABLE_COLUMN_WIDTH_RATIO = (1, 3)  # Command:Des
 # Hooks system - try to import app_hooks module
 app_hooks = None
 try:
-    # Try to import from the same directory as this script
-    script_dir = Path(__file__).parent
-    hooks_path = script_dir / "app_hooks.py"
 
+    # Use configured hooks path
+    hooks_path = Path("src/tts/app_hooks.py")
+    if not hooks_path.is_absolute():
+        # Make relative to the CLI file's directory
+        script_dir = Path(__file__).parent
+        # Calculate relative path from CLI location to hooks
+        cli_parts = Path("src/tts/cli.py").parts
+        cli_depth = len([p for p in cli_parts if p not in ['.', '..']])
+        hooks_path = script_dir / ('/'.join(['..'] * (cli_depth - 1))) / "src/tts/app_hooks.py"
+    
     if hooks_path.exists():
         spec = importlib.util.spec_from_file_location("app_hooks", hooks_path)
-        if spec is not None and spec.loader is not None:
-            app_hooks = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(app_hooks)
+        app_hooks = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(app_hooks)
     else:
-        # Try to import from Python path
-        import app_hooks  # type: ignore
+        # Fallback: try multiple common locations
+        script_dir = Path(__file__).parent
+        possible_locations = [
+            script_dir / "app_hooks.py",  # Same directory as generated CLI
+            script_dir.parent.parent.parent / "app_hooks.py",  # Project root
+            script_dir.parent / "app_hooks.py",  # One level up
+        ]
+        
+        for fallback_path in possible_locations:
+            if fallback_path.exists():
+                spec = importlib.util.spec_from_file_location("app_hooks", fallback_path)
+                app_hooks = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(app_hooks)
+                break
+        else:
+            # Try to import from Python path
+            import app_hooks
+
 except (ImportError, FileNotFoundError):
     # No hooks module found, use default behavior
     pass
 
-def load_plugins(cli_group: Any) -> None:
+# Built-in commands
+
+def builtin_upgrade_command(check_only=False, pre=False, version=None, dry_run=False):
+    """Built-in upgrade function for TTS - Text to Speech - uses enhanced setup.sh script."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    if check_only:
+        print(f"Checking for updates to TTS - Text to Speech...")
+        print("Update check not yet implemented. Run without --check to upgrade.")
+        return
+
+    if dry_run:
+        print("Dry run - would execute: pipx upgrade goobits-tts")
+        return
+
+    # Find the setup.sh script - look in common locations
+    setup_script = None
+    search_paths = [
+        Path.cwd() / "setup.sh",  # Current directory
+        Path(__file__).parent.parent / "setup.sh",  # Package directory
+        Path.home() / ".local" / "share" / "goobits-tts" / "setup.sh",  # User data
+    ]
+    
+    for path in search_paths:
+        if path.exists():
+            setup_script = path
+            break
+    
+    if setup_script is None:
+        # Fallback to basic upgrade if setup.sh not found
+        print(f"Enhanced setup script not found. Using basic upgrade for TTS - Text to Speech...")
+        import shutil
+        
+        package_name = "goobits-tts"
+        pypi_name = "goobits-tts"
+        
+        if shutil.which("pipx"):
+            result = subprocess.run(["pipx", "list"], capture_output=True, text=True)
+            if package_name in result.stdout or pypi_name in result.stdout:
+                cmd = ["pipx", "upgrade", pypi_name]
+            else:
+                cmd = [sys.executable, "-m", "pip", "install", "--upgrade", pypi_name]
+        else:
+            cmd = [sys.executable, "-m", "pip", "install", "--upgrade", pypi_name]
+        
+        result = subprocess.run(cmd)
+        if result.returncode == 0:
+            print(f"✅ TTS - Text to Speech upgraded successfully!")
+            print(f"Run 'tts --version' to verify the new version.")
+        else:
+            print(f"❌ Upgrade failed with exit code {result.returncode}")
+            sys.exit(1)
+        return
+
+    # Use the enhanced setup.sh script
+    result = subprocess.run([str(setup_script), "upgrade"])
+    sys.exit(result.returncode)
+
+
+def load_plugins(cli_group):
     """Load plugins from the conventional plugin directory."""
     # Define plugin directories to search
     plugin_dirs = [
@@ -81,32 +162,35 @@ def load_plugins(cli_group: Any) -> None:
         # Local plugin directory (same as script)
         Path(__file__).parent / "plugins",
     ]
-
+    
     for plugin_dir in plugin_dirs:
         if not plugin_dir.exists():
             continue
-
+            
         # Add plugin directory to Python path
         sys.path.insert(0, str(plugin_dir))
-
+        
         # Scan for plugin files
         for plugin_file in plugin_dir.glob("*.py"):
             if plugin_file.name.startswith("_"):
                 continue
-
+                
+            # Skip core system files that aren't plugins
+            if plugin_file.name in ["loader.py", "__init__.py"]:
+                continue
+                
             plugin_name = plugin_file.stem
-
+            
             try:
                 # Import the plugin module
                 spec = importlib.util.spec_from_file_location(plugin_name, plugin_file)
-                if spec is not None and spec.loader is not None:
-                    plugin_module = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(plugin_module)
-
-                    # Call register_plugin if it exists
-                    if hasattr(plugin_module, "register_plugin"):
-                        plugin_module.register_plugin(cli_group)
-                        click.echo(f"Loaded plugin: {plugin_name}", err=True)
+                plugin_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(plugin_module)
+                
+                # Call register_plugin if it exists
+                if hasattr(plugin_module, "register_plugin"):
+                    plugin_module.register_plugin(cli_group)
+                    click.echo(f"Loaded plugin: {plugin_name}", err=True)
             except Exception as e:
                 click.echo(f"Failed to load plugin {plugin_name}: {e}", err=True)
 
@@ -116,10 +200,10 @@ def load_plugins(cli_group: Any) -> None:
 
 
 
-def get_version() -> str:
+def get_version():
     """Get version from pyproject.toml or __init__.py"""
     import re
-
+    
     try:
         # Try to get version from pyproject.toml FIRST (most authoritative)
         toml_path = Path(__file__).parent.parent / "pyproject.toml"
@@ -130,7 +214,7 @@ def get_version() -> str:
                 return match.group(1)
     except Exception:
         pass
-
+    
     try:
         # Fallback to __init__.py
         init_path = Path(__file__).parent / "__init__.py"
@@ -141,12 +225,12 @@ def get_version() -> str:
                 return match.group(1)
     except Exception:
         pass
-
+        
     # Final fallback
     return "1.1"
 
 
-def show_help_json(ctx: Any, param: Any, value: Any) -> None:
+def show_help_json(ctx, param, value):
     """Callback for --help-json option."""
     if not value or ctx.resilient_parsing:
         return
@@ -214,11 +298,13 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
     }
   ],
   "footer_note": null,
+  "options": [],
   "commands": {
     "speak": {
       "desc": "Speak text aloud",
       "icon": "🗣️",
       "is_default": true,
+      "lifecycle": "standard",
       "args": [
         {
           "name": "text",
@@ -242,7 +328,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "str",
           "desc": "🎤 Voice to use (e.g., en-GB-SoniaNeural for edge_tts)",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         },
         {
           "name": "rate",
@@ -250,7 +337,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "str",
           "desc": "⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         },
         {
           "name": "pitch",
@@ -258,7 +346,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "str",
           "desc": "🎵 Pitch adjustment (e.g., +5Hz, -10Hz)",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         },
         {
           "name": "debug",
@@ -266,7 +355,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "flag",
           "desc": "🔍 Show debug information during processing",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         }
       ],
       "subcommands": null
@@ -275,6 +365,7 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
       "desc": "Save text as an audio file",
       "icon": "💾",
       "is_default": false,
+      "lifecycle": "standard",
       "args": [
         {
           "name": "text",
@@ -298,7 +389,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "str",
           "desc": "💾 Output file path",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         },
         {
           "name": "format",
@@ -311,7 +403,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
             "wav",
             "ogg",
             "flac"
-          ]
+          ],
+          "multiple": false
         },
         {
           "name": "voice",
@@ -319,7 +412,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "str",
           "desc": "🎤 Voice to use (e.g., en-GB-SoniaNeural for edge_tts)",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         },
         {
           "name": "clone",
@@ -327,7 +421,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "str",
           "desc": "🎭 Audio file to clone voice from (deprecated: use --voice instead)",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         },
         {
           "name": "json",
@@ -335,7 +430,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "flag",
           "desc": "🔧 Output results as JSON",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         },
         {
           "name": "debug",
@@ -343,7 +439,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "flag",
           "desc": "🔍 Show debug information during processing",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         },
         {
           "name": "rate",
@@ -351,7 +448,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "str",
           "desc": "⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         },
         {
           "name": "pitch",
@@ -359,7 +457,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "str",
           "desc": "🎵 Pitch adjustment (e.g., +5Hz, -10Hz)",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         }
       ],
       "subcommands": null
@@ -368,6 +467,7 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
       "desc": "Browse and test voices interactively",
       "icon": "🔍",
       "is_default": false,
+      "lifecycle": "standard",
       "args": [
         {
           "name": "args",
@@ -384,6 +484,7 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
       "desc": "Available TTS providers and status",
       "icon": "📋",
       "is_default": false,
+      "lifecycle": "standard",
       "args": [
         {
           "name": "provider_name",
@@ -400,6 +501,7 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
       "desc": "Install provider dependencies",
       "icon": "📦",
       "is_default": false,
+      "lifecycle": "standard",
       "args": [
         {
           "name": "args",
@@ -416,6 +518,7 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
       "desc": "Provider information and capabilities",
       "icon": "👀",
       "is_default": false,
+      "lifecycle": "standard",
       "args": [
         {
           "name": "provider",
@@ -432,6 +535,7 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
       "desc": "Convert documents to speech",
       "icon": "📖",
       "is_default": false,
+      "lifecycle": "standard",
       "args": [
         {
           "name": "document_path",
@@ -455,7 +559,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "flag",
           "desc": "💾 Save processed audio to file",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         },
         {
           "name": "output",
@@ -463,7 +568,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "str",
           "desc": "📁 Output file path",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         },
         {
           "name": "format",
@@ -476,7 +582,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
             "wav",
             "ogg",
             "flac"
-          ]
+          ],
+          "multiple": false
         },
         {
           "name": "voice",
@@ -484,7 +591,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "str",
           "desc": "🎤 Voice to use",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         },
         {
           "name": "clone",
@@ -492,7 +600,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "str",
           "desc": "🎭 Audio file to clone voice from (deprecated: use --voice instead)",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         },
         {
           "name": "json",
@@ -500,7 +609,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "flag",
           "desc": "🔧 Output results as JSON",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         },
         {
           "name": "debug",
@@ -508,7 +618,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "flag",
           "desc": "🔍 Show debug information during processing",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         },
         {
           "name": "doc-format",
@@ -521,7 +632,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
             "markdown",
             "html",
             "json"
-          ]
+          ],
+          "multiple": false
         },
         {
           "name": "ssml-platform",
@@ -534,7 +646,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
             "google",
             "amazon",
             "generic"
-          ]
+          ],
+          "multiple": false
         },
         {
           "name": "emotion-profile",
@@ -548,7 +661,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
             "narrative",
             "tutorial",
             "auto"
-          ]
+          ],
+          "multiple": false
         },
         {
           "name": "rate",
@@ -556,7 +670,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "str",
           "desc": "⚡ Speech rate adjustment",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         },
         {
           "name": "pitch",
@@ -564,7 +679,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "type": "str",
           "desc": "🎵 Pitch adjustment",
           "default": null,
-          "choices": null
+          "choices": null,
+          "multiple": false
         }
       ],
       "subcommands": null
@@ -573,6 +689,7 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
       "desc": "Voice loading and caching",
       "icon": "🎤",
       "is_default": false,
+      "lifecycle": "standard",
       "args": [],
       "options": [],
       "subcommands": {
@@ -580,6 +697,7 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "desc": "Load voice files into memory for fast access",
           "icon": null,
           "is_default": false,
+          "lifecycle": "standard",
           "args": [
             {
               "name": "voice_files",
@@ -596,6 +714,7 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "desc": "Unload voice files from memory",
           "icon": null,
           "is_default": false,
+          "lifecycle": "standard",
           "args": [
             {
               "name": "voice_files",
@@ -612,7 +731,8 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
               "type": "flag",
               "desc": "🧹 Unload all voices",
               "default": null,
-              "choices": null
+              "choices": null,
+              "multiple": false
             }
           ],
           "subcommands": null
@@ -621,6 +741,7 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
           "desc": "Show loaded voices and system status",
           "icon": null,
           "is_default": false,
+          "lifecycle": "standard",
           "args": [],
           "options": [],
           "subcommands": null
@@ -631,6 +752,7 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
       "desc": "Check system and provider status",
       "icon": "🩺",
       "is_default": false,
+      "lifecycle": "standard",
       "args": [],
       "options": [],
       "subcommands": null
@@ -639,6 +761,7 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
       "desc": "Manage configuration",
       "icon": "🔧",
       "is_default": false,
+      "lifecycle": "standard",
       "args": [
         {
           "name": "action",
@@ -726,45 +849,68 @@ def show_help_json(ctx: Any, param: Any, value: Any) -> None:
 
 
 
+  
+    
+  
 
+  
 
+  
 
+  
 
+  
 
+  
 
+  
 
+  
 
+  
 
-
-
-
-
-
-
-
-
-
-
-
-
+  
 
 
 
 class DefaultGroup(RichGroup):
     """Allow a default command to be invoked without being specified."""
-
-    def __init__(self, *args: Any, default: Optional[str] = None, **kwargs: Any) -> None:
+    
+    def __init__(self, *args, default=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.default_command = default
-
-    def resolve_command(self, ctx: Any, args: List[str]) -> Tuple[Optional[str], Optional[Any], List[str]]:
-        import os
+    
+    def main(self, *args, **kwargs):
+        """Override main to handle stdin input when no command is provided."""
         import sys
-
+        import os
+        import stat
+        
+        # Check if we need to inject the default command due to stdin input
+        if len(sys.argv) == 1 and self.default_command:  # Only script name provided
+            # Check if stdin is coming from a pipe or redirection
+            has_stdin = False
+            try:
+                # Check if stdin is a pipe or file (not a terminal)
+                stdin_stat = os.fstat(sys.stdin.fileno())
+                has_stdin = stat.S_ISFIFO(stdin_stat.st_mode) or stat.S_ISREG(stdin_stat.st_mode)
+            except:
+                # Fallback to isatty check
+                has_stdin = not sys.stdin.isatty()
+            
+            if has_stdin:
+                # Inject the default command into sys.argv
+                sys.argv.append(self.default_command)
+        
+        return super().main(*args, **kwargs)
+    
+    def resolve_command(self, ctx, args):
+        import sys
+        import os
+        
         try:
             # Try normal command resolution first
-            result = super().resolve_command(ctx, args)
-            return cast(Tuple[Optional[str], Optional[Any], List[str]], result)
+            return super().resolve_command(ctx, args)
         except click.UsageError:
             # If no command found and we have a default, use it
             # Check if stdin is coming from a pipe or redirection
@@ -775,12 +921,12 @@ class DefaultGroup(RichGroup):
                 # Use S_ISFIFO to check if it's a pipe, or S_ISREG to check if it's a regular file
                 import stat
                 has_stdin = stat.S_ISFIFO(stdin_stat.st_mode) or stat.S_ISREG(stdin_stat.st_mode)
-            except Exception:
+            except Exception as e:
                 # Fallback to isatty check
                 has_stdin = not sys.stdin.isatty()
-
+            
             is_help_request = any(arg in ['--help-all', '--help-json'] for arg in args)
-
+            
             if self.default_command and not is_help_request:
                 # Trigger default command if:
                 # 1. We have args (existing behavior)
@@ -794,51 +940,46 @@ class DefaultGroup(RichGroup):
 
 
 
-@click.group(
-    cls=DefaultGroup, default='speak',
-    context_settings={"help_option_names": ["-h", "--help"], "max_content_width": 120}
-)
+@click.group(cls=DefaultGroup, default='speak', context_settings={"help_option_names": ["-h", "--help"], "max_content_width": 120})
 
 @click.version_option(version=get_version(), prog_name="TTS CLI")
 @click.pass_context
 
-@click.option(
-    '--help-json', is_flag=True, callback=show_help_json, is_eager=True,
-    help='Output CLI structure as JSON.', hidden=True
-)
+@click.option('--help-json', is_flag=True, callback=show_help_json, is_eager=True, help='Output CLI structure as JSON.', hidden=True)
 
 
 @click.option('--help-all', is_flag=True, is_eager=True, help='Show help for all commands.', hidden=True)
 
-def main(ctx: Any, help_json: bool = False, help_all: bool = False) -> None:
+
+def main(ctx, help_json=False, help_all=False):
     """[bold color(6)]TTS CLI v1.1[/bold color(6)] - Multi-provider text-to-speech with voice cloning
 
-
+    
     \b
     [#B3B8C0]Transform text into natural speech using AI providers with auto-selection and real-time streaming.[/#B3B8C0]
+    
 
-
-
+    
     \b
     [bold yellow]Quick Start:[/bold yellow]
     [green]tts "Hello world"            [/green] [italic][#B3B8C0]# Speak instantly (implicit 'speak')[/#B3B8C0][/italic]
     [green]tts save "Hello" -o out.mp3  [/green] [italic][#B3B8C0]# Save as audio file[/#B3B8C0][/italic]
-
+    
     \b
     [bold yellow]Core Commands:[/bold yellow]
     [green]speak   [/green]  🗣️  Speak text aloud (default command)
     [green]save    [/green]  💾 Save text as an audio file
     [green]voices  [/green]  🎭 Browse and test voices interactively
-
+    
     \b
     [bold yellow]First-time Setup:[/bold yellow]
     1. Check providers: [green]tts providers[/green]
     2. Set API keys:    [green]tts config set openai_api_key YOUR_KEY[/green]
-
+    
     \b
     """
 
-
+    
     if help_all:
         # Print main help
         click.echo(ctx.get_help())
@@ -860,7 +1001,10 @@ def main(ctx: Any, help_json: bool = False, help_all: bool = False) -> None:
 
         # Exit after printing all help
         ctx.exit()
-
+    
+    
+    # Store global options in context for use by commands
+    
 
     pass
 
@@ -868,34 +1012,47 @@ def main(ctx: Any, help_json: bool = False, help_all: bool = False) -> None:
 # Set command groups after main function is defined
 click.rich_click.COMMAND_GROUPS = {
     "main": [
-
+        
         {
             "name": "Core Commands",
             "commands": ['speak', 'save', 'voices'],
         },
-
+        
         {
             "name": "Provider Management",
             "commands": ['providers', 'info', 'install'],
         },
-
+        
         {
             "name": "Configuration",
             "commands": ['config', 'status'],
         },
-
+        
         {
             "name": "Advanced Features",
             "commands": ['voice', 'document'],
         },
-
+        
     ]
 }
+
+
+# Built-in upgrade command (enabled by default)
+
+@main.command()
+@click.option('--check', is_flag=True, help='Check for updates without installing')
+@click.option('--version', type=str, help='Install specific version')
+@click.option('--pre', is_flag=True, help='Include pre-release versions')
+@click.option('--dry-run', is_flag=True, help='Show what would be done without doing it')
+def upgrade(check, version, pre, dry_run):
+    """Upgrade TTS - Text to Speech to the latest version."""
+    builtin_upgrade_command(check_only=check, version=version, pre=pre, dry_run=dry_run)
 
 
 
 
 @main.command()
+@click.pass_context
 
 @click.argument(
     "TEXT",
@@ -928,46 +1085,85 @@ click.rich_click.COMMAND_GROUPS = {
     help="🔍 Show debug information during processing"
 )
 
-def speak(
-    text: Optional[str], options: Tuple[str, ...], voice: Optional[str],
-    rate: Optional[str], pitch: Optional[str], debug: bool
-) -> Any:
+def speak(ctx, text, options, voice, rate, pitch, debug):
     """🗣️  Speak text aloud"""
-    # Check if hook function exists
-    hook_name = "on_speak"
+    
+    # Check for built-in commands first
+    
+    # Standard command - use the existing hook pattern
+    hook_name = f"on_speak"
     if app_hooks and hasattr(app_hooks, hook_name):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
-
-        result = hook_func(text, options, voice, rate, pitch, debug)
-
+        
+        # Prepare arguments including global options
+        kwargs = {}
+        kwargs['command_name'] = 'speak'  # Pass command name for all commands
+        
+        
+        kwargs['text'] = text
+        
+        kwargs['options'] = options
+        
+        
+        
+        
+        
+        
+        
+        kwargs['voice'] = voice
+        
+        
+        
+        
+        kwargs['rate'] = rate
+        
+        
+        
+        
+        kwargs['pitch'] = pitch
+        
+        
+        
+        
+        kwargs['debug'] = debug
+        
+        
+        
+        # Add global options from context
+        
+        
+        result = hook_func(**kwargs)
         return result
     else:
         # Default placeholder behavior
-        click.echo("Executing speak command...")
-
-
+        click.echo(f"Executing speak command...")
+        
+        
         click.echo(f"  text: {text}")
-
+        
         click.echo(f"  options: {options}")
-
-
-
-
+        
+        
+        
+        
         click.echo(f"  voice: {voice}")
-
+        
         click.echo(f"  rate: {rate}")
-
+        
         click.echo(f"  pitch: {pitch}")
-
+        
         click.echo(f"  debug: {debug}")
-
-
+        
+        
+    
+    
 
 
 
 
 @main.command()
+@click.pass_context
 
 @click.argument(
     "TEXT",
@@ -1020,55 +1216,113 @@ def speak(
     help="🎵 Pitch adjustment (e.g., +5Hz, -10Hz)"
 )
 
-def save(
-    text: Optional[str], options: Tuple[str, ...], output: Optional[str],
-    format: Optional[str], voice: Optional[str], clone: Optional[str],
-    json: bool, debug: bool, rate: Optional[str], pitch: Optional[str]
-) -> Any:
+def save(ctx, text, options, output, format, voice, clone, json, debug, rate, pitch):
     """💾 Save text as an audio file"""
-    # Check if hook function exists
-    hook_name = "on_save"
+    
+    # Check for built-in commands first
+    
+    # Standard command - use the existing hook pattern
+    hook_name = f"on_save"
     if app_hooks and hasattr(app_hooks, hook_name):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
-
-        result = hook_func(text, options, output, format, voice, clone, json, debug, rate, pitch)
-
+        
+        # Prepare arguments including global options
+        kwargs = {}
+        kwargs['command_name'] = 'save'  # Pass command name for all commands
+        
+        
+        kwargs['text'] = text
+        
+        kwargs['options'] = options
+        
+        
+        
+        
+        
+        
+        
+        kwargs['output'] = output
+        
+        
+        
+        
+        kwargs['format'] = format
+        
+        
+        
+        
+        kwargs['voice'] = voice
+        
+        
+        
+        
+        kwargs['clone'] = clone
+        
+        
+        
+        
+        kwargs['json'] = json
+        
+        
+        
+        
+        kwargs['debug'] = debug
+        
+        
+        
+        
+        kwargs['rate'] = rate
+        
+        
+        
+        
+        kwargs['pitch'] = pitch
+        
+        
+        
+        # Add global options from context
+        
+        
+        result = hook_func(**kwargs)
         return result
     else:
         # Default placeholder behavior
-        click.echo("Executing save command...")
-
-
+        click.echo(f"Executing save command...")
+        
+        
         click.echo(f"  text: {text}")
-
+        
         click.echo(f"  options: {options}")
-
-
-
-
+        
+        
+        
+        
         click.echo(f"  output: {output}")
-
+        
         click.echo(f"  format: {format}")
-
+        
         click.echo(f"  voice: {voice}")
-
+        
         click.echo(f"  clone: {clone}")
-
+        
         click.echo(f"  json: {json}")
-
+        
         click.echo(f"  debug: {debug}")
-
+        
         click.echo(f"  rate: {rate}")
-
+        
         click.echo(f"  pitch: {pitch}")
-
-
+        
+        
+    
+    
 
 
 
 
 @main.command()
+@click.pass_context
 
 @click.argument(
     "ARGS",
@@ -1077,31 +1331,49 @@ def save(
 )
 
 
-def voices(args: Tuple[str, ...]) -> Any:
+def voices(ctx, args):
     """🔍 Browse and test voices interactively"""
-    # Check if hook function exists
-    hook_name = "on_voices"
+    
+    # Check for built-in commands first
+    
+    # Standard command - use the existing hook pattern
+    hook_name = f"on_voices"
     if app_hooks and hasattr(app_hooks, hook_name):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
-
-        result = hook_func(args)
-
+        
+        # Prepare arguments including global options
+        kwargs = {}
+        kwargs['command_name'] = 'voices'  # Pass command name for all commands
+        
+        
+        kwargs['args'] = args
+        
+        
+        
+        
+        # Add global options from context
+        
+        
+        result = hook_func(**kwargs)
         return result
     else:
         # Default placeholder behavior
-        click.echo("Executing voices command...")
-
-
+        click.echo(f"Executing voices command...")
+        
+        
         click.echo(f"  args: {args}")
-
-
-
+        
+        
+        
+    
+    
 
 
 
 
 @main.command()
+@click.pass_context
 
 @click.argument(
     "PROVIDER_NAME",
@@ -1109,31 +1381,49 @@ def voices(args: Tuple[str, ...]) -> Any:
 )
 
 
-def providers(provider_name: Optional[str]) -> Any:
+def providers(ctx, provider_name):
     """📋 Available TTS providers and status"""
-    # Check if hook function exists
-    hook_name = "on_providers"
+    
+    # Check for built-in commands first
+    
+    # Standard command - use the existing hook pattern
+    hook_name = f"on_providers"
     if app_hooks and hasattr(app_hooks, hook_name):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
-
-        result = hook_func(provider_name)
-
+        
+        # Prepare arguments including global options
+        kwargs = {}
+        kwargs['command_name'] = 'providers'  # Pass command name for all commands
+        
+        
+        kwargs['provider_name'] = provider_name
+        
+        
+        
+        
+        # Add global options from context
+        
+        
+        result = hook_func(**kwargs)
         return result
     else:
         # Default placeholder behavior
-        click.echo("Executing providers command...")
-
-
+        click.echo(f"Executing providers command...")
+        
+        
         click.echo(f"  provider_name: {provider_name}")
-
-
-
+        
+        
+        
+    
+    
 
 
 
 
 @main.command()
+@click.pass_context
 
 @click.argument(
     "ARGS",
@@ -1142,31 +1432,49 @@ def providers(provider_name: Optional[str]) -> Any:
 )
 
 
-def install(args: Tuple[str, ...]) -> Any:
+def install(ctx, args):
     """📦 Install provider dependencies"""
-    # Check if hook function exists
-    hook_name = "on_install"
+    
+    # Check for built-in commands first
+    
+    # Standard command - use the existing hook pattern
+    hook_name = f"on_install"
     if app_hooks and hasattr(app_hooks, hook_name):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
-
-        result = hook_func(args)
-
+        
+        # Prepare arguments including global options
+        kwargs = {}
+        kwargs['command_name'] = 'install'  # Pass command name for all commands
+        
+        
+        kwargs['args'] = args
+        
+        
+        
+        
+        # Add global options from context
+        
+        
+        result = hook_func(**kwargs)
         return result
     else:
         # Default placeholder behavior
-        click.echo("Executing install command...")
-
-
+        click.echo(f"Executing install command...")
+        
+        
         click.echo(f"  args: {args}")
-
-
-
+        
+        
+        
+    
+    
 
 
 
 
 @main.command()
+@click.pass_context
 
 @click.argument(
     "PROVIDER",
@@ -1174,31 +1482,49 @@ def install(args: Tuple[str, ...]) -> Any:
 )
 
 
-def info(provider: Optional[str]) -> Any:
+def info(ctx, provider):
     """👀 Provider information and capabilities"""
-    # Check if hook function exists
-    hook_name = "on_info"
+    
+    # Check for built-in commands first
+    
+    # Standard command - use the existing hook pattern
+    hook_name = f"on_info"
     if app_hooks and hasattr(app_hooks, hook_name):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
-
-        result = hook_func(provider)
-
+        
+        # Prepare arguments including global options
+        kwargs = {}
+        kwargs['command_name'] = 'info'  # Pass command name for all commands
+        
+        
+        kwargs['provider'] = provider
+        
+        
+        
+        
+        # Add global options from context
+        
+        
+        result = hook_func(**kwargs)
         return result
     else:
         # Default placeholder behavior
-        click.echo("Executing info command...")
-
-
+        click.echo(f"Executing info command...")
+        
+        
         click.echo(f"  provider: {provider}")
-
-
-
+        
+        
+        
+    
+    
 
 
 
 
 @main.command()
+@click.pass_context
 
 @click.argument(
     "DOCUMENT_PATH"
@@ -1273,103 +1599,189 @@ def info(provider: Optional[str]) -> Any:
     help="🎵 Pitch adjustment"
 )
 
-def document(
-    document_path: str, options: Tuple[str, ...], save: bool, output: Optional[str],
-    format: Optional[str], voice: Optional[str], clone: Optional[str], json: bool,
-    debug: bool, doc_format: str, ssml_platform: str, emotion_profile: str,
-    rate: Optional[str], pitch: Optional[str]
-) -> Any:
+def document(ctx, document_path, options, save, output, format, voice, clone, json, debug, doc_format, ssml_platform, emotion_profile, rate, pitch):
     """📖 Convert documents to speech"""
-    # Check if hook function exists
-    hook_name = "on_document"
+    
+    # Check for built-in commands first
+    
+    # Standard command - use the existing hook pattern
+    hook_name = f"on_document"
     if app_hooks and hasattr(app_hooks, hook_name):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
-
-        result = hook_func(
-            document_path, options, save, output, format, voice, clone, json, debug,
-            doc_format, ssml_platform, emotion_profile, rate, pitch
-        )
-
+        
+        # Prepare arguments including global options
+        kwargs = {}
+        kwargs['command_name'] = 'document'  # Pass command name for all commands
+        
+        
+        kwargs['document_path'] = document_path
+        
+        kwargs['options'] = options
+        
+        
+        
+        
+        
+        
+        
+        kwargs['save'] = save
+        
+        
+        
+        
+        kwargs['output'] = output
+        
+        
+        
+        
+        kwargs['format'] = format
+        
+        
+        
+        
+        kwargs['voice'] = voice
+        
+        
+        
+        
+        kwargs['clone'] = clone
+        
+        
+        
+        
+        kwargs['json'] = json
+        
+        
+        
+        
+        kwargs['debug'] = debug
+        
+        
+        
+        
+        kwargs['doc_format'] = doc_format
+        
+        
+        
+        
+        kwargs['ssml_platform'] = ssml_platform
+        
+        
+        
+        
+        kwargs['emotion_profile'] = emotion_profile
+        
+        
+        
+        
+        kwargs['rate'] = rate
+        
+        
+        
+        
+        kwargs['pitch'] = pitch
+        
+        
+        
+        # Add global options from context
+        
+        
+        result = hook_func(**kwargs)
         return result
     else:
         # Default placeholder behavior
-        click.echo("Executing document command...")
-
-
+        click.echo(f"Executing document command...")
+        
+        
         click.echo(f"  document_path: {document_path}")
-
+        
         click.echo(f"  options: {options}")
-
-
-
-
+        
+        
+        
+        
         click.echo(f"  save: {save}")
-
+        
         click.echo(f"  output: {output}")
-
+        
         click.echo(f"  format: {format}")
-
+        
         click.echo(f"  voice: {voice}")
-
+        
         click.echo(f"  clone: {clone}")
-
+        
         click.echo(f"  json: {json}")
-
+        
         click.echo(f"  debug: {debug}")
-
+        
         click.echo(f"  doc-format: {doc_format}")
-
+        
         click.echo(f"  ssml-platform: {ssml_platform}")
-
+        
         click.echo(f"  emotion-profile: {emotion_profile}")
-
+        
         click.echo(f"  rate: {rate}")
-
+        
         click.echo(f"  pitch: {pitch}")
-
-
+        
+        
+    
+    
 
 
 
 
 @main.group()
-def voice() -> None:
+def voice():
     """🎤 Voice loading and caching"""
     pass
 
 
 @voice.command()
+@click.pass_context
 
 @click.argument(
     "VOICE_FILES",
-    nargs=-1,
-    required=True
+    nargs=-1
 )
 
 
-def load(voice_files: Tuple[str, ...]) -> Any:
+def load(ctx, voice_files):
     """Load voice files into memory for fast access"""
     # Check if hook function exists
-    hook_name = "on_voice_load"
+    hook_name = f"on_voice_load"
     if app_hooks and hasattr(app_hooks, hook_name):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
-
-        result = hook_func(voice_files)
-
+        
+        # Prepare arguments including global options
+        kwargs = {}
+        kwargs['command_name'] = 'load'  # Pass command name for all commands
+        
+        
+        kwargs['voice_files'] = voice_files
+        
+        
+        
+        
+        # Add global options from context
+        
+        
+        result = hook_func(**kwargs)
         return result
     else:
         # Default placeholder behavior
-        click.echo("Executing load command...")
-
-
+        click.echo(f"Executing load command...")
+        
+        
         click.echo(f"  voice_files: {voice_files}")
-
-
-
+        
+        
+        
 
 @voice.command()
+@click.pass_context
 
 @click.argument(
     "VOICE_FILES",
@@ -1383,79 +1795,119 @@ def load(voice_files: Tuple[str, ...]) -> Any:
     help="🧹 Unload all voices"
 )
 
-def unload(voice_files: Tuple[str, ...], all: bool) -> Any:
+def unload(ctx, voice_files, all):
     """Unload voice files from memory"""
     # Check if hook function exists
-    hook_name = "on_voice_unload"
+    hook_name = f"on_voice_unload"
     if app_hooks and hasattr(app_hooks, hook_name):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
-
-        result = hook_func(voice_files, all)
-
+        
+        # Prepare arguments including global options
+        kwargs = {}
+        kwargs['command_name'] = 'unload'  # Pass command name for all commands
+        
+        
+        kwargs['voice_files'] = voice_files
+        
+        
+        
+        
+        kwargs['all'] = all
+        
+        
+        
+        # Add global options from context
+        
+        
+        result = hook_func(**kwargs)
         return result
     else:
         # Default placeholder behavior
-        click.echo("Executing unload command...")
-
-
+        click.echo(f"Executing unload command...")
+        
+        
         click.echo(f"  voice_files: {voice_files}")
-
-
-
-
+        
+        
+        
+        
         click.echo(f"  all: {all}")
-
-
+        
+        
 
 @voice.command()
+@click.pass_context
 
 
-def status() -> Any:
+def status(ctx):
     """Show loaded voices and system status"""
     # Check if hook function exists
-    hook_name = "on_voice_status"
+    hook_name = f"on_voice_status"
     if app_hooks and hasattr(app_hooks, hook_name):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
-
-        result = hook_func()
-
+        
+        # Prepare arguments including global options
+        kwargs = {}
+        kwargs['command_name'] = 'status'  # Pass command name for all commands
+        
+        
+        
+        # Add global options from context
+        
+        
+        result = hook_func(**kwargs)
         return result
     else:
         # Default placeholder behavior
-        click.echo("Executing status command...")
-
-
-
-
-
-
-
-@main.command("status")
-
-
-def system_status() -> Any:
-    """🩺 Check system and provider status"""
-    # Check if hook function exists
-    hook_name = "on_status"
-    if app_hooks and hasattr(app_hooks, hook_name):
-        # Call the hook with all parameters
-        hook_func = getattr(app_hooks, hook_name)
-
-        result = hook_func()
-
-        return result
-    else:
-        # Default placeholder behavior
-        click.echo("Executing status command...")
-
+        click.echo(f"Executing status command...")
+        
+        
 
 
 
 
 
 @main.command()
+@click.pass_context
+
+
+def status(ctx):
+    """🩺 Check system and provider status"""
+    
+    # Check for built-in commands first
+    
+    # Standard command - use the existing hook pattern
+    hook_name = f"on_status"
+    if app_hooks and hasattr(app_hooks, hook_name):
+        # Call the hook with all parameters
+        hook_func = getattr(app_hooks, hook_name)
+        
+        # Prepare arguments including global options
+        kwargs = {}
+        kwargs['command_name'] = 'status'  # Pass command name for all commands
+        
+        
+        
+        # Add global options from context
+        
+        
+        result = hook_func(**kwargs)
+        return result
+    else:
+        # Default placeholder behavior
+        click.echo(f"Executing status command...")
+        
+        
+    
+    
+
+
+
+
+@main.command()
+@click.pass_context
 
 @click.argument(
     "ACTION",
@@ -1474,27 +1926,51 @@ def system_status() -> Any:
 )
 
 
-def config(action: Optional[str], key: Optional[str], value: Optional[str]) -> Any:
+def config(ctx, action, key, value):
     """🔧 Manage configuration"""
-    # Check if hook function exists
-    hook_name = "on_config"
+    
+    # Check for built-in commands first
+    
+    # Standard command - use the existing hook pattern
+    hook_name = f"on_config"
     if app_hooks and hasattr(app_hooks, hook_name):
         # Call the hook with all parameters
         hook_func = getattr(app_hooks, hook_name)
-
-        result = hook_func(action, key, value)
-
+        
+        # Prepare arguments including global options
+        kwargs = {}
+        kwargs['command_name'] = 'config'  # Pass command name for all commands
+        
+        
+        kwargs['action'] = action
+        
+        kwargs['key'] = key
+        
+        kwargs['value'] = value
+        
+        
+        
+        
+        # Add global options from context
+        
+        
+        result = hook_func(**kwargs)
         return result
     else:
         # Default placeholder behavior
-        click.echo("Executing config command...")
-
-
+        click.echo(f"Executing config command...")
+        
+        
         click.echo(f"  action: {action}")
-
+        
         click.echo(f"  key: {key}")
-
+        
         click.echo(f"  value: {value}")
+        
+        
+        
+    
+    
 
 
 
@@ -1502,11 +1978,91 @@ def config(action: Optional[str], key: Optional[str], value: Optional[str]) -> A
 
 
 
-def cli_entry() -> None:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def cli_entry():
     """Entry point for the CLI when installed via pipx."""
-    # Load plugins before running the CLI
-    load_plugins(main)
-    main()
+    import sys
+    import traceback
+    
+    try:
+        # Load plugins before running the CLI
+        load_plugins(main)
+        main()
+    except Exception as e:
+        # Import our custom exceptions
+        try:
+            from tts.exceptions import (
+                AuthenticationError, DependencyError, ProviderError,
+                ProviderNotFoundError, ConfigurationError
+            )
+        except ImportError:
+            # Fallback if imports fail
+            AuthenticationError = DependencyError = ProviderError = None
+            ProviderNotFoundError = ConfigurationError = None
+        
+        # Provide user-friendly error messages
+        if AuthenticationError and isinstance(e, AuthenticationError):
+            click.echo(f"❌ Authentication Error: {str(e)}", err=True)
+            click.echo("\n💡 Tip: Set up your API keys with: tts config set <provider>_api_key YOUR_KEY", err=True)
+            sys.exit(1)
+        elif DependencyError and isinstance(e, DependencyError):
+            click.echo(f"❌ Missing Dependency: {str(e)}", err=True)
+            if "ffplay" in str(e) or "ffmpeg" in str(e):
+                click.echo("\n💡 Tip: Install ffmpeg with: sudo apt-get install ffmpeg", err=True)
+            else:
+                click.echo("\n💡 Tip: Install missing dependencies or use a different provider", err=True)
+            sys.exit(1)
+        elif ProviderError and isinstance(e, ProviderError):
+            click.echo(f"❌ Provider Error: {str(e)}", err=True)
+            click.echo("\n💡 Tip: Check provider status with: tts providers", err=True)
+            sys.exit(1)
+        elif ProviderNotFoundError and isinstance(e, ProviderNotFoundError):
+            click.echo(f"❌ Provider Not Found: {str(e)}", err=True)
+            click.echo("\n💡 Tip: List available providers with: tts providers", err=True)
+            sys.exit(1)
+        elif ConfigurationError and isinstance(e, ConfigurationError):
+            click.echo(f"❌ Configuration Error: {str(e)}", err=True)
+            click.echo("\n💡 Tip: Check your config with: tts config show", err=True)
+            sys.exit(1)
+        elif isinstance(e, KeyboardInterrupt):
+            click.echo("\n👋 Operation cancelled by user", err=True)
+            sys.exit(130)  # Standard exit code for SIGINT
+        elif isinstance(e, (click.ClickException, click.Abort)):
+            # Let Click handle its own exceptions
+            raise
+        else:
+            # Generic error handling
+            click.echo(f"❌ Unexpected Error: {str(e)}", err=True)
+            
+            # Only show traceback if --debug was used or DEBUG env var is set
+            if '--debug' in sys.argv or os.environ.get('DEBUG'):
+                click.echo("\n🔍 Debug Traceback:", err=True)
+                traceback.print_exc()
+            else:
+                click.echo("\n💡 Tip: Run with --debug flag for more details", err=True)
+            
+            sys.exit(1)
 
 if __name__ == "__main__":
     cli_entry()

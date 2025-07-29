@@ -16,7 +16,7 @@ class DocumentParserFactory:
         self.markdown_parser = MarkdownParser()
 
         # Supported formats (for API compatibility)
-        self._supported_formats = ['auto', 'markdown', 'html', 'json']
+        self._supported_formats = ["auto", "markdown", "html", "json"]
 
     def get_parser(self, content: str, filename: Optional[str] = None) -> BaseDocumentParser:
         """Returns markdown parser (all formats converted to markdown first).
@@ -44,13 +44,14 @@ class DocumentParserFactory:
             ValueError: If format is not supported
         """
         if format_name.lower() not in self._supported_formats:
-            available = ', '.join(self._supported_formats)
+            available = ", ".join(self._supported_formats)
             raise ValueError(f"Unsupported format '{format_name}'. Available: {available}")
         # Always return markdown parser since we convert everything to markdown
         return self.markdown_parser
 
-    def parse_document(self, content: str, filename: Optional[str] = None,
-                      format_override: Optional[str] = None) -> List[SemanticElement]:
+    def parse_document(
+        self, content: str, filename: Optional[str] = None, format_override: Optional[str] = None
+    ) -> List[SemanticElement]:
         """One-stop parsing with auto-detection or format override.
 
         Args:
@@ -62,7 +63,7 @@ class DocumentParserFactory:
             List of semantic elements extracted from the document
         """
         # Step 1: Convert any format to markdown
-        format_hint = format_override if format_override and format_override != 'auto' else 'auto'
+        format_hint = format_override if format_override and format_override != "auto" else "auto"
         markdown_content: str = self.converter.convert_to_markdown(content, format_hint)
 
         # Step 2: Parse with our proven markdown parser
@@ -85,12 +86,12 @@ class DocumentParserFactory:
         # Also check filename extension for better detection
         if filename:
             filename_lower = filename.lower()
-            if filename_lower.endswith('.html') or filename_lower.endswith('.htm'):
-                return 'html'
-            elif filename_lower.endswith('.json'):
-                return 'json'
-            elif filename_lower.endswith(('.md', '.markdown')):
-                return 'markdown'
+            if filename_lower.endswith(".html") or filename_lower.endswith(".htm"):
+                return "html"
+            elif filename_lower.endswith(".json"):
+                return "json"
+            elif filename_lower.endswith((".md", ".markdown")):
+                return "markdown"
 
         return detected
 
