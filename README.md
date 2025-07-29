@@ -29,20 +29,14 @@ This project is part of the Goobits ecosystem:
 
 ## 📦 Installation
 
-**⚠️ Important: Always use pipx for installation, never pip directly:**
-
 ```bash
-# Install from source (currently only option)
-# pipx install goobits-tts  # TODO: Will be available when published
-
 # Install from local source
 git clone https://github.com/goobits/tts
 cd tts
-./setup.sh install         # Uses pipx automatically
+./setup.sh install         # Automatically handles all dependencies
 
 # Verify installation
 tts status                  # Check system health
-tts install chatterbox gpu  # Add voice cloning (optional)
 ```
 
 ## 🎯 Basic Usage
@@ -171,7 +165,6 @@ tts @chatterbox "This sounds like me!" --clone ~/my_voice.wav
 
 ```bash
 tts status                           # Check system health
-tts install chatterbox gpu           # Install provider with GPU support
 ```
 
 ## 🎯 Supported Engines
@@ -222,8 +215,8 @@ Choose from free offline options or premium cloud services based on your needs.
 
 ### Installation & Dependencies
 - **pipx isolation** for clean package management
-- **Optional dependencies** per provider
-- **Automated setup scripts** with dependency checking
+- **Automatic dependency management** via goobits extras
+- **Automated setup scripts** with comprehensive dependency installation
 
 ## 🚀 Recent Improvements
 

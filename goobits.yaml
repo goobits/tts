@@ -19,13 +19,13 @@ dependencies:
   required:
     - git
     - pipx
-  optional:
-    - ffmpeg  # For audio processing
-    - sox     # Alternative audio processor
 
 installation:
   pypi_name: "goobits-tts"
   development_path: "."
+  extras:
+    python: ["dev", "all"]  # Include dev tools and all TTS providers
+    apt: ["ffmpeg", "sox"]  # Audio processing libraries
 
 shell_integration:
   enabled: false

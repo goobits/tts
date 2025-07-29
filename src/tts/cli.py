@@ -54,40 +54,17 @@ click.rich_click.STYLE_COMMANDS_TABLE_COLUMN_WIDTH_RATIO = (1, 3)  # Command:Des
 # Hooks system - try to import app_hooks module
 app_hooks = None
 try:
-
-    # Use configured hooks path
-    hooks_path = Path("src/tts/app_hooks.py")
-    if not hooks_path.is_absolute():
-        # Make relative to the CLI file's directory
-        script_dir = Path(__file__).parent
-        # Calculate relative path from CLI location to hooks
-        cli_parts = Path("src/tts/cli.py").parts
-        cli_depth = len([p for p in cli_parts if p not in ['.', '..']])
-        hooks_path = script_dir / ('/'.join(['..'] * (cli_depth - 1))) / "src/tts/app_hooks.py"
+    # Try to import from the project root directory
+    script_dir = Path(__file__).parent.parent.parent
+    hooks_path = script_dir / "app_hooks.py"
     
     if hooks_path.exists():
         spec = importlib.util.spec_from_file_location("app_hooks", hooks_path)
         app_hooks = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(app_hooks)
     else:
-        # Fallback: try multiple common locations
-        script_dir = Path(__file__).parent
-        possible_locations = [
-            script_dir / "app_hooks.py",  # Same directory as generated CLI
-            script_dir.parent.parent.parent / "app_hooks.py",  # Project root
-            script_dir.parent / "app_hooks.py",  # One level up
-        ]
-        
-        for fallback_path in possible_locations:
-            if fallback_path.exists():
-                spec = importlib.util.spec_from_file_location("app_hooks", fallback_path)
-                app_hooks = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(app_hooks)
-                break
-        else:
-            # Try to import from Python path
-            import app_hooks
-
+        # Try to import from Python path
+        import app_hooks
 except (ImportError, FileNotFoundError):
     # No hooks module found, use default behavior
     pass
@@ -894,7 +871,7 @@ class DefaultGroup(RichGroup):
                 # Check if stdin is a pipe or file (not a terminal)
                 stdin_stat = os.fstat(sys.stdin.fileno())
                 has_stdin = stat.S_ISFIFO(stdin_stat.st_mode) or stat.S_ISREG(stdin_stat.st_mode)
-            except:
+            except Exception:
                 # Fallback to isatty check
                 has_stdin = not sys.stdin.isatty()
             
@@ -2002,67 +1979,9 @@ def config(ctx, action, key, value):
 
 def cli_entry():
     """Entry point for the CLI when installed via pipx."""
-    import sys
-    import traceback
-    
-    try:
-        # Load plugins before running the CLI
-        load_plugins(main)
-        main()
-    except Exception as e:
-        # Import our custom exceptions
-        try:
-            from tts.exceptions import (
-                AuthenticationError, DependencyError, ProviderError,
-                ProviderNotFoundError, ConfigurationError
-            )
-        except ImportError:
-            # Fallback if imports fail
-            AuthenticationError = DependencyError = ProviderError = None
-            ProviderNotFoundError = ConfigurationError = None
-        
-        # Provide user-friendly error messages
-        if AuthenticationError and isinstance(e, AuthenticationError):
-            click.echo(f"❌ Authentication Error: {str(e)}", err=True)
-            click.echo("\n💡 Tip: Set up your API keys with: tts config set <provider>_api_key YOUR_KEY", err=True)
-            sys.exit(1)
-        elif DependencyError and isinstance(e, DependencyError):
-            click.echo(f"❌ Missing Dependency: {str(e)}", err=True)
-            if "ffplay" in str(e) or "ffmpeg" in str(e):
-                click.echo("\n💡 Tip: Install ffmpeg with: sudo apt-get install ffmpeg", err=True)
-            else:
-                click.echo("\n💡 Tip: Install missing dependencies or use a different provider", err=True)
-            sys.exit(1)
-        elif ProviderError and isinstance(e, ProviderError):
-            click.echo(f"❌ Provider Error: {str(e)}", err=True)
-            click.echo("\n💡 Tip: Check provider status with: tts providers", err=True)
-            sys.exit(1)
-        elif ProviderNotFoundError and isinstance(e, ProviderNotFoundError):
-            click.echo(f"❌ Provider Not Found: {str(e)}", err=True)
-            click.echo("\n💡 Tip: List available providers with: tts providers", err=True)
-            sys.exit(1)
-        elif ConfigurationError and isinstance(e, ConfigurationError):
-            click.echo(f"❌ Configuration Error: {str(e)}", err=True)
-            click.echo("\n💡 Tip: Check your config with: tts config show", err=True)
-            sys.exit(1)
-        elif isinstance(e, KeyboardInterrupt):
-            click.echo("\n👋 Operation cancelled by user", err=True)
-            sys.exit(130)  # Standard exit code for SIGINT
-        elif isinstance(e, (click.ClickException, click.Abort)):
-            # Let Click handle its own exceptions
-            raise
-        else:
-            # Generic error handling
-            click.echo(f"❌ Unexpected Error: {str(e)}", err=True)
-            
-            # Only show traceback if --debug was used or DEBUG env var is set
-            if '--debug' in sys.argv or os.environ.get('DEBUG'):
-                click.echo("\n🔍 Debug Traceback:", err=True)
-                traceback.print_exc()
-            else:
-                click.echo("\n💡 Tip: Run with --debug flag for more details", err=True)
-            
-            sys.exit(1)
+    # Load plugins before running the CLI
+    load_plugins(main)
+    main()
 
 if __name__ == "__main__":
     cli_entry()

@@ -20,14 +20,14 @@ Additionally, TTS CLI now includes advanced document-to-speech capabilities:
 
 ## Installation & Development Setup
 
-**Use the setup script for installation**:
+**Use the setup script for installation - all dependencies are handled automatically**:
 
 ```bash
 # Production install (for end users)
-./setup.sh install
+./setup.sh install         # Automatically installs all Python extras and system packages
 
 # Development install (editable) - RECOMMENDED FOR DEVELOPMENT  
-./setup.sh install --dev
+./setup.sh install --dev   # Installs with dev tools and all providers
 
 # Upgrade to latest version
 ./setup.sh upgrade
@@ -37,6 +37,11 @@ Additionally, TTS CLI now includes advanced document-to-speech capabilities:
 ```
 
 **IMPORTANT FOR DEVELOPMENT**: Always use `./setup.sh install --dev` for development work. This creates an editable installation where code changes are immediately reflected without needing to reinstall or upgrade.
+
+**Automatic Dependency Management**: The setup script now automatically handles:
+- All Python extras (dev, openai, google, elevenlabs, chatterbox, etc.)
+- System packages (ffmpeg, sox for audio processing)
+- No manual pip install or apt-get commands needed
 
 ## CLI Generation
 The project uses Goobits CLI framework: run `goobits build` to generate CLI and setup scripts from goobits.yaml configuration.
@@ -111,7 +116,7 @@ Provider loading is dynamic via the `PROVIDERS_REGISTRY` dict in `src/tts/app_ho
 
 **IMPORTANT: Always use the setup script for installation:**
 ```bash
-./setup.sh install           # Install the package
+./setup.sh install           # Install the package with all dependencies
 ```
 
 ```bash
@@ -182,8 +187,8 @@ Advanced curses-based interface in `src/tts/cli.py` with:
 - Real-time voice preview with background audio playback
 - Quality analysis and metadata extraction
 
-### Provider Installation
-The `tts install` command handles complex dependency management, especially for Chatterbox which requires PyTorch with optional GPU support.
+### Automatic Dependency Management
+All provider dependencies (including PyTorch for Chatterbox with GPU support) are automatically installed via the goobits extras system during setup.
 
 ## Testing Notes
 
