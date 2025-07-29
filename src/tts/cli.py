@@ -135,7 +135,7 @@ def load_plugins(cli_group):
     # Define plugin directories to search
     plugin_dirs = [
         # User-specific plugin directory
-        Path.home() / ".config" / "goobits" / "TTS CLI" / "plugins",
+        Path.home() / ".config" / "goobits" / "GOOBITS TTS CLI" / "plugins",
         # Local plugin directory (same as script)
         Path(__file__).parent / "plugins",
     ]
@@ -204,7 +204,7 @@ def get_version():
         pass
         
     # Final fallback
-    return "1.1"
+    return "1.1.1"
 
 
 def show_help_json(ctx, param, value):
@@ -213,8 +213,8 @@ def show_help_json(ctx, param, value):
         return
     # The triple quotes are important to correctly handle the multi-line JSON string
     click.echo('''{
-  "name": "TTS CLI",
-  "version": "1.1",
+  "name": "GOOBITS TTS CLI",
+  "version": "1.1.1",
   "display_version": true,
   "tagline": "Multi-provider text-to-speech with voice cloning",
   "description": "Transform text into natural speech using AI providers with auto-selection and real-time streaming.",
@@ -919,7 +919,7 @@ class DefaultGroup(RichGroup):
 
 @click.group(cls=DefaultGroup, default='speak', context_settings={"help_option_names": ["-h", "--help"], "max_content_width": 120})
 
-@click.version_option(version=get_version(), prog_name="TTS CLI")
+@click.version_option(version=get_version(), prog_name="GOOBITS TTS CLI")
 @click.pass_context
 
 @click.option('--help-json', is_flag=True, callback=show_help_json, is_eager=True, help='Output CLI structure as JSON.', hidden=True)
@@ -929,7 +929,7 @@ class DefaultGroup(RichGroup):
 
 
 def main(ctx, help_json=False, help_all=False):
-    """[bold color(6)]TTS CLI v1.1[/bold color(6)] - Multi-provider text-to-speech with voice cloning
+    """[bold color(6)]GOOBITS TTS CLI v1.1.1[/bold color(6)] - Multi-provider text-to-speech with voice cloning
 
     
     \b
@@ -938,23 +938,11 @@ def main(ctx, help_json=False, help_all=False):
 
     
     \b
-    [bold yellow]Quick Start:[/bold yellow]
-    [green]tts "Hello world"            [/green] [italic][#B3B8C0]# Speak instantly (implicit 'speak')[/#B3B8C0][/italic]
-    [green]tts save "Hello" -o out.mp3  [/green] [italic][#B3B8C0]# Save as audio file[/#B3B8C0][/italic]
-    
+    [bold yellow]Quick Start:[/bold yellow][green]tts "Hello world"            [/green] [italic][#B3B8C0]# Speak instantly (implicit 'speak')[/#B3B8C0][/italic][green]tts save "Hello" -o out.mp3  [/green] [italic][#B3B8C0]# Save as audio file[/#B3B8C0][/italic]
     \b
-    [bold yellow]Core Commands:[/bold yellow]
-    [green]speak   [/green]  🗣️  Speak text aloud (default command)
-    [green]save    [/green]  💾 Save text as an audio file
-    [green]voices  [/green]  🎭 Browse and test voices interactively
-    
+    [bold yellow]Core Commands:[/bold yellow][green]speak   [/green]  🗣️  Speak text aloud (default command)[green]save    [/green]  💾 Save text as an audio file[green]voices  [/green]  🎭 Browse and test voices interactively
     \b
-    [bold yellow]First-time Setup:[/bold yellow]
-    1. Check providers: [green]tts providers[/green]
-    2. Set API keys:    [green]tts config set openai_api_key YOUR_KEY[/green]
-    
-    \b
-    """
+    [bold yellow]First-time Setup:[/bold yellow]1. Check providers: [green]tts providers[/green]2. Set API keys:    [green]tts config set openai_api_key YOUR_KEY[/green]"""
 
     
     if help_all:
