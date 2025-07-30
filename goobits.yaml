@@ -71,7 +71,7 @@ cli:
   version: "1.1.1"
   display_version: true
   tagline: "Multi-provider text-to-speech with voice cloning"
-  description: "Transform text into natural speech using AI providers with auto-selection and real-time streaming."
+  description: "Convert text into natural speech with AI-powered auto-selection and real-time streaming."
   icon: "🔊"
   enable_recursive_help: true
   enable_help_json: true
@@ -79,14 +79,14 @@ cli:
   header_sections:
     - title: "🚀 Quick Start"
       items:
-        - { item: 'tts "Hello world"', desc: "Speak instantly (implicit 'speak')", style: "example" }
-        - { item: 'tts save "Hello" -o out.mp3', desc: "Save as audio file", style: "example" }
+        - { item: 'tts "Hello world"', desc: "Instantly speak text (default command)", style: "example" }
+        - { item: 'tts save "Hello" -o out.mp3', desc: "Save speech to audio file", style: "example" }
 
     - title: "💡 Core Commands"
       items:
         - { item: "speak", desc: "🗣️  Speak text aloud (default command)", style: "command" }
         - { item: "save", desc: "💾 Save text as an audio file", style: "command" }
-        - { item: "voices", desc: "🎭 Browse and test voices interactively", style: "command" }
+        - { item: "voices", desc: "🔍 Explore and test available voices", style: "command" }
 
     - title: "🔧 First-time Setup"
       items:
@@ -119,7 +119,7 @@ cli:
         - name: "voice"
           short: "v"
           type: "str"
-          desc: "🎤 Voice to use (e.g., en-GB-SoniaNeural for edge_tts)"
+          desc: "🎤 Voice selection (e.g., en-GB-SoniaNeural for edge_tts)"
         - name: "rate"
           type: "str"
           desc: "⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)"
@@ -128,7 +128,7 @@ cli:
           desc: "🎵 Pitch adjustment (e.g., +5Hz, -10Hz)"
         - name: "debug"
           type: "flag"
-          desc: "🔍 Show debug information during processing"
+          desc: "🐞 Display debug information during processing"
     
     save:
       desc: "Save text as an audio file"
@@ -153,7 +153,7 @@ cli:
         - name: "voice"
           short: "v"
           type: "str"
-          desc: "🎤 Voice to use (e.g., en-GB-SoniaNeural for edge_tts)"
+          desc: "🎤 Voice selection (e.g., en-GB-SoniaNeural for edge_tts)"
         - name: "clone"
           type: "str"
           desc: "🎭 Audio file to clone voice from (deprecated: use --voice instead)"
@@ -162,7 +162,7 @@ cli:
           desc: "🔧 Output results as JSON"
         - name: "debug"
           type: "flag"
-          desc: "🔍 Show debug information during processing"
+          desc: "🐞 Display debug information during processing"
         - name: "rate"
           type: "str"
           desc: "⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)"
@@ -171,7 +171,7 @@ cli:
           desc: "🎵 Pitch adjustment (e.g., +5Hz, -10Hz)"
     
     voices:
-      desc: "Browse and test voices interactively"
+      desc: "Explore and test available voices"
       icon: "🔍"
       args:
         - name: "args"
@@ -180,7 +180,7 @@ cli:
           required: false
     
     providers:
-      desc: "Available TTS providers and status"
+      desc: "Show available providers and their status"
       icon: "📋"
       args:
         - name: "provider_name"
@@ -188,8 +188,8 @@ cli:
           required: false
     
     install:
-      desc: "Install provider dependencies"
-      icon: "📦"
+      desc: "Install required provider dependencies"
+      icon: "📥"
       args:
         - name: "args"
           desc: "Provider and options (e.g., 'chatterbox gpu')"
@@ -197,7 +197,7 @@ cli:
           required: false
     
     info:
-      desc: "Provider information and capabilities"
+      desc: "Detailed provider information"
       icon: "👀"
       args:
         - name: "provider"
@@ -218,7 +218,7 @@ cli:
       options:
         - name: "save"
           type: "flag"
-          desc: "💾 Save processed audio to file"
+          desc: "💾 Save audio output to file"
         - name: "output"
           short: "o"
           type: "str"
@@ -240,20 +240,20 @@ cli:
           desc: "🔧 Output results as JSON"
         - name: "debug"
           type: "flag"
-          desc: "🔍 Show debug information during processing"
+          desc: "🐞 Display debug information during processing"
         - name: "doc-format"
           type: "str"
-          desc: "📄 Document format"
+          desc: "📄 Input document format"
           choices: ["auto", "markdown", "html", "json"]
           default: "auto"
         - name: "ssml-platform"
           type: "str"
-          desc: "🏧️ SSML platform"
+          desc: "🏧️ SSML format platform"
           choices: ["azure", "google", "amazon", "generic"]
           default: "generic"
         - name: "emotion-profile"
           type: "str"
-          desc: "🎭 Emotion profile"
+          desc: "🎭 Speech emotion style"
           choices: ["technical", "marketing", "narrative", "tutorial", "auto"]
           default: "auto"
         - name: "rate"
@@ -264,18 +264,18 @@ cli:
           desc: "🎵 Pitch adjustment"
     
     voice:
-      desc: "Voice loading and caching"
+      desc: "Manage voice loading and caching"
       icon: "🎤"
       subcommands:
         load:
-          desc: "Load voice files into memory for fast access"
+          desc: "Load voices into memory for faster access"
           args:
             - name: "voice_files"
               desc: "Voice files to load"
               nargs: "*"
               required: true
         unload:
-          desc: "Unload voice files from memory"
+          desc: "Remove voices from memory"
           args:
             - name: "voice_files"
               desc: "Voice files to unload"
@@ -284,16 +284,16 @@ cli:
           options:
             - name: "all"
               type: "flag"
-              desc: "🧹 Unload all voices"
+              desc: "🧹 Remove all voices from memory"
         status:
-          desc: "Show loaded voices and system status"
+          desc: "Show currently loaded voices and system status"
     
     status:
-      desc: "Check system and provider status"
+      desc: "Check system and provider health"
       icon: "🩺"
     
     config:
-      desc: "Manage configuration"
+      desc: "Adjust CLI settings and API keys"
       icon: "🔧"
       args:
         - name: "action"
