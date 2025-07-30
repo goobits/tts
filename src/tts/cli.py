@@ -53,21 +53,33 @@ click.rich_click.STYLE_COMMANDS_TABLE_COLUMN_WIDTH_RATIO = (1, 3)  # Command:Des
 
 # Hooks system - try to import app_hooks module
 app_hooks = None
+
+# Using configured hooks path: src/tts/app_hooks.py
 try:
-    # Try to import from the project root directory
-    script_dir = Path(__file__).parent.parent.parent
-    hooks_path = script_dir / "app_hooks.py"
+    # First try as a module import (e.g., "ttt.app_hooks")
+    module_path = "src/tts/app_hooks.py".replace(".py", "").replace("/", ".")
+    if module_path.startswith("src."):
+        module_path = module_path[4:]  # Remove 'src.' prefix
     
-    if hooks_path.exists():
-        spec = importlib.util.spec_from_file_location("app_hooks", hooks_path)
-        app_hooks = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(app_hooks)
-    else:
-        # Try to import from Python path
-        import app_hooks
-except (ImportError, FileNotFoundError):
+    try:
+        app_hooks = importlib.import_module(module_path)
+    except ImportError:
+        # If module import fails, try relative import
+        try:
+            from . import app_hooks
+        except ImportError:
+            # If relative import fails, try file-based import as last resort
+            script_dir = Path(__file__).parent.parent.parent
+            hooks_file = script_dir / "src/tts/app_hooks.py"
+            
+            if hooks_file.exists():
+                spec = importlib.util.spec_from_file_location("app_hooks", hooks_file)
+                app_hooks = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(app_hooks)
+except Exception:
     # No hooks module found, use default behavior
     pass
+
 
 # Built-in commands
 
@@ -89,9 +101,10 @@ def builtin_upgrade_command(check_only=False, pre=False, version=None, dry_run=F
     # Find the setup.sh script - look in common locations
     setup_script = None
     search_paths = [
-        Path.cwd() / "setup.sh",  # Current directory
-        Path(__file__).parent.parent / "setup.sh",  # Package directory
+        Path(__file__).parent / "setup.sh",  # Package directory (installed packages)
+        Path(__file__).parent.parent / "setup.sh",  # Development mode 
         Path.home() / ".local" / "share" / "goobits-tts" / "setup.sh",  # User data
+        # Remove Path.cwd() to prevent cross-contamination
     ]
     
     for path in search_paths:
@@ -218,10 +231,10 @@ def show_help_json(ctx, param, value):
   "display_version": true,
   "tagline": "Multi-provider text-to-speech with voice cloning",
   "description": "Transform text into natural speech using AI providers with auto-selection and real-time streaming.",
-  "icon": null,
+  "icon": "🔊",
   "header_sections": [
     {
-      "title": "Quick Start",
+      "title": "🚀 Quick Start",
       "icon": null,
       "items": [
         {
@@ -237,7 +250,7 @@ def show_help_json(ctx, param, value):
       ]
     },
     {
-      "title": "Core Commands",
+      "title": "💡 Core Commands",
       "icon": null,
       "items": [
         {
@@ -258,7 +271,7 @@ def show_help_json(ctx, param, value):
       ]
     },
     {
-      "title": "First-time Setup",
+      "title": "🔧 First-time Setup",
       "icon": null,
       "items": [
         {
@@ -929,7 +942,7 @@ class DefaultGroup(RichGroup):
 
 
 def main(ctx, help_json=False, help_all=False):
-    """[bold color(6)]GOOBITS TTS CLI v1.1.1[/bold color(6)] - Multi-provider text-to-speech with voice cloning
+    """🔊 [bold color(6)]GOOBITS TTS CLI v1.1.1[/bold color(6)] - Multi-provider text-to-speech with voice cloning
 
     
     \b
@@ -937,12 +950,41 @@ def main(ctx, help_json=False, help_all=False):
     
 
     
-    \b
-    [bold yellow]Quick Start:[/bold yellow][green]tts "Hello world"            [/green] [italic][#B3B8C0]# Speak instantly (implicit 'speak')[/#B3B8C0][/italic][green]tts save "Hello" -o out.mp3  [/green] [italic][#B3B8C0]# Save as audio file[/#B3B8C0][/italic]
-    \b
-    [bold yellow]Core Commands:[/bold yellow][green]speak   [/green]  🗣️  Speak text aloud (default command)[green]save    [/green]  💾 Save text as an audio file[green]voices  [/green]  🎭 Browse and test voices interactively
-    \b
-    [bold yellow]First-time Setup:[/bold yellow]1. Check providers: [green]tts providers[/green]2. Set API keys:    [green]tts config set openai_api_key YOUR_KEY[/green]"""
+    
+    [bold yellow]🚀 Quick Start[/bold yellow]
+    
+    
+    [green]   tts "Hello world"            [/green] [italic][#B3B8C0]# Speak instantly (implicit 'speak')[/#B3B8C0][/italic]
+    
+    
+    [green]   tts save "Hello" -o out.mp3  [/green] [italic][#B3B8C0]# Save as audio file[/#B3B8C0][/italic]
+    
+    [green] [/green]
+    
+    [bold yellow]💡 Core Commands[/bold yellow]
+    
+    
+    [green]   speak   [/green]  🗣️  Speak text aloud (default command)
+    
+    
+    [green]   save    [/green]  💾 Save text as an audio file
+    
+    
+    [green]   voices  [/green]  🎭 Browse and test voices interactively
+    
+    [green] [/green]
+    
+    [bold yellow]🔧 First-time Setup[/bold yellow]
+    
+    
+    [#B3B8C0]   1. Check providers: [/#B3B8C0][green]tts providers[/green]
+    
+    [#B3B8C0]   2. Set API keys:    [/#B3B8C0][green]tts config set openai_api_key YOUR_KEY[/green]
+    [green] [/green]
+    
+    
+    
+    """
 
     
     if help_all:

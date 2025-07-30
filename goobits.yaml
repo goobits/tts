@@ -72,22 +72,23 @@ cli:
   display_version: true
   tagline: "Multi-provider text-to-speech with voice cloning"
   description: "Transform text into natural speech using AI providers with auto-selection and real-time streaming."
+  icon: "🔊"
   enable_recursive_help: true
   enable_help_json: true
   
   header_sections:
-    - title: "Quick Start"
+    - title: "🚀 Quick Start"
       items:
         - { item: 'tts "Hello world"', desc: "Speak instantly (implicit 'speak')", style: "example" }
         - { item: 'tts save "Hello" -o out.mp3', desc: "Save as audio file", style: "example" }
 
-    - title: "Core Commands"
+    - title: "💡 Core Commands"
       items:
         - { item: "speak", desc: "🗣️  Speak text aloud (default command)", style: "command" }
         - { item: "save", desc: "💾 Save text as an audio file", style: "command" }
         - { item: "voices", desc: "🎭 Browse and test voices interactively", style: "command" }
 
-    - title: "First-time Setup"
+    - title: "🔧 First-time Setup"
       items:
         - { item: "1. Check providers", desc: "tts providers", style: "setup" }
         - { item: "2. Set API keys", desc: "tts config set openai_api_key YOUR_KEY", style: "setup" }
