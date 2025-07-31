@@ -19,6 +19,8 @@ services:
     enabled: false
     type: auto
     memory_mb: 1024
+npm_packages:
+  - browsertap
 terminal:
   emoji: 🎤
   username: tts-dev
