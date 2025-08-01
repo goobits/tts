@@ -2,6 +2,7 @@
 """Auto-generated from goobits.yaml"""
 import os
 import sys
+import signal
 import importlib.util
 from pathlib import Path
 import rich_click as click
@@ -217,7 +218,7 @@ def get_version():
         pass
         
     # Final fallback
-    return "1.1.1"
+    return "1.1.2"
 
 
 def show_help_json(ctx, param, value):
@@ -227,10 +228,10 @@ def show_help_json(ctx, param, value):
     # The triple quotes are important to correctly handle the multi-line JSON string
     click.echo('''{
   "name": "GOOBITS TTS CLI",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "display_version": true,
   "tagline": "Multi-provider text-to-speech with voice cloning",
-  "description": "Transform text into natural speech using AI providers with auto-selection and real-time streaming.",
+  "description": "Convert text into natural speech with AI-powered auto-selection and real-time streaming.",
   "icon": "🔊",
   "header_sections": [
     {
@@ -239,12 +240,12 @@ def show_help_json(ctx, param, value):
       "items": [
         {
           "item": "tts \\"Hello world\\"",
-          "desc": "Speak instantly (implicit 'speak')",
+          "desc": "Instantly speak text (default command)",
           "style": "example"
         },
         {
           "item": "tts save \\"Hello\\" -o out.mp3",
-          "desc": "Save as audio file",
+          "desc": "Save speech to audio file",
           "style": "example"
         }
       ]
@@ -265,7 +266,7 @@ def show_help_json(ctx, param, value):
         },
         {
           "item": "voices",
-          "desc": "🎭 Browse and test voices interactively",
+          "desc": "🔍 Explore and test available voices",
           "style": "command"
         }
       ]
@@ -316,7 +317,7 @@ def show_help_json(ctx, param, value):
           "name": "voice",
           "short": "v",
           "type": "str",
-          "desc": "🎤 Voice to use (e.g., en-GB-SoniaNeural for edge_tts)",
+          "desc": "🎤 Voice selection (e.g., en-GB-SoniaNeural for edge_tts)",
           "default": null,
           "choices": null,
           "multiple": false
@@ -343,7 +344,7 @@ def show_help_json(ctx, param, value):
           "name": "debug",
           "short": null,
           "type": "flag",
-          "desc": "🔍 Show debug information during processing",
+          "desc": "🐞 Display debug information during processing",
           "default": null,
           "choices": null,
           "multiple": false
@@ -400,7 +401,7 @@ def show_help_json(ctx, param, value):
           "name": "voice",
           "short": "v",
           "type": "str",
-          "desc": "🎤 Voice to use (e.g., en-GB-SoniaNeural for edge_tts)",
+          "desc": "🎤 Voice selection (e.g., en-GB-SoniaNeural for edge_tts)",
           "default": null,
           "choices": null,
           "multiple": false
@@ -427,7 +428,7 @@ def show_help_json(ctx, param, value):
           "name": "debug",
           "short": null,
           "type": "flag",
-          "desc": "🔍 Show debug information during processing",
+          "desc": "🐞 Display debug information during processing",
           "default": null,
           "choices": null,
           "multiple": false
@@ -454,7 +455,7 @@ def show_help_json(ctx, param, value):
       "subcommands": null
     },
     "voices": {
-      "desc": "Browse and test voices interactively",
+      "desc": "Explore and test available voices",
       "icon": "🔍",
       "is_default": false,
       "lifecycle": "standard",
@@ -471,7 +472,7 @@ def show_help_json(ctx, param, value):
       "subcommands": null
     },
     "providers": {
-      "desc": "Available TTS providers and status",
+      "desc": "Show available providers and their status",
       "icon": "📋",
       "is_default": false,
       "lifecycle": "standard",
@@ -488,8 +489,8 @@ def show_help_json(ctx, param, value):
       "subcommands": null
     },
     "install": {
-      "desc": "Install provider dependencies",
-      "icon": "📦",
+      "desc": "Install required provider dependencies",
+      "icon": "📥",
       "is_default": false,
       "lifecycle": "standard",
       "args": [
@@ -505,7 +506,7 @@ def show_help_json(ctx, param, value):
       "subcommands": null
     },
     "info": {
-      "desc": "Provider information and capabilities",
+      "desc": "Detailed provider information",
       "icon": "👀",
       "is_default": false,
       "lifecycle": "standard",
@@ -547,7 +548,7 @@ def show_help_json(ctx, param, value):
           "name": "save",
           "short": null,
           "type": "flag",
-          "desc": "💾 Save processed audio to file",
+          "desc": "💾 Save audio output to file",
           "default": null,
           "choices": null,
           "multiple": false
@@ -606,7 +607,7 @@ def show_help_json(ctx, param, value):
           "name": "debug",
           "short": null,
           "type": "flag",
-          "desc": "🔍 Show debug information during processing",
+          "desc": "🐞 Display debug information during processing",
           "default": null,
           "choices": null,
           "multiple": false
@@ -615,7 +616,7 @@ def show_help_json(ctx, param, value):
           "name": "doc-format",
           "short": null,
           "type": "str",
-          "desc": "📄 Document format",
+          "desc": "📄 Input document format",
           "default": "auto",
           "choices": [
             "auto",
@@ -629,7 +630,7 @@ def show_help_json(ctx, param, value):
           "name": "ssml-platform",
           "short": null,
           "type": "str",
-          "desc": "🏧️ SSML platform",
+          "desc": "🏧️ SSML format platform",
           "default": "generic",
           "choices": [
             "azure",
@@ -643,7 +644,7 @@ def show_help_json(ctx, param, value):
           "name": "emotion-profile",
           "short": null,
           "type": "str",
-          "desc": "🎭 Emotion profile",
+          "desc": "🎭 Speech emotion style",
           "default": "auto",
           "choices": [
             "technical",
@@ -676,7 +677,7 @@ def show_help_json(ctx, param, value):
       "subcommands": null
     },
     "voice": {
-      "desc": "Voice loading and caching",
+      "desc": "Manage voice loading and caching",
       "icon": "🎤",
       "is_default": false,
       "lifecycle": "standard",
@@ -684,7 +685,7 @@ def show_help_json(ctx, param, value):
       "options": [],
       "subcommands": {
         "load": {
-          "desc": "Load voice files into memory for fast access",
+          "desc": "Load voices into memory for faster access",
           "icon": null,
           "is_default": false,
           "lifecycle": "standard",
@@ -701,7 +702,7 @@ def show_help_json(ctx, param, value):
           "subcommands": null
         },
         "unload": {
-          "desc": "Unload voice files from memory",
+          "desc": "Remove voices from memory",
           "icon": null,
           "is_default": false,
           "lifecycle": "standard",
@@ -719,7 +720,7 @@ def show_help_json(ctx, param, value):
               "name": "all",
               "short": null,
               "type": "flag",
-              "desc": "🧹 Unload all voices",
+              "desc": "🧹 Remove all voices from memory",
               "default": null,
               "choices": null,
               "multiple": false
@@ -728,7 +729,7 @@ def show_help_json(ctx, param, value):
           "subcommands": null
         },
         "status": {
-          "desc": "Show loaded voices and system status",
+          "desc": "Show currently loaded voices and system status",
           "icon": null,
           "is_default": false,
           "lifecycle": "standard",
@@ -739,7 +740,7 @@ def show_help_json(ctx, param, value):
       }
     },
     "status": {
-      "desc": "Check system and provider status",
+      "desc": "Check system and provider health",
       "icon": "🩺",
       "is_default": false,
       "lifecycle": "standard",
@@ -748,7 +749,7 @@ def show_help_json(ctx, param, value):
       "subcommands": null
     },
     "config": {
-      "desc": "Manage configuration",
+      "desc": "Adjust CLI settings and API keys",
       "icon": "🔧",
       "is_default": false,
       "lifecycle": "standard",
@@ -942,11 +943,11 @@ class DefaultGroup(RichGroup):
 
 
 def main(ctx, help_json=False, help_all=False):
-    """🔊 [bold color(6)]GOOBITS TTS CLI v1.1.1[/bold color(6)] - Multi-provider text-to-speech with voice cloning
+    """🔊 [bold color(6)]GOOBITS TTS CLI v1.1.2[/bold color(6)] - Multi-provider text-to-speech with voice cloning
 
     
     \b
-    [#B3B8C0]Transform text into natural speech using AI providers with auto-selection and real-time streaming.[/#B3B8C0]
+    [#B3B8C0]Convert text into natural speech with AI-powered auto-selection and real-time streaming.[/#B3B8C0]
     
 
     
@@ -954,10 +955,10 @@ def main(ctx, help_json=False, help_all=False):
     [bold yellow]🚀 Quick Start[/bold yellow]
     
     
-    [green]   tts "Hello world"            [/green] [italic][#B3B8C0]# Speak instantly (implicit 'speak')[/#B3B8C0][/italic]
+    [green]   tts "Hello world"            [/green] [italic][#B3B8C0]# Instantly speak text (default command)[/#B3B8C0][/italic]
     
     
-    [green]   tts save "Hello" -o out.mp3  [/green] [italic][#B3B8C0]# Save as audio file[/#B3B8C0][/italic]
+    [green]   tts save "Hello" -o out.mp3  [/green] [italic][#B3B8C0]# Save speech to audio file[/#B3B8C0][/italic]
     
     [green] [/green]
     
@@ -970,7 +971,7 @@ def main(ctx, help_json=False, help_all=False):
     [green]   save    [/green]  💾 Save text as an audio file
     
     
-    [green]   voices  [/green]  🎭 Browse and test voices interactively
+    [green]   voices  [/green]  🔍 Explore and test available voices
     
     [green] [/green]
     
@@ -1074,7 +1075,7 @@ def upgrade(check, version, pre, dry_run):
 
 @click.option("-v", "--voice",
     type=str,
-    help="🎤 Voice to use (e.g., en-GB-SoniaNeural for edge_tts)"
+    help="🎤 Voice selection (e.g., en-GB-SoniaNeural for edge_tts)"
 )
 
 @click.option("--rate",
@@ -1089,7 +1090,7 @@ def upgrade(check, version, pre, dry_run):
 
 @click.option("--debug",
     is_flag=True,
-    help="🔍 Show debug information during processing"
+    help="🐞 Display debug information during processing"
 )
 
 def speak(ctx, text, options, voice, rate, pitch, debug):
@@ -1195,7 +1196,7 @@ def speak(ctx, text, options, voice, rate, pitch, debug):
 
 @click.option("-v", "--voice",
     type=str,
-    help="🎤 Voice to use (e.g., en-GB-SoniaNeural for edge_tts)"
+    help="🎤 Voice selection (e.g., en-GB-SoniaNeural for edge_tts)"
 )
 
 @click.option("--clone",
@@ -1210,7 +1211,7 @@ def speak(ctx, text, options, voice, rate, pitch, debug):
 
 @click.option("--debug",
     is_flag=True,
-    help="🔍 Show debug information during processing"
+    help="🐞 Display debug information during processing"
 )
 
 @click.option("--rate",
@@ -1339,7 +1340,7 @@ def save(ctx, text, options, output, format, voice, clone, json, debug, rate, pi
 
 
 def voices(ctx, args):
-    """🔍 Browse and test voices interactively"""
+    """🔍 Explore and test available voices"""
     
     # Check for built-in commands first
     
@@ -1389,7 +1390,7 @@ def voices(ctx, args):
 
 
 def providers(ctx, provider_name):
-    """📋 Available TTS providers and status"""
+    """📋 Show available providers and their status"""
     
     # Check for built-in commands first
     
@@ -1440,7 +1441,7 @@ def providers(ctx, provider_name):
 
 
 def install(ctx, args):
-    """📦 Install provider dependencies"""
+    """📥 Install required provider dependencies"""
     
     # Check for built-in commands first
     
@@ -1490,7 +1491,7 @@ def install(ctx, args):
 
 
 def info(ctx, provider):
-    """👀 Provider information and capabilities"""
+    """👀 Detailed provider information"""
     
     # Check for built-in commands first
     
@@ -1545,7 +1546,7 @@ def info(ctx, provider):
 
 @click.option("--save",
     is_flag=True,
-    help="💾 Save processed audio to file"
+    help="💾 Save audio output to file"
 )
 
 @click.option("-o", "--output",
@@ -1575,25 +1576,25 @@ def info(ctx, provider):
 
 @click.option("--debug",
     is_flag=True,
-    help="🔍 Show debug information during processing"
+    help="🐞 Display debug information during processing"
 )
 
 @click.option("--doc-format",
     type=click.Choice(['auto', 'markdown', 'html', 'json']),
     default="auto",
-    help="📄 Document format"
+    help="📄 Input document format"
 )
 
 @click.option("--ssml-platform",
     type=click.Choice(['azure', 'google', 'amazon', 'generic']),
     default="generic",
-    help="🏧️ SSML platform"
+    help="🏧️ SSML format platform"
 )
 
 @click.option("--emotion-profile",
     type=click.Choice(['technical', 'marketing', 'narrative', 'tutorial', 'auto']),
     default="auto",
-    help="🎭 Emotion profile"
+    help="🎭 Speech emotion style"
 )
 
 @click.option("--rate",
@@ -1741,7 +1742,7 @@ def document(ctx, document_path, options, save, output, format, voice, clone, js
 
 @main.group()
 def voice():
-    """🎤 Voice loading and caching"""
+    """🎤 Manage voice loading and caching"""
     pass
 
 
@@ -1755,7 +1756,7 @@ def voice():
 
 
 def load(ctx, voice_files):
-    """Load voice files into memory for fast access"""
+    """Load voices into memory for faster access"""
     # Check if hook function exists
     hook_name = f"on_voice_load"
     if app_hooks and hasattr(app_hooks, hook_name):
@@ -1799,11 +1800,11 @@ def load(ctx, voice_files):
 
 @click.option("--all",
     is_flag=True,
-    help="🧹 Unload all voices"
+    help="🧹 Remove all voices from memory"
 )
 
 def unload(ctx, voice_files, all):
-    """Unload voice files from memory"""
+    """Remove voices from memory"""
     # Check if hook function exists
     hook_name = f"on_voice_unload"
     if app_hooks and hasattr(app_hooks, hook_name):
@@ -1848,7 +1849,7 @@ def unload(ctx, voice_files, all):
 
 
 def status(ctx):
-    """Show loaded voices and system status"""
+    """Show currently loaded voices and system status"""
     # Check if hook function exists
     hook_name = f"on_voice_status"
     if app_hooks and hasattr(app_hooks, hook_name):
@@ -1881,7 +1882,7 @@ def status(ctx):
 
 
 def status(ctx):
-    """🩺 Check system and provider status"""
+    """🩺 Check system and provider health"""
     
     # Check for built-in commands first
     
@@ -1934,7 +1935,7 @@ def status(ctx):
 
 
 def config(ctx, action, key, value):
-    """🔧 Manage configuration"""
+    """🔧 Adjust CLI settings and API keys"""
     
     # Check for built-in commands first
     
@@ -2009,9 +2010,24 @@ def config(ctx, action, key, value):
 
 def cli_entry():
     """Entry point for the CLI when installed via pipx."""
+    # Ignore SIGPIPE to prevent broken pipe errors from terminating the process
+    try:
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    except AttributeError:
+        # SIGPIPE is not available on Windows
+        pass
+    
     # Load plugins before running the CLI
     load_plugins(main)
-    main()
+    
+    try:
+        main()
+    except KeyboardInterrupt:
+        # Exit gracefully on Ctrl+C
+        sys.exit(0)
+    except BrokenPipeError:
+        # Exit gracefully when output pipe is broken
+        sys.exit(0)
 
 if __name__ == "__main__":
     cli_entry()

@@ -51,6 +51,7 @@ After generation, use `./setup.sh install --dev` for development installation wi
 
 **Testing:**
 ```bash
+# Use the virtual environment when running commands, not the global python (see README for setup details)
 ./test.sh               # Main test runner with coverage
 python -m pytest tests/ -v    # Direct pytest execution
 

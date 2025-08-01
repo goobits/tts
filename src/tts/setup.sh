@@ -159,7 +159,7 @@ tree_final_node() {
 
 get_version() {
     # Return the version from pyproject.toml (hardcoded during build)
-    echo "v1.0-rc4"
+    echo "v1.1.2"
 }
 
 get_elapsed_time() {

@@ -109,9 +109,14 @@ def on_speak(
         if not all_text:
             # If no text provided, try to read from stdin
             if not sys.stdin.isatty():
-                text_input = sys.stdin.read().strip()
-                if text_input:
-                    all_text.append(text_input)
+                try:
+                    text_input = sys.stdin.read().strip()
+                    if text_input:
+                        all_text.append(text_input)
+                except (BrokenPipeError, IOError) as e:
+                    # Stdin was closed (e.g., in a pipeline that was interrupted)
+                    # Exit gracefully without error message
+                    sys.exit(0)
 
         if not all_text:
             print("Error: No text provided to speak")
@@ -144,6 +149,19 @@ def on_speak(
 
         return 0 if result else 1
 
+    except KeyboardInterrupt:
+        # Clean shutdown on Ctrl+C
+        return 0
+    except BrokenPipeError:
+        # Exit gracefully when output pipe is broken
+        return 0
+    except IOError as e:
+        # Check if it's a broken pipe error
+        import errno
+        if e.errno == errno.EPIPE:
+            return 0
+        # Re-raise other IO errors
+        raise
     except Exception:
         # Re-raise to let CLI handle it with user-friendly messages
         raise

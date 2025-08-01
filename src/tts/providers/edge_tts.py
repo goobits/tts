@@ -1,4 +1,5 @@
 import asyncio
+import errno
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
@@ -35,15 +36,27 @@ class EdgeTTSProvider(TTSProvider):
         """Safely run async coroutine, handling existing event loops."""
         try:
             # Try to get current event loop
-            asyncio.get_running_loop()
+            loop = asyncio.get_running_loop()
             # If we're already in an event loop, run in thread pool
             return self._executor.submit(asyncio.run, coro).result()
         except RuntimeError:
             # No event loop running, safe to create new one
-            return asyncio.run(coro)
+            try:
+                return asyncio.run(coro)
+            except KeyboardInterrupt:
+                # Clean shutdown on Ctrl+C - propagate without logging
+                raise
+            except BrokenPipeError:
+                # Silently ignore broken pipe when stdout/stdin is closed
+                self.logger.debug("Broken pipe error - output stream was closed")
+                return None
         except KeyboardInterrupt:
             # Clean shutdown on Ctrl+C - propagate without logging
             raise
+        except BrokenPipeError:
+            # Silently ignore broken pipe errors
+            self.logger.debug("Broken pipe error in async handler")
+            return None
 
     async def _synthesize_async(
         self, text: str, output_path: str, voice: str, rate: str, pitch: str, output_format: str = "mp3"
@@ -174,15 +187,13 @@ class EdgeTTSProvider(TTSProvider):
                         except BrokenPipeError:
                             # Check if ffplay process ended early
                             if ffplay_process.poll() is not None:
-                                stderr_output = ""
-                                if ffplay_process.stderr:
-                                    stderr_output = ffplay_process.stderr.read().decode("utf-8", errors="ignore")
-                                self.logger.warning(
-                                    f"FFplay ended early (exit code: {ffplay_process.returncode}): {stderr_output}"
-                                )
+                                # FFplay has terminated - this is expected when pipeline is interrupted
+                                self.logger.debug(f"FFplay terminated with exit code: {ffplay_process.returncode}")
                                 break
                             else:
-                                raise
+                                # Broken pipe but ffplay still running - likely stdin closed
+                                self.logger.debug("Broken pipe error - stdin was closed, stopping audio stream")
+                                break
 
                 # Close stdin and wait for ffplay to finish
                 try:
@@ -213,7 +224,26 @@ class EdgeTTSProvider(TTSProvider):
                 if ffplay_process.poll() is None:
                     ffplay_process.terminate()
                 raise
-            except (BrokenPipeError, IOError, OSError, RuntimeError) as e:
+            except BrokenPipeError:
+                # Broken pipe is expected when pipeline is interrupted - handle gracefully
+                self.logger.debug("Broken pipe error during audio streaming - pipeline was interrupted")
+                # Ensure ffplay is terminated cleanly
+                if ffplay_process.poll() is None:
+                    ffplay_process.terminate()
+                    try:
+                        ffplay_process.wait(timeout=1.0)  # Short timeout for quick cleanup
+                    except subprocess.TimeoutExpired:
+                        ffplay_process.kill()
+                # Don't propagate the error - exit gracefully
+                return
+            except (IOError, OSError, RuntimeError) as e:
+                # Check if it's actually a broken pipe error in disguise
+                if "Broken pipe" in str(e) or "EPIPE" in str(e) or (hasattr(e, 'errno') and e.errno == errno.EPIPE):
+                    self.logger.debug("Broken pipe error detected - handling gracefully")
+                    if ffplay_process.poll() is None:
+                        ffplay_process.terminate()
+                    return
+                
                 self.logger.error(f"Audio streaming failed: {e}")
                 # Ensure ffplay is terminated
                 if ffplay_process.poll() is None:
@@ -225,10 +255,6 @@ class EdgeTTSProvider(TTSProvider):
 
                 if "internet" in str(e).lower() or "network" in str(e).lower():
                     raise NetworkError("Network error during streaming. Check your internet connection.") from e
-                elif isinstance(e, BrokenPipeError):
-                    raise AudioPlaybackError(
-                        "Audio streaming failed: Audio device may not be available or configured properly."
-                    ) from e
                 raise ProviderError(f"Audio streaming failed: {e}") from e
 
         except KeyboardInterrupt:
