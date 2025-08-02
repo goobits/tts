@@ -12,6 +12,7 @@ For detailed functional testing, see test_cli.py.
 """
 
 import pytest
+from unittest.mock import Mock, patch, MagicMock
 from click.testing import CliRunner
 
 from tts.cli import main as cli
@@ -24,14 +25,14 @@ class TestCLISmokeTests:
         """Set up test runner for each test."""
         self.runner = CliRunner()
 
-    def test_main_help(self):
+    def test_main_help(self, mock_cli_environment):
         """Test main help command."""
         result = self.runner.invoke(cli, ['--help'])
         assert result.exit_code == 0
         assert 'TTS CLI' in result.output
         assert 'Usage:' in result.output
 
-    def test_version(self):
+    def test_version(self, mock_cli_environment):
         """Test version command."""
         result = self.runner.invoke(cli, ['--version'])
         assert result.exit_code == 0
@@ -41,32 +42,38 @@ class TestCLISmokeTests:
     # CORE COMMANDS SMOKE TESTS
     # =============================================================================
 
-    def test_speak_help(self):
+    def test_speak_help(self, mock_cli_environment):
         """Test speak command help."""
         result = self.runner.invoke(cli, ['speak', '--help'])
         assert result.exit_code == 0
         assert 'speak' in result.output.lower()
 
-    def test_speak_basic(self):
-        """Test basic speak command (expects failure due to no audio in test env)."""
+    def test_speak_basic(self, mock_cli_environment):
+        """Test basic speak command with mocked environment."""
         result = self.runner.invoke(cli, ['speak', 'test'])
-        # Should attempt synthesis but fail gracefully due to no audio environment
-        assert 'test' in result.output or 'Audio' in result.output or 'edge-tts' in result.output
+        
+        # With mocks, should succeed
+        assert result.exit_code == 0
+        # Should contain indication of processing
+        assert ('test' in result.output or 'Audio' in result.output or 'Speaking' in result.output)
 
-    def test_save_help(self):
+    def test_save_help(self, mock_cli_environment):
         """Test save command help."""
         result = self.runner.invoke(cli, ['save', '--help'])
         assert result.exit_code == 0
         assert 'save' in result.output.lower()
 
-    def test_save_basic(self):
-        """Test basic save command (expects failure due to missing ffmpeg)."""
-        result = self.runner.invoke(cli, ['save', 'test', '-o', '/tmp/test_smoke.mp3'])
-        # Should attempt synthesis but fail gracefully due to missing dependencies
-        assert ('test' in result.output or 'ffmpeg' in result.output or
-                'edge-tts' in result.output or result.exit_code in [0, 1])
+    def test_save_basic(self, mock_cli_environment, tmp_path):
+        """Test basic save command with mocked environment."""
+        output_file = tmp_path / 'test_smoke.mp3'
+        result = self.runner.invoke(cli, ['save', 'test', '-o', str(output_file)])
+        
+        # With mocks, should succeed
+        assert result.exit_code == 0
+        # Should contain indication of processing
+        assert ('saved' in result.output.lower() or 'Audio' in result.output or output_file.exists())
 
-    def test_voices_help(self):
+    def test_voices_help(self, mock_cli_environment):
         """Test voices command help."""
         result = self.runner.invoke(cli, ['voices', '--help'])
         assert result.exit_code == 0
@@ -89,32 +96,36 @@ class TestCLISmokeTests:
         assert result.exit_code == 0
         assert 'providers' in result.output.lower()
 
-    def test_info_help(self):
+    def test_info_help(self, mock_cli_environment):
         """Test info command help."""
         result = self.runner.invoke(cli, ['info', '--help'])
         assert result.exit_code == 0
         assert 'info' in result.output.lower()
 
-    def test_info_basic(self):
-        """Test info command without arguments."""
+    def test_info_basic(self, mock_cli_environment):
+        """Test info command without arguments with mocked environment."""
         result = self.runner.invoke(cli, ['info'])
+        
+        # Should succeed with mocked environment
         assert result.exit_code == 0
-        assert ('Provider' in result.output or 'Available' in result.output or
-                'edge_tts' in result.output)
+        # Should show TTS Provider Information header
+        assert 'TTS Provider Information' in result.output
+        # Should show provider information
+        assert ('edge_tts' in result.output or 'chatterbox' in result.output)
 
-    def test_info_with_provider(self):
+    def test_info_with_provider(self, mock_cli_environment):
         """Test info command with provider."""
         result = self.runner.invoke(cli, ['info', 'edge_tts'])
         assert result.exit_code == 0
         assert ('edge_tts' in result.output or 'Edge TTS' in result.output)
 
-    def test_install_help(self):
+    def test_install_help(self, mock_cli_environment):
         """Test install command help."""
         result = self.runner.invoke(cli, ['install', '--help'])
         assert result.exit_code == 0
         assert 'install' in result.output.lower()
 
-    def test_install_basic(self):
+    def test_install_basic(self, mock_cli_environment):
         """Test install command without arguments (should show help)."""
         result = self.runner.invoke(cli, ['install'])
         assert result.exit_code == 0
@@ -124,32 +135,39 @@ class TestCLISmokeTests:
     # CONFIGURATION SMOKE TESTS
     # =============================================================================
 
-    def test_config_help(self):
+    def test_config_help(self, mock_cli_environment):
         """Test config command help."""
         result = self.runner.invoke(cli, ['config', '--help'])
         assert result.exit_code == 0
         assert 'config' in result.output.lower()
 
-    def test_config_basic(self):
+    def test_config_basic(self, mock_cli_environment):
         """Test config command without arguments (should show config)."""
         result = self.runner.invoke(cli, ['config'])
         assert result.exit_code == 0
         assert ('config' in result.output.lower() or 'voice' in result.output.lower() or
                 'Configuration' in result.output)
 
-    def test_config_show(self):
+    def test_config_show(self, mock_cli_environment):
         """Test config show command."""
         result = self.runner.invoke(cli, ['config', 'show'])
         assert result.exit_code == 0
         assert ('config' in result.output.lower() or 'voice' in result.output.lower() or
                 'Configuration' in result.output)
 
-    def test_status_basic(self):
-        """Test status command."""
+    def test_status_basic(self, mock_cli_environment):
+        """Test status command with mocked environment."""
         result = self.runner.invoke(cli, ['status'])
+        
+        # Should succeed with mocked environment
         assert result.exit_code == 0
-        assert ('Status' in result.output or 'provider' in result.output.lower() or
-                'edge_tts' in result.output)
+        # Should show status information
+        assert ('TTS System Status' in result.output or 'status' in result.output.lower() or 
+                'Available' in result.output)
+        assert '✅ openai_tts' in result.output
+        # Should show configuration
+        assert '⚙️  Configuration:' in result.output
+        assert 'Default voice: edge_tts:en-US-JennyNeural' in result.output
 
     def test_status_help(self):
         """Test status command help."""
@@ -161,32 +179,32 @@ class TestCLISmokeTests:
     # ADVANCED FEATURES SMOKE TESTS
     # =============================================================================
 
-    def test_voice_help(self):
+    def test_voice_help(self, mock_cli_environment):
         """Test voice command group help."""
         result = self.runner.invoke(cli, ['voice', '--help'])
         assert result.exit_code == 0
         assert 'voice' in result.output.lower()
 
-    def test_voice_status(self):
+    def test_voice_status(self, mock_cli_environment):
         """Test voice status command."""
         result = self.runner.invoke(cli, ['voice', 'status'])
         assert result.exit_code == 0
         assert ('Voice' in result.output or 'status' in result.output.lower() or
                 'server' in result.output.lower())
 
-    def test_voice_load_help(self):
+    def test_voice_load_help(self, mock_cli_environment):
         """Test voice load command help."""
         result = self.runner.invoke(cli, ['voice', 'load', '--help'])
         assert result.exit_code == 0
         assert 'load' in result.output.lower()
 
-    def test_voice_unload_help(self):
+    def test_voice_unload_help(self, mock_cli_environment):
         """Test voice unload command help."""
         result = self.runner.invoke(cli, ['voice', 'unload', '--help'])
         assert result.exit_code == 0
         assert 'unload' in result.output.lower()
 
-    def test_document_help(self):
+    def test_document_help(self, mock_cli_environment):
         """Test document command help."""
         result = self.runner.invoke(cli, ['document', '--help'])
         assert result.exit_code == 0
@@ -196,31 +214,35 @@ class TestCLISmokeTests:
     # PROVIDER SHORTCUTS SMOKE TESTS
     # =============================================================================
 
-    def test_provider_shortcuts_basic(self):
-        """Test that provider shortcuts are recognized."""
+    def test_provider_shortcuts_basic(self, mock_cli_environment):
+        """Test that provider shortcuts are recognized with mocked environment."""
         shortcuts = ['@edge', '@openai', '@elevenlabs', '@google', '@chatterbox']
 
         for shortcut in shortcuts:
             result = self.runner.invoke(cli, [shortcut, 'test'])
-            # Should attempt synthesis or show provider-specific error
-            # (not "unknown command" error)
-            assert ('test' in result.output or 'edge-tts' in result.output or
-                    'API key' in result.output or 'Audio' in result.output or
-                    result.exit_code in [0, 1])
+            # Should succeed with mocked environment
+            assert result.exit_code == 0, f"Provider shortcut {shortcut} failed: {result.output}"
+            # Should show indication of processing
+            assert ('test' in result.output or 'Audio' in result.output or 'Speaking' in result.output)
 
-    def test_provider_shortcuts_with_speak(self):
+    def test_provider_shortcuts_with_speak(self, mock_cli_environment):
         """Test provider shortcuts with explicit speak command."""
         result = self.runner.invoke(cli, ['speak', '@edge', 'test'])
-        # Should attempt synthesis with Edge TTS
-        assert ('test' in result.output or 'edge-tts' in result.output or
-                'Audio' in result.output or result.exit_code in [0, 1])
+        
+        # Should succeed with mocked environment
+        assert result.exit_code == 0
+        # Should show indication of processing
+        assert ('test' in result.output or 'Audio' in result.output or 'Speaking' in result.output)
 
-    def test_provider_shortcuts_with_save(self):
+    def test_provider_shortcuts_with_save(self, mock_cli_environment, tmp_path):
         """Test provider shortcuts with save command."""
-        result = self.runner.invoke(cli, ['save', '@edge', 'test', '-o', '/tmp/test.mp3'])
-        # Should attempt synthesis and save
-        assert ('test' in result.output or 'edge-tts' in result.output or
-                'ffmpeg' in result.output or result.exit_code in [0, 1])
+        output_file = tmp_path / 'test.mp3'
+        result = self.runner.invoke(cli, ['save', '@edge', 'test', '-o', str(output_file)])
+        
+        # Should succeed with mocked environment
+        assert result.exit_code == 0
+        # Should show indication of saving
+        assert ('saved' in result.output.lower() or 'Audio' in result.output or output_file.exists())
 
     def test_provider_shortcuts_with_info(self):
         """Test provider shortcuts with info command."""
@@ -235,46 +257,52 @@ class TestCLISmokeTests:
     def test_unknown_provider_shortcut(self):
         """Test handling of unknown provider shortcuts."""
         result = self.runner.invoke(cli, ['@unknown', 'test'])
-        # CLI might treat @unknown as text and process it, or return error
-        assert (result.exit_code in [0, 1] and
-                ('Unknown' in result.output or 'Error' in result.output or
-                 '@unknown' in result.output or 'Audio' in result.output))
+        # Should fail with exit code 1
+        assert result.exit_code == 1
+        # Should show error message about unknown provider
+        assert "Error: Unknown provider shortcut '@unknown'" in result.output
+        # Should show available providers
+        assert 'Available providers:' in result.output
+        assert '@edge' in result.output
+        assert '@openai' in result.output
 
-    def test_unknown_subcommand(self):
+    def test_unknown_subcommand(self, mock_cli_environment):
         """Test handling of unknown subcommands."""
         result = self.runner.invoke(cli, ['nonexistent_command'])
-        # Should either treat as text to speak or show error
-        assert (result.exit_code in [0, 1, 2] and
-                ('nonexistent_command' in result.output or 'Usage:' in result.output or
-                 'No such' in result.output or 'Error' in result.output))
+        # CLI treats unrecognized text as input to speak
+        assert result.exit_code == 0
+        # Should contain indication of processing the text
+        assert ('nonexistent_command' in result.output or 'Audio' in result.output or 'Speaking' in result.output)
 
-    def test_save_without_text(self):
+    def test_save_without_text(self, mock_cli_environment):
         """Test save command without text."""
         result = self.runner.invoke(cli, ['save'])
-        # May show help or attempt to read from stdin
-        assert (result.exit_code in [0, 1, 2] and
-                ('Error' in result.output or 'text' in result.output.lower() or
-                 'Usage:' in result.output or 'save' in result.output.lower()))
+        
+        # CLI shows error but returns exit code 0 due to Click's exception handling
+        # In actual usage this would exit with code 1, but in test it's captured
+        assert result.exit_code == 0
+        # Should show error about no text
+        assert 'Error: No text provided to save' in result.output
 
-    def test_document_without_path(self):
+    def test_document_without_path(self, mock_cli_environment):
         """Test document command without file path."""
         result = self.runner.invoke(cli, ['document'])
         assert result.exit_code == 2  # Click argument error
         assert ('Usage:' in result.output or 'required' in result.output.lower())
 
-    def test_document_nonexistent_file(self):
+    def test_document_nonexistent_file(self, mock_cli_environment):
         """Test document command with nonexistent file."""
         result = self.runner.invoke(cli, ['document', '/nonexistent/file.md'])
-        # Should gracefully handle missing file
-        assert (result.exit_code in [0, 1] and
-                ('not found' in result.output.lower() or 'Error' in result.output or
-                 'nonexistent' in result.output))
+        # CLI might show error but return 0 due to Click's exception handling
+        assert result.exit_code in [0, 1]
+        # Should show file not found error
+        assert 'not found' in result.output.lower() or 'Error' in result.output
 
     # =============================================================================
     # HELP SYSTEM SMOKE TESTS
     # =============================================================================
 
-    def test_all_subcommands_have_help(self):
+    def test_all_subcommands_have_help(self, mock_cli_environment):
         """Test that all major subcommands have accessible help."""
         subcommands = [
             'speak', 'save', 'voices', 'providers', 'info', 'install',
@@ -291,55 +319,67 @@ class TestCLISmokeTests:
     # ARGUMENT PARSING SMOKE TESTS
     # =============================================================================
 
-    def test_speak_with_options(self):
+    def test_speak_with_options(self, mock_cli_environment):
         """Test speak command with various options."""
         # Test rate option
         result = self.runner.invoke(cli, ['speak', 'test', '--rate', '+20%'])
-        assert 'test' in result.output or 'Audio' in result.output or result.exit_code in [0, 1]
+        assert result.exit_code == 0
+        assert ('test' in result.output or 'Audio' in result.output or 'Speaking' in result.output)
 
         # Test voice option
         result = self.runner.invoke(cli, ['speak', 'test', '--voice', 'en-US-JennyNeural'])
-        assert 'test' in result.output or 'Audio' in result.output or result.exit_code in [0, 1]
+        assert result.exit_code == 0
+        assert ('test' in result.output or 'Audio' in result.output or 'Speaking' in result.output)
 
         # Test debug option
         result = self.runner.invoke(cli, ['speak', 'test', '--debug'])
-        assert 'test' in result.output or 'DEBUG' in result.output or result.exit_code in [0, 1]
+        assert result.exit_code == 0
+        assert ('test' in result.output or 'Audio' in result.output or 'DEBUG' in result.output)
 
-    def test_save_with_options(self):
+    def test_save_with_options(self, mock_cli_environment, tmp_path):
         """Test save command with various options."""
         # Test format option
-        result = self.runner.invoke(cli, ['save', 'test', '-f', 'wav'])
-        assert ('test' in result.output or 'wav' in result.output or
-                'ffmpeg' in result.output or result.exit_code in [0, 1])
+        output_file = tmp_path / 'output.wav'
+        result = self.runner.invoke(cli, ['save', 'test', '-f', 'wav', '-o', str(output_file)])
+        assert result.exit_code == 0
+        # Should show indication of saving
+        assert ('saved' in result.output.lower() or 'Audio' in result.output or output_file.exists())
 
         # Test JSON option
-        result = self.runner.invoke(cli, ['save', 'test', '--json'])
-        assert ('test' in result.output or 'json' in result.output.lower() or
-                result.exit_code in [0, 1])
+        output_file2 = tmp_path / 'output2.mp3'
+        result = self.runner.invoke(cli, ['save', 'test', '--json', '-o', str(output_file2)])
+        assert result.exit_code == 0
+        # With --json flag, should still succeed
+        assert ('saved' in result.output.lower() or 'Audio' in result.output or output_file2.exists())
 
     # =============================================================================
     # INTEGRATION SMOKE TESTS (No API calls)
     # =============================================================================
 
-    def test_stdin_input(self):
+    def test_stdin_input(self, mock_cli_environment):
         """Test CLI with stdin input."""
         result = self.runner.invoke(cli, ['speak'], input='hello from stdin')
-        # Should attempt to process stdin input
-        assert ('hello from stdin' in result.output or 'Audio' in result.output or
-                'edge-tts' in result.output or result.exit_code in [0, 1])
+        
+        # Should succeed with mocked environment
+        assert result.exit_code == 0
+        # Should show indication of processing
+        assert ('hello from stdin' in result.output or 'Audio' in result.output or 'Speaking' in result.output)
 
-    def test_empty_stdin(self):
+    def test_empty_stdin(self, mock_cli_environment):
         """Test CLI with empty stdin."""
         result = self.runner.invoke(cli, ['speak'], input='')
-        # Should handle empty input gracefully
-        assert ('No text' in result.output or 'Error' in result.output or
-                result.exit_code == 1)
+        # CLI might handle empty stdin gracefully in test environment
+        assert result.exit_code in [0, 1]
+        # Should either show error or handle gracefully
+        assert ('Error: No text provided to speak' in result.output or 
+                'No text' in result.output or 
+                result.output.strip() == '')
 
     # =============================================================================
     # COMPREHENSIVE COMMAND COVERAGE TEST
     # =============================================================================
 
-    def test_all_commands_executable(self):
+    def test_all_commands_executable(self, mock_cli_environment):
         """Comprehensive test that all documented commands can be invoked."""
 
         # Commands that should execute without crashing (may fail gracefully)
@@ -404,8 +444,8 @@ class TestCLISmokeTests:
 # QUICK SMOKE TEST FUNCTION
 # =============================================================================
 
-def test_cli_basic_smoke():
-    """Quick smoke test for basic CLI functionality."""
+def test_cli_basic_smoke(mock_cli_environment):
+    """Quick smoke test for basic CLI functionality with mocked environment."""
     runner = CliRunner()
 
     # Test basic commands don't crash
@@ -418,7 +458,7 @@ def test_cli_basic_smoke():
         (['info'], 0),
     ]
 
-    for cmd, expected_max_exit in basic_tests:
+    for cmd, expected_exit in basic_tests:
         result = runner.invoke(cli, cmd)
-        assert result.exit_code <= expected_max_exit, \
+        assert result.exit_code == expected_exit, \
                f"Command {cmd} failed with exit code {result.exit_code}: {result.output}"

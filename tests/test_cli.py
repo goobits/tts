@@ -1,5 +1,7 @@
 import os
 import tempfile
+import pytest
+from unittest.mock import patch, MagicMock
 
 from click.testing import CliRunner
 
@@ -7,14 +9,16 @@ from tts.app_hooks import PROVIDER_SHORTCUTS
 from tts.cli import main as cli
 
 
-def test_cli_unknown_model():
+def test_cli_unknown_model(mock_cli_environment):
+    """Test unknown provider error handling with mocked environment."""
     runner = CliRunner()
     result = runner.invoke(cli, ['@unknown_model', 'Hello world'])
     assert result.exit_code == 1
     assert 'Unknown provider' in result.output
 
 
-def test_cli_list_models():
+def test_cli_list_models(mock_cli_environment):
+    """Test providers command with mocked environment."""
     runner = CliRunner()
     result = runner.invoke(cli, ['providers'])
     assert result.exit_code == 0
@@ -24,25 +28,27 @@ def test_cli_list_models():
     assert 'chatterbox' in result.output
 
 
-def test_cli_default_model():
+def test_cli_default_model(mock_cli_environment):
+    """Test default model/provider with mocked environment."""
     runner = CliRunner()
     # This should use edge_tts by default and stream (not save)
     result = runner.invoke(cli, ['Hello world'])
-    # We expect it to try to use edge_tts (may get audio playback error in test environment)
-    assert ('edge-tts not installed' in result.output or
-            result.exit_code == 0 or
-            'asyncio.run() cannot be called' in result.output or
-            'Audio generated but cannot play automatically' in result.output)
+    # With mocks, this should succeed
+    assert result.exit_code == 0
+    # Should contain some indication that audio was processed
+    assert ('Audio' in result.output or 'Speaking' in result.output or 'Playing' in result.output)
 
 
-def test_cli_save_mode():
+def test_cli_save_mode(mock_cli_environment, tmp_path):
+    """Test save mode with mocked environment."""
     runner = CliRunner()
+    output_file = tmp_path / 'test.mp3'
     # Test the new save subcommand
-    result = runner.invoke(cli, ['save', 'Hello world', '-o', 'test.mp3'])
-    # We expect it to try to use edge_tts (the error will be about edge-tts not being installed)
-    assert ('edge-tts not installed' in result.output or
-            'ffmpeg not found' in result.output or
-            result.exit_code == 0)
+    result = runner.invoke(cli, ['save', 'Hello world', '-o', str(output_file)])
+    # With mocks, this should succeed
+    assert result.exit_code == 0
+    # Should contain indication that file was saved
+    assert ('saved' in result.output.lower() or 'Audio file' in result.output or output_file.exists())
 
 
 # =============================================================================
@@ -52,7 +58,7 @@ def test_cli_save_mode():
 class TestPhase1BackwardCompatibility:
     """Tests for Phase 1 backward compatibility requirements"""
 
-    def test_essential_subcommands_work(self):
+    def test_essential_subcommands_work(self, mock_cli_environment):
         """Test that essential subcommands like 'info', 'providers' still work"""
         runner = CliRunner()
 
@@ -89,7 +95,9 @@ class TestPhase1NewSubcommands:
         runner = CliRunner()
         result = runner.invoke(cli, ['voice', '--help'])
         assert result.exit_code == 0
-        assert 'Voice loading and caching' in result.output
+        # Updated to handle emoji output
+        assert ('Voice loading and caching' in result.output or 
+                '🎤 Manage voice loading and caching' in result.output)
 
         # Test subcommands exist
         result = runner.invoke(cli, ['voice', 'load', '--help'])
@@ -101,14 +109,14 @@ class TestPhase1NewSubcommands:
         result = runner.invoke(cli, ['voice', 'status', '--help'])
         assert result.exit_code == 0
 
-    def test_info_subcommand_enhanced(self):
+    def test_info_subcommand_enhanced(self, mock_cli_environment):
         """Test that enhanced 'tts info' subcommand works"""
         runner = CliRunner()
         result = runner.invoke(cli, ['info'])
         assert result.exit_code == 0
         assert 'TTS Provider Information' in result.output
 
-    def test_providers_subcommand_works(self):
+    def test_providers_subcommand_works(self, mock_cli_environment):
         """Test that 'tts providers' subcommand works"""
         runner = CliRunner()
         result = runner.invoke(cli, ['providers'])
@@ -128,7 +136,7 @@ class TestPhase1ProviderShortcuts:
         assert '@chatterbox' in ['@' + k for k in PROVIDER_SHORTCUTS.keys()]
         assert '@openai' in ['@' + k for k in PROVIDER_SHORTCUTS.keys()]
 
-    def test_info_with_provider_shortcut(self):
+    def test_info_with_provider_shortcut(self, mock_cli_environment):
         """Test that @provider shortcuts work with info command"""
         runner = CliRunner()
         result = runner.invoke(cli, ['info', '@chatterbox'])
@@ -136,7 +144,7 @@ class TestPhase1ProviderShortcuts:
         assert 'Chatterbox' in result.output
         assert 'Options:' in result.output
 
-    def test_invalid_provider_shortcut_error(self):
+    def test_invalid_provider_shortcut_error(self, mock_cli_environment):
         """Test that invalid @provider shortcuts show proper error"""
         runner = CliRunner()
         result = runner.invoke(cli, ['info', '@invalid'])
@@ -148,58 +156,55 @@ class TestPhase1ProviderShortcuts:
 class TestPhase1CommandParity:
     """Tests for Phase 1 command parity (new syntax verification)"""
 
-    def test_save_command_works(self):
+    def test_save_command_works(self, mock_cli_environment, tmp_path):
         """Test that 'tts save' command works correctly"""
         runner = CliRunner()
+        output_file = tmp_path / 'test_output.mp3'
 
         # New syntax
-        result = runner.invoke(cli, ['save', 'Hello world', '--debug'])
+        result = runner.invoke(cli, ['save', 'Hello world', '--debug', '-o', str(output_file)])
 
-        # Should either succeed or fail with provider error
-        # (Since edge-tts might not be installed, should fail gracefully)
-        assert ('edge-tts not installed' in result.output or
-                'ffmpeg not found' in result.output or
-                result.exit_code == 0)
+        # With mocks, this should succeed
+        assert result.exit_code == 0
+        # Should contain some indication of processing
+        assert ('saved' in result.output.lower() or 'Audio' in result.output or output_file.exists())
 
-    def test_document_command_works(self):
+    def test_document_command_works(self, mock_cli_environment, tmp_path):
         """Test that 'document' subcommand works correctly"""
         runner = CliRunner()
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
-            f.write("# Test\nContent")
-            temp_path = f.name
+        # Create a test markdown file
+        test_file = tmp_path / 'test.md'
+        test_file.write_text("# Test\nContent")
 
-        try:
-            # New syntax
-            result = runner.invoke(cli, ['document', temp_path])
+        # New syntax
+        result = runner.invoke(cli, ['document', str(test_file)])
 
-            # Should process the document properly
-            assert (result.exit_code == 0 or
-                    'markdown' in result.output or
-                    'edge-tts not installed' in result.output or
-                    'Audio generated but cannot play' in result.output)
-        finally:
-            os.unlink(temp_path)
+        # With mocks, this should succeed
+        assert result.exit_code == 0
+        # Should contain indication of document processing
+        assert ('processing' in result.output.lower() or 'document' in result.output.lower() or 
+                'Audio' in result.output or 'Test' in result.output)
 
 
 class TestPhase1ErrorHandling:
     """Tests for Phase 1 error handling"""
 
-    def test_unknown_provider_error(self):
+    def test_unknown_provider_error(self, mock_cli_environment):
         """Test error handling for unknown providers"""
         runner = CliRunner()
         result = runner.invoke(cli, ['@nonexistent', 'Hello world'])
         assert result.exit_code == 1
         assert 'Unknown provider' in result.output
 
-    def test_invalid_shortcut_error(self):
+    def test_invalid_shortcut_error(self, mock_cli_environment):
         """Test error handling for invalid @provider shortcuts"""
         runner = CliRunner()
         result = runner.invoke(cli, ['info', '@badprovider'])
         assert result.exit_code == 1
         assert 'Unknown provider shortcut' in result.output
 
-    def test_helpful_error_messages(self):
+    def test_helpful_error_messages(self, mock_cli_environment):
         """Test that error messages guide users to correct syntax"""
         runner = CliRunner()
         result = runner.invoke(cli, ['info', '@invalid'])
@@ -215,7 +220,7 @@ class TestPhase1ErrorHandling:
 class TestPhase1Integration:
     """Integration tests for Phase 1 complete functionality"""
 
-    def test_full_backward_compatibility(self):
+    def test_full_backward_compatibility(self, mock_cli_environment):
         """Test that all backward compatible functionality still works"""
         runner = CliRunner()
 
@@ -230,7 +235,7 @@ class TestPhase1Integration:
             result = runner.invoke(cli, cmd)
             assert result.exit_code == expected_code, f"Command {cmd} failed: {result.output}"
 
-    def test_new_syntax_availability(self):
+    def test_new_syntax_availability(self, mock_cli_environment):
         """Test that all new syntax options are available"""
         runner = CliRunner()
 
@@ -247,7 +252,7 @@ class TestPhase1Integration:
             result = runner.invoke(cli, cmd)
             assert result.exit_code == expected_code, f"New command {cmd} failed: {result.output}"
 
-    def test_provider_shortcuts_comprehensive(self):
+    def test_provider_shortcuts_comprehensive(self, mock_cli_environment):
         """Test all provider shortcuts work correctly"""
         runner = CliRunner()
 
@@ -314,17 +319,15 @@ class TestPhase3DeprecatedCommandRejection:
         # Models command still exists for backward compatibility
         assert result.exit_code == 0
 
-    def test_speak_command_accepted(self):
+    def test_speak_command_accepted(self, mock_cli_environment):
         """Test that speak command is now accepted (v1.1)"""
         runner = CliRunner()
         result = runner.invoke(cli, ['speak', 'test text'])
 
-        # Should accept speak as a valid command and attempt synthesis
-        assert (result.exit_code == 0 or
-                'test text' in result.output or
-                'edge-tts not installed' in result.output or
-                'Audio' in result.output or
-                'No audio devices' in result.output)
+        # With mocks, this should succeed
+        assert result.exit_code == 0
+        # Should contain indication of processing
+        assert ('test text' in result.output or 'Audio' in result.output or 'Speaking' in result.output)
 
 
 # =============================================================================
@@ -334,7 +337,7 @@ class TestPhase3DeprecatedCommandRejection:
 class TestCurrentCLIBehavior:
     """Comprehensive tests for TTS CLI v1.1 behavior with speak as default command."""
 
-    def test_version_display(self):
+    def test_version_display(self, mock_cli_environment):
         """Test version information display"""
         runner = CliRunner()
         result = runner.invoke(cli, ['--version'])
@@ -343,7 +346,7 @@ class TestCurrentCLIBehavior:
         assert '1.1' in result.output
         assert 'TTS CLI' in result.output
 
-    def test_help_shows_speak_as_default(self):
+    def test_help_shows_speak_as_default(self, mock_cli_environment):
         """Test that help shows speak as the default command"""
         runner = CliRunner()
         result = runner.invoke(cli, ['--help'])
@@ -356,7 +359,7 @@ class TestCurrentCLIBehavior:
         # Should NOT have version command
         assert 'version  📚' not in result.output
 
-    def test_all_main_commands_present(self):
+    def test_all_main_commands_present(self, mock_cli_environment):
         """Verify all main commands are present in help"""
         runner = CliRunner()
         result = runner.invoke(cli, ['--help'])
@@ -370,7 +373,7 @@ class TestCurrentCLIBehavior:
         for cmd in required_commands:
             assert cmd in result.output, f"Command '{cmd}' not found in help"
 
-    def test_speak_command_exists(self):
+    def test_speak_command_exists(self, mock_cli_environment):
         """Test that speak command exists and has help"""
         runner = CliRunner()
         result = runner.invoke(cli, ['speak', '--help'])
@@ -382,32 +385,27 @@ class TestCurrentCLIBehavior:
         assert '--pitch' in result.output
         assert '--debug' in result.output
 
-    def test_implicit_speak_with_text(self):
+    def test_implicit_speak_with_text(self, mock_cli_environment):
         """Test implicit speak (backward compatibility)"""
         runner = CliRunner()
         result = runner.invoke(cli, ['hello world'])
 
-        # Should attempt to speak "hello world"
-        # In test environment, might fail with audio device issues
-        assert (result.exit_code == 0 or
-                'Audio' in result.output or
-                'edge-tts not installed' in result.output or
-                'No audio devices' in result.output or
-                'hello world' in result.output)
+        # With mocks, this should succeed
+        assert result.exit_code == 0
+        # Should contain indication of processing
+        assert ('hello world' in result.output or 'Audio' in result.output or 'Speaking' in result.output)
 
-    def test_explicit_speak_with_text(self):
+    def test_explicit_speak_with_text(self, mock_cli_environment):
         """Test explicit speak command"""
         runner = CliRunner()
         result = runner.invoke(cli, ['speak', 'hello world'])
 
-        # Should attempt to speak "hello world"
-        assert (result.exit_code == 0 or
-                'Audio' in result.output or
-                'edge-tts not installed' in result.output or
-                'No audio devices' in result.output or
-                'hello world' in result.output)
+        # With mocks, this should succeed
+        assert result.exit_code == 0
+        # Should contain indication of processing
+        assert ('hello world' in result.output or 'Audio' in result.output or 'Speaking' in result.output)
 
-    def test_implicit_speak_with_stdin(self):
+    def test_implicit_speak_with_stdin(self, mock_cli_environment):
         """Test implicit speak with piped input"""
         runner = CliRunner()
         result = runner.invoke(cli, [], input='hello from stdin')
@@ -417,42 +415,39 @@ class TestCurrentCLIBehavior:
         assert result.exit_code == 2
         assert 'Usage:' in result.output
 
-    def test_explicit_speak_with_stdin(self):
+    def test_explicit_speak_with_stdin(self, mock_cli_environment):
         """Test explicit speak with piped input"""
         runner = CliRunner()
         result = runner.invoke(cli, ['speak'], input='hello from stdin')
 
-        # Should attempt to speak the piped text
-        assert (result.exit_code == 0 or
-                'Audio' in result.output or
-                'edge-tts not installed' in result.output or
-                'No audio devices' in result.output or
-                'hello from stdin' in result.output)
+        # With mocks, this should succeed
+        assert result.exit_code == 0
+        # Should contain indication of processing
+        assert ('hello from stdin' in result.output or 'Audio' in result.output or 'Speaking' in result.output)
 
-    def test_provider_shortcuts_with_implicit_speak(self):
+    def test_provider_shortcuts_with_implicit_speak(self, mock_cli_environment):
         """Test provider shortcuts work with implicit speak"""
         runner = CliRunner()
         shortcuts = ['@edge', '@openai', '@elevenlabs', '@google', '@chatterbox']
 
         for shortcut in shortcuts:
             result = runner.invoke(cli, [shortcut, 'test'])
-            # Should recognize the provider shortcut
-            provider_name = shortcut[1:]  # Remove @
-            assert ('Unknown provider' not in result.output or
-                    provider_name in result.output.lower() or
-                    f'{provider_name} not installed' in result.output.lower())
+            # With mocks, providers should be available and commands should succeed
+            assert result.exit_code == 0, f"Provider shortcut {shortcut} failed: {result.output}"
+            # Should contain indication of processing
+            assert ('test' in result.output or 'Audio' in result.output or 'Speaking' in result.output)
 
-    def test_provider_shortcuts_with_explicit_speak(self):
+    def test_provider_shortcuts_with_explicit_speak(self, mock_cli_environment):
         """Test provider shortcuts work with explicit speak"""
         runner = CliRunner()
         result = runner.invoke(cli, ['speak', '@edge', 'test'])
 
-        # Should use edge provider
-        assert ('edge' in result.output.lower() or
-                'edge-tts not installed' in result.output or
-                'Unknown provider' not in result.output)
+        # With mocks, this should succeed
+        assert result.exit_code == 0
+        # Should contain indication of processing
+        assert ('test' in result.output or 'Audio' in result.output or 'Speaking' in result.output)
 
-    def test_version_treated_as_text(self):
+    def test_version_treated_as_text(self, mock_cli_environment):
         """Test that 'version' is treated as text to speak, not a command"""
         runner = CliRunner()
         result = runner.invoke(cli, ['version'])
@@ -460,54 +455,44 @@ class TestCurrentCLIBehavior:
         # Should attempt to speak the word "version"
         # Should NOT show version info like "TTS CLI, version 1.1"
         assert 'TTS CLI, version' not in result.output
-        assert (result.exit_code != 0 or  # Might fail due to audio issues
-                'Audio' in result.output or
-                'edge-tts not installed' in result.output or
-                'version' in result.output)
+        
+        # With mocks, this should succeed
+        assert result.exit_code == 0
+        # Should contain indication of processing the word "version"
+        assert ('version' in result.output.lower() or 'Audio' in result.output or 'Speaking' in result.output)
 
-    def test_speak_command_options(self):
+    def test_speak_command_options(self, mock_cli_environment):
         """Test speak command with various options"""
         runner = CliRunner()
 
         # Test with voice option
         result = runner.invoke(cli, ['speak', '-v', 'en-US-AriaNeural', 'test'])
-        assert (result.exit_code == 0 or
-                'edge-tts not installed' in result.output or
-                'No audio devices' in result.output or
-                'Audio generated but cannot play' in result.output)
+        assert result.exit_code == 0
+        assert ('test' in result.output or 'Audio' in result.output or 'Speaking' in result.output)
 
         # Test with rate option
         result = runner.invoke(cli, ['speak', '--rate', '+20%', 'test'])
-        assert (result.exit_code == 0 or
-                'edge-tts not installed' in result.output or
-                'No audio devices' in result.output or
-                'Audio generated but cannot play' in result.output)
+        assert result.exit_code == 0
+        assert ('test' in result.output or 'Audio' in result.output or 'Speaking' in result.output)
 
         # Test with debug option
         result = runner.invoke(cli, ['speak', '--debug', 'test'])
-        assert (result.exit_code == 0 or
-                'edge-tts not installed' in result.output or
-                'No audio devices' in result.output or
-                'Audio generated but cannot play' in result.output or
-                'DEBUG' in result.output)
+        assert result.exit_code == 0
+        # With debug, should see more verbose output
+        assert ('DEBUG' in result.output or 'test' in result.output or 'Audio' in result.output)
 
-    def test_save_command_still_works(self):
+    def test_save_command_still_works(self, mock_cli_environment, tmp_path):
         """Test that save command still works as expected"""
         runner = CliRunner()
-        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
-            result = runner.invoke(cli, ['save', 'test', '-o', tmp.name])
+        output_file = tmp_path / 'test.mp3'
+        result = runner.invoke(cli, ['save', 'test', '-o', str(output_file)])
 
-            assert (result.exit_code == 0 or
-                    'edge-tts not installed' in result.output or
-                    'ffmpeg not found' in result.output)
+        # With mocks, this should succeed
+        assert result.exit_code == 0
+        # Should contain indication of saving
+        assert ('saved' in result.output.lower() or 'Audio' in result.output or output_file.exists())
 
-            # Clean up
-            try:
-                os.unlink(tmp.name)
-            except Exception:
-                pass
-
-    def test_rich_formatting_in_output(self):
+    def test_rich_formatting_in_output(self, mock_cli_environment):
         """Test that rich formatting with emojis is present"""
         runner = CliRunner()
         result = runner.invoke(cli, ['--help'])
@@ -526,7 +511,7 @@ class TestCurrentCLIBehavior:
             assert result.exit_code == 0, f"Help not available for '{cmd}' command"
             assert cmd in result.output.lower() or 'usage' in result.output.lower()
 
-    def test_no_stdin_shows_help(self):
+    def test_no_stdin_shows_help(self, mock_cli_environment):
         """Test that running tts with no args and no stdin shows help"""
         runner = CliRunner()
         # When no args and stdin is empty, it should try to read from stdin
@@ -534,8 +519,12 @@ class TestCurrentCLIBehavior:
         result = runner.invoke(cli, [], input='')
 
         # Should either show help or attempt to synthesize empty input
-        assert (result.exit_code == 0 or
-                'TTS CLI v1.1' in result.output or
-                'Usage:' in result.output or
-                'No text provided' in result.output or
-                'edge-tts not installed' in result.output)
+        if 'TTS CLI v1.1' in result.output or 'Usage:' in result.output:
+            # Help was shown
+            assert result.exit_code == 2 or result.exit_code == 0
+        elif 'No text provided' in result.output:
+            # Empty text error
+            assert result.exit_code != 0
+        else:
+            # Some other behavior - with mocks this should be predictable
+            assert result.exit_code == 0 or result.exit_code == 2
