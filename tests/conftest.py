@@ -1,12 +1,15 @@
 """
 Pytest configuration and fixtures for TTS CLI tests.
 
-This module provides comprehensive mocking infrastructure to isolate tests
-from external dependencies including:
-- API calls to TTS providers
-- Audio environment (PyAudio devices)
+This module provides selective mocking infrastructure to isolate tests
+from external dependencies while preserving provider business logic:
+- Network-only mocking of HTTP requests and API calls
+- Audio environment mocking (PyAudio devices, ffmpeg)
 - File system operations
 - Configuration directory
+
+Design: Uses real provider classes with mocked external dependencies,
+preserving provider logic while avoiding network/hardware dependencies.
 """
 
 import os
@@ -21,137 +24,18 @@ import pytest
 from tts.base import TTSProvider
 from tts.types import Config, ProviderInfo, VoiceInfo
 
-
-# ==============================================================================
-# MOCK PROVIDERS
-# ==============================================================================
-
-
-class MockTTSProvider(TTSProvider):
-    """Base mock TTS provider for testing."""
-
-    def __init__(self, name: str = "mock_provider"):
-        self.name = name
-        self.synthesize_called = False
-        self.last_text = None
-        self.last_output_path = None
-        self.last_kwargs = {}
-
-    def synthesize(self, text: str, output_path: Optional[str], **kwargs: Any) -> None:
-        """Mock synthesize method that tracks calls."""
-        self.synthesize_called = True
-        self.last_text = text
-        self.last_output_path = output_path
-        self.last_kwargs = kwargs
-
-        # If output_path is provided, create a dummy file
-        if output_path:
-            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-            with open(output_path, "wb") as f:
-                f.write(b"mock audio data")
-
-    def get_info(self) -> Optional[ProviderInfo]:
-        """Return mock provider info."""
-        return {
-            "name": self.name,
-            "description": f"Mock {self.name} provider for testing",
-            "options": {"voice": "Mock voice selection"},
-            "output_formats": ["mp3", "wav"],
-            "sample_voices": ["mock-voice-1", "mock-voice-2"],
-            "capabilities": ["stream", "save"],
-        }
-
-
-class MockEdgeTTSProvider(MockTTSProvider):
-    """Mock Edge TTS provider."""
-
-    def __init__(self):
-        super().__init__("edge_tts")
-
-    def get_info(self) -> Optional[ProviderInfo]:
-        info = super().get_info()
-        info.update({
-            "sample_voices": [
-                "en-US-AvaNeural",
-                "en-GB-SoniaNeural",
-                "en-IE-EmilyNeural",
-            ],
-            "description": "Microsoft Edge TTS (Free)",
-            "api_status": "✅ Ready (no API key required)",
-        })
-        return info
-
-
-class MockOpenAIProvider(MockTTSProvider):
-    """Mock OpenAI TTS provider."""
-
-    def __init__(self):
-        super().__init__("openai_tts")
-
-    def get_info(self) -> Optional[ProviderInfo]:
-        info = super().get_info()
-        info.update({
-            "sample_voices": ["alloy", "echo", "fable", "onyx", "nova", "shimmer"],
-            "description": "OpenAI Text-to-Speech",
-            "api_status": "✅ API key configured",
-            "model": "tts-1",
-        })
-        return info
-
-
-class MockElevenLabsProvider(MockTTSProvider):
-    """Mock ElevenLabs provider."""
-
-    def __init__(self):
-        super().__init__("elevenlabs")
-
-    def get_info(self) -> Optional[ProviderInfo]:
-        info = super().get_info()
-        info.update({
-            "sample_voices": ["Rachel", "Domi", "Bella", "Antoni", "Elli"],
-            "description": "ElevenLabs Text-to-Speech",
-            "api_status": "✅ API key configured",
-            "pricing": "Paid API with free tier",
-        })
-        return info
-
-
-class MockGoogleTTSProvider(MockTTSProvider):
-    """Mock Google Cloud TTS provider."""
-
-    def __init__(self):
-        super().__init__("google_tts")
-
-    def get_info(self) -> Optional[ProviderInfo]:
-        info = super().get_info()
-        info.update({
-            "sample_voices": [
-                "en-US-Wavenet-A",
-                "en-US-Wavenet-B",
-                "en-US-Neural2-A",
-            ],
-            "description": "Google Cloud Text-to-Speech",
-            "api_status": "✅ API key configured",
-            "auth_method": "API Key",
-        })
-        return info
-
-
-class MockChatterboxProvider(MockTTSProvider):
-    """Mock Chatterbox provider."""
-
-    def __init__(self):
-        super().__init__("chatterbox")
-
-    def get_info(self) -> Optional[ProviderInfo]:
-        info = super().get_info()
-        info.update({
-            "sample_voices": ["clone1", "clone2"],
-            "description": "Local voice cloning with Chatterbox",
-            "api_status": "✅ Ready (local model)",
-            "features": {"gpu_available": True, "voice_cloning": True},
-        })
-        return info
+# Import network-only mocking infrastructure (selective imports)
+try:
+    from .mocking import (
+        mock_http_requests,
+        comprehensive_audio_mocks,
+        network_mock_registry,
+    )
+    # Don't import API-specific mocks yet - let's use a simpler approach
+    MOCKING_AVAILABLE = True
+except ImportError:
+    # Fallback if mocking module not available
+    MOCKING_AVAILABLE = False
 
 
 # ==============================================================================
@@ -199,6 +83,38 @@ def mock_audio_playback(monkeypatch):
     monkeypatch.setattr("shutil.which", lambda x: f"/usr/bin/{x}")
 
     return mock_popen
+
+
+@pytest.fixture
+def mock_audio_conversion(monkeypatch):
+    """Mock audio conversion functions."""
+    
+    def mock_convert_with_cleanup(input_path: str, output_path: str, output_format: str) -> None:
+        """Mock audio conversion that copies the input file to output."""
+        input_file = Path(input_path)
+        output_file = Path(output_path)
+        
+        # Create output directory if needed
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Copy the input file to output (simulating conversion)
+        if input_file.exists():
+            import shutil
+            shutil.copy2(input_path, output_path)
+        else:
+            # Create a mock file if input doesn't exist
+            with open(output_path, "wb") as f:
+                f.write(b"mock converted audio data")
+    
+    def mock_convert_audio(input_path: str, output_path: str, target_format: str = "mp3") -> None:
+        """Mock convert_audio function."""
+        mock_convert_with_cleanup(input_path, output_path, target_format)
+    
+    # Mock both conversion functions
+    monkeypatch.setattr("tts.audio_utils.convert_with_cleanup", mock_convert_with_cleanup)
+    monkeypatch.setattr("tts.audio_utils.convert_audio", mock_convert_audio)
+    
+    return mock_convert_with_cleanup
 
 
 # ==============================================================================
@@ -286,100 +202,83 @@ def mock_config(isolated_config_dir, monkeypatch):
 
 
 # ==============================================================================
-# PROVIDER FIXTURES
+# SELECTIVE MOCKING FIXTURES
 # ==============================================================================
 
 
 @pytest.fixture
-def mock_edge_tts_provider():
-    """Mock Edge TTS provider instance."""
-    return MockEdgeTTSProvider()
-
-
-@pytest.fixture
-def mock_openai_provider():
-    """Mock OpenAI provider instance."""
-    return MockOpenAIProvider()
-
-
-@pytest.fixture
-def mock_elevenlabs_provider():
-    """Mock ElevenLabs provider instance."""
-    return MockElevenLabsProvider()
-
-
-@pytest.fixture
-def mock_google_provider():
-    """Mock Google TTS provider instance."""
-    return MockGoogleTTSProvider()
-
-
-@pytest.fixture
-def mock_chatterbox_provider():
-    """Mock Chatterbox provider instance."""
-    return MockChatterboxProvider()
-
-
-@pytest.fixture
-def mock_all_providers(
-    mock_edge_tts_provider,
-    mock_openai_provider,
-    mock_elevenlabs_provider,
-    mock_google_provider,
-    mock_chatterbox_provider,
-):
-    """Dictionary of all mock providers."""
-    return {
-        "edge_tts": mock_edge_tts_provider,
-        "openai_tts": mock_openai_provider,
-        "elevenlabs": mock_elevenlabs_provider,
-        "google_tts": mock_google_provider,
-        "chatterbox": mock_chatterbox_provider,
-    }
-
-
-@pytest.fixture
-def mock_provider_imports(monkeypatch, mock_all_providers):
-    """Mock provider imports to avoid importing actual provider modules."""
-
-    # Create mock modules for each provider
-    mock_modules = {}
-    for provider_name in mock_all_providers:
-        mock_module = MagicMock()
-        provider_class_name = {
-            "edge_tts": "EdgeTTSProvider",
-            "openai_tts": "OpenAITTSProvider",
-            "elevenlabs": "ElevenLabsProvider",
-            "google_tts": "GoogleTTSProvider",
-            "chatterbox": "ChatterboxProvider",
-        }[provider_name]
-        
-        # Add the mock provider class to the module
-        provider_class = type(mock_all_providers[provider_name])
-        setattr(mock_module, provider_class_name, provider_class)
-        
-        # Make sure dir() returns the class name (capture by value not reference)
-        mock_module.__dir__ = lambda class_name=provider_class_name: [class_name]
-        
-        mock_modules[f"tts.providers.{provider_name}"] = mock_module
-
-    # Mock importlib.import_module to return our mock modules
-    original_import = __import__
+def mock_selective_imports():
+    """Mock only problematic imports while preserving provider loading logic."""
     
-    def mock_import_module(name, *args, **kwargs):
-        if name in mock_modules:
-            return mock_modules[name]
-        # For relative imports in providers
-        if name.startswith("tts.providers."):
-            provider = name.split(".")[-1]
-            if f"tts.providers.{provider}" in mock_modules:
-                return mock_modules[f"tts.providers.{provider}"]
-        return original_import(name, *args, **kwargs)
+    # Mock only the heavy external dependencies that cause import issues
+    # while keeping the actual provider classes and logic intact
     
-    import importlib
-    monkeypatch.setattr(importlib, "import_module", mock_import_module)
+    mocks = {}
+    
+    # Mock edge-tts async operations that can cause issues in test environment
+    try:
+        mock_edge_module = MagicMock()
+        mock_edge_module.Communicate = MagicMock()
+        mock_edge_module.list_voices = AsyncMock(return_value=[
+            {"Name": "en-US-AvaNeural", "Gender": "Female"},
+            {"Name": "en-GB-SoniaNeural", "Gender": "Female"},
+        ])
+        mocks['edge_tts'] = mock_edge_module
+    except ImportError:
+        pass
+    
+    # Don't mock the actual provider modules - let them load normally
+    # The network mocking will handle external calls
+    
+    yield mocks
 
-    return mock_all_providers
+
+# ==============================================================================
+# LEGACY MOCK PROVIDERS (for backward compatibility only)
+# ==============================================================================
+# 
+# NOTE: These are kept for any remaining tests that still use them directly.
+# New tests should use the selective mocking approach that preserves real
+# provider logic while mocking only external dependencies.
+
+
+class MockTTSProvider(TTSProvider):
+    """Base mock TTS provider for testing (legacy - use selective mocking instead)."""
+
+    def __init__(self, name: str = "mock_provider"):
+        self.name = name
+        self.synthesize_called = False
+        self.last_text = None
+        self.last_output_path = None
+        self.last_kwargs = {}
+
+    def synthesize(self, text: str, output_path: Optional[str], **kwargs: Any) -> None:
+        """Mock synthesize method that tracks calls."""
+        self.synthesize_called = True
+        self.last_text = text
+        self.last_output_path = output_path
+        self.last_kwargs = kwargs
+
+        # If output_path is provided, create a dummy file
+        if output_path:
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            with open(output_path, "wb") as f:
+                f.write(b"mock audio data")
+
+    def get_info(self) -> Optional[ProviderInfo]:
+        """Return mock provider info."""
+        return {
+            "name": self.name,
+            "description": f"Mock {self.name} provider for testing",
+            "options": {"voice": "Mock voice selection"},
+            "output_formats": ["mp3", "wav"],
+            "sample_voices": ["mock-voice-1", "mock-voice-2"],
+            "capabilities": ["stream", "save"],
+        }
+
+
+# Legacy fixtures removed - use selective mocking approach instead
+# which preserves real provider logic while mocking external dependencies
 
 
 # ==============================================================================
@@ -434,76 +333,6 @@ def mock_file_operations(monkeypatch):
 
 
 # ==============================================================================
-# NETWORK FIXTURES
-# ==============================================================================
-
-
-@pytest.fixture
-def mock_network_requests(monkeypatch):
-    """Mock network requests for API calls."""
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"status": "ok"}
-    mock_response.content = b"mock audio content"
-    mock_response.headers = {"content-type": "audio/mpeg"}
-    mock_response.iter_content = lambda chunk_size: [b"chunk1", b"chunk2", b"chunk3"]
-
-    mock_session = MagicMock()
-    mock_session.get.return_value = mock_response
-    mock_session.post.return_value = mock_response
-
-    monkeypatch.setattr("requests.Session", lambda: mock_session)
-    monkeypatch.setattr("requests.get", lambda *args, **kwargs: mock_response)
-    monkeypatch.setattr("requests.post", lambda *args, **kwargs: mock_response)
-
-    return mock_session
-
-
-# ==============================================================================
-# ASYNC FIXTURES
-# ==============================================================================
-
-
-@pytest.fixture
-def mock_edge_tts_async(monkeypatch):
-    """Mock edge-tts async operations."""
-
-    class MockCommunicate:
-        def __init__(self, text, voice, **kwargs):
-            self.text = text
-            self.voice = voice
-
-        async def save(self, output_path):
-            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-            with open(output_path, "wb") as f:
-                f.write(b"mock edge-tts audio")
-
-        def stream(self):
-            """Async generator for streaming."""
-
-            async def _stream():
-                yield {"type": "audio", "data": b"chunk1"}
-                yield {"type": "audio", "data": b"chunk2"}
-                yield {"type": "audio", "data": b"chunk3"}
-
-            return _stream()
-
-    mock_edge_module = MagicMock()
-    mock_edge_module.Communicate = MockCommunicate
-    mock_edge_module.list_voices = AsyncMock(
-        return_value=[
-            {"Name": "en-US-AvaNeural", "Gender": "Female"},
-            {"Name": "en-GB-SoniaNeural", "Gender": "Female"},
-        ]
-    )
-
-    monkeypatch.setattr("edge_tts.Communicate", MockCommunicate)
-    monkeypatch.setattr("edge_tts.list_voices", mock_edge_module.list_voices)
-
-    return mock_edge_module
-
-
-# ==============================================================================
 # VOICE MANAGER FIXTURES
 # ==============================================================================
 
@@ -551,24 +380,99 @@ def cli_runner():
 
 
 @pytest.fixture
+def mock_minimal_network_calls(monkeypatch):
+    """Minimal network mocking - just mock requests to avoid actual network calls."""
+    
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.content = b"mock audio content"
+    mock_response.headers = {"content-type": "audio/mpeg"}
+    mock_response.iter_content = lambda chunk_size: [b"chunk1", b"chunk2", b"chunk3"]
+    mock_response.json.return_value = {"status": "ok"}
+    
+    # Mock requests at the module level
+    monkeypatch.setattr("requests.get", lambda *args, **kwargs: mock_response)
+    monkeypatch.setattr("requests.post", lambda *args, **kwargs: mock_response)
+    
+    return mock_response
+
+
+@pytest.fixture  
+def mock_edge_tts_simple(monkeypatch):
+    """Simple edge-tts mocking that handles basic synthesis."""
+    
+    class MockCommunicate:
+        def __init__(self, text, voice, **kwargs):
+            self.text = text
+            self.voice = voice
+
+        async def save(self, output_path):
+            """Mock save method that creates a real audio file."""
+            output_path = Path(output_path)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            # Create a mock audio file with some realistic content
+            with open(output_path, "wb") as f:
+                f.write(b"mock edge-tts audio data with sufficient content for testing")
+
+        def stream(self):
+            """Mock async generator for streaming."""
+            async def _stream():
+                yield {"type": "audio", "data": b"chunk1"}
+                yield {"type": "audio", "data": b"chunk2"}
+                yield {"type": "audio", "data": b"chunk3"}
+            return _stream()
+
+    # Create a comprehensive edge_tts mock module
+    mock_edge_module = MagicMock()
+    mock_edge_module.Communicate = MockCommunicate
+    mock_edge_module.list_voices = AsyncMock(return_value=[
+        {"Name": "en-US-AvaNeural", "Gender": "Female"},
+        {"Name": "en-GB-SoniaNeural", "Gender": "Female"},
+    ])
+    
+    # Mock the import in sys.modules so any import will get our mock
+    import sys
+    sys.modules['edge_tts'] = mock_edge_module
+    
+    # Also set up monkeypatch mocking in case edge_tts is already imported
+    try:
+        import edge_tts
+        monkeypatch.setattr("edge_tts.Communicate", MockCommunicate)
+        # Mock list_voices as well
+        async def mock_list_voices():
+            return [
+                {"Name": "en-US-AvaNeural", "Gender": "Female"},
+                {"Name": "en-GB-SoniaNeural", "Gender": "Female"},
+            ]
+        monkeypatch.setattr("edge_tts.list_voices", mock_list_voices)
+    except ImportError:
+        pass
+    
+    return MockCommunicate
+
+
+@pytest.fixture
 def mock_cli_environment(
     mock_config,
-    mock_provider_imports,
+    mock_selective_imports,
     mock_audio_environment,
     mock_audio_playback,
-    mock_network_requests,
-    mock_edge_tts_async,
+    mock_audio_conversion,
+    mock_minimal_network_calls,
+    mock_edge_tts_simple,
     isolated_config_dir,
 ):
-    """Complete mock environment for CLI testing."""
-    # This fixture combines all necessary mocks for CLI tests
+    """Complete selective mock environment for CLI testing."""
+    # This fixture combines minimal mocks that preserve provider logic
+    # while mocking only essential external dependencies
     return {
         "config": mock_config,
-        "providers": mock_provider_imports,
+        "selective_imports": mock_selective_imports,
         "audio_env": mock_audio_environment,
         "audio_playback": mock_audio_playback,
-        "network": mock_network_requests,
-        "edge_tts": mock_edge_tts_async,
+        "audio_conversion": mock_audio_conversion,
+        "minimal_network": mock_minimal_network_calls,
+        "edge_tts": mock_edge_tts_simple,
         "config_dir": isolated_config_dir,
     }
 
