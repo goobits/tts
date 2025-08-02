@@ -220,8 +220,8 @@ def mock_selective_imports():
         mock_edge_module = MagicMock()
         mock_edge_module.Communicate = MagicMock()
         mock_edge_module.list_voices = AsyncMock(return_value=[
-            {"Name": "en-US-AvaNeural", "Gender": "Female"},
-            {"Name": "en-GB-SoniaNeural", "Gender": "Female"},
+            {"Name": "en-US-AvaNeural", "ShortName": "en-US-AvaNeural", "Gender": "Female"},
+            {"Name": "en-GB-SoniaNeural", "ShortName": "en-GB-SoniaNeural", "Gender": "Female"},
         ])
         mocks['edge_tts'] = mock_edge_module
     except ImportError:
@@ -269,6 +269,7 @@ class MockTTSProvider(TTSProvider):
         """Return mock provider info."""
         return {
             "name": self.name,
+            "ShortName": self.name.lower().replace(" ", "_"),
             "description": f"Mock {self.name} provider for testing",
             "options": {"voice": "Mock voice selection"},
             "output_formats": ["mp3", "wav"],
@@ -383,18 +384,49 @@ def cli_runner():
 def mock_minimal_network_calls(monkeypatch):
     """Minimal network mocking - just mock requests to avoid actual network calls."""
     
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.content = b"mock audio content"
-    mock_response.headers = {"content-type": "audio/mpeg"}
-    mock_response.iter_content = lambda chunk_size: [b"chunk1", b"chunk2", b"chunk3"]
-    mock_response.json.return_value = {"status": "ok"}
+    def mock_request_handler(method, url, *args, **kwargs):
+        """Handle different API endpoints with realistic responses."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "application/json"}
+        
+        # ElevenLabs API endpoints
+        if "api.elevenlabs.io" in str(url):
+            if "/voices" in str(url):
+                mock_response.json.return_value = {
+                    "voices": [
+                        {"voice_id": "21m00Tcm4TlvDq8ikWAM", "name": "Rachel"},
+                        {"voice_id": "AZnzlk1XvdvUeBnXmlld", "name": "Domi"}
+                    ]
+                }
+            elif "/text-to-speech" in str(url):
+                mock_response.content = b"mock audio content"
+                mock_response.headers = {"content-type": "audio/mpeg"}
+                mock_response.iter_content = lambda chunk_size: [b"chunk1", b"chunk2"]
+            else:
+                mock_response.json.return_value = {"status": "ok"}
+        
+        # OpenAI API endpoints
+        elif "api.openai.com" in str(url):
+            mock_response.json.return_value = {"status": "ok"}
+            
+        # Google Cloud TTS endpoints
+        elif "texttospeech.googleapis.com" in str(url):
+            mock_response.json.return_value = {"audioContent": "bW9jayBhdWRpbw=="}
+            
+        # Default response
+        else:
+            mock_response.content = b"mock audio content"
+            mock_response.headers = {"content-type": "audio/mpeg"}
+            mock_response.json.return_value = {"status": "ok"}
+        
+        return mock_response
     
     # Mock requests at the module level
-    monkeypatch.setattr("requests.get", lambda *args, **kwargs: mock_response)
-    monkeypatch.setattr("requests.post", lambda *args, **kwargs: mock_response)
+    monkeypatch.setattr("requests.get", lambda *args, **kwargs: mock_request_handler("GET", *args, **kwargs))
+    monkeypatch.setattr("requests.post", lambda *args, **kwargs: mock_request_handler("POST", *args, **kwargs))
     
-    return mock_response
+    return mock_request_handler
 
 
 @pytest.fixture  
@@ -426,8 +458,8 @@ def mock_edge_tts_simple(monkeypatch):
     mock_edge_module = MagicMock()
     mock_edge_module.Communicate = MockCommunicate
     mock_edge_module.list_voices = AsyncMock(return_value=[
-        {"Name": "en-US-AvaNeural", "Gender": "Female"},
-        {"Name": "en-GB-SoniaNeural", "Gender": "Female"},
+        {"Name": "en-US-AvaNeural", "ShortName": "en-US-AvaNeural", "Gender": "Female"},
+        {"Name": "en-GB-SoniaNeural", "ShortName": "en-GB-SoniaNeural", "Gender": "Female"},
     ])
     
     # Mock the import in sys.modules so any import will get our mock
@@ -441,8 +473,8 @@ def mock_edge_tts_simple(monkeypatch):
         # Mock list_voices as well
         async def mock_list_voices():
             return [
-                {"Name": "en-US-AvaNeural", "Gender": "Female"},
-                {"Name": "en-GB-SoniaNeural", "Gender": "Female"},
+                {"Name": "en-US-AvaNeural", "ShortName": "en-US-AvaNeural", "Gender": "Female"},
+                {"Name": "en-GB-SoniaNeural", "ShortName": "en-GB-SoniaNeural", "Gender": "Female"},
             ]
         monkeypatch.setattr("edge_tts.list_voices", mock_list_voices)
     except ImportError:
