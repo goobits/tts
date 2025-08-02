@@ -84,6 +84,7 @@ dmypy.json
 *.tmp
 *.temp
 .tmp/
+.temp/
 
 # Model caches
 .cache/

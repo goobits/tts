@@ -43,18 +43,25 @@ target-version = [ "py38",]
 [tool.ruff]
 line-length = 128
 target-version = "py38"
+cache-dir = ".temp/ruff"
 
 [tool.mypy]
 python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+cache_dir = ".temp/mypy"
 
 [tool.setuptools.package-dir]
 "" = "src"
 
 [tool.setuptools.package-data]
 tts = [ "setup.sh",]
+
+# Minimize egg-info generation in development
+[tool.setuptools.egg_info]
+tag_build = ""
+tag_date = 0
 
 [tool.ruff.lint]
 select = [ "E", "W", "F", "I", "B",]
