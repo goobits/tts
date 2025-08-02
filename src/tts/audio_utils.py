@@ -47,6 +47,18 @@ class AudioPlaybackManager:
             DependencyError: If ffplay is not available
             AudioPlaybackError: If playback fails to start
         """
+        # Check if audio playback is disabled (for testing)
+        if os.environ.get("TTS_DISABLE_PLAYBACK", "").lower() in ("true", "1", "yes"):
+            self.logger.debug(f"Audio playback disabled by TTS_DISABLE_PLAYBACK, creating mock process: {audio_path}")
+            # Return a mock process that immediately exits successfully
+            from unittest.mock import MagicMock
+            mock_process = MagicMock()
+            mock_process.returncode = 0
+            mock_process.poll.return_value = 0
+            mock_process.wait.return_value = 0
+            mock_process.terminate.return_value = None
+            return mock_process
+
         if timeout is None:
             timeout = get_config_value("ffmpeg_conversion_timeout")
 
@@ -89,6 +101,11 @@ class AudioPlaybackManager:
             DependencyError: If ffplay is not available
             AudioPlaybackError: If playback fails
         """
+        # Check if audio playback is disabled (for testing)
+        if os.environ.get("TTS_DISABLE_PLAYBACK", "").lower() in ("true", "1", "yes"):
+            self.logger.debug(f"Audio playback disabled by TTS_DISABLE_PLAYBACK, skipping: {audio_path}")
+            return
+
         if timeout is None:
             timeout = get_config_value("ffmpeg_conversion_timeout")
 
@@ -292,6 +309,21 @@ def create_ffplay_process(
     Raises:
         DependencyError: If ffplay is not available
     """
+    # Check if audio playback is disabled (for testing)
+    if os.environ.get("TTS_DISABLE_PLAYBACK", "").lower() in ("true", "1", "yes"):
+        logger.debug("Audio playback disabled by TTS_DISABLE_PLAYBACK, creating mock process")
+        # Return a mock process that accepts input but doesn't play audio
+        from unittest.mock import MagicMock
+        mock_process = MagicMock()
+        mock_process.stdin = MagicMock()
+        mock_process.stdin.write = MagicMock()
+        mock_process.stdin.close = MagicMock()
+        mock_process.stdin.flush = MagicMock()
+        mock_process.returncode = 0
+        mock_process.poll.return_value = 0
+        mock_process.wait.return_value = 0
+        mock_process.terminate.return_value = None
+        return mock_process
     ffplay_cmd = ["ffplay", "-nodisp", "-autoexit", "-loglevel", "error"]
 
     if format_args:

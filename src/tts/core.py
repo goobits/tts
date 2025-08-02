@@ -1,11 +1,12 @@
 """Core TTS engine functionality separated from CLI concerns."""
 
 import logging
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional, Type
 
 from .base import TTSProvider
-from .config import load_config, parse_voice_setting
+from .config import get_api_key, load_config, parse_voice_setting
 from .exceptions import ProviderLoadError, ProviderNotFoundError, TTSError
 from .types import ProviderInfo
 
@@ -248,6 +249,182 @@ class TTSEngine:
 
         except (AttributeError, KeyError, ValueError):
             return False
+
+    def get_provider_status(self, provider_name: str) -> Dict[str, Any]:
+        """Get defensive status information for a provider without throwing exceptions.
+        
+        Returns status information that can be used by CLI commands like 'info' and 'status'
+        even when authentication is missing or provider setup is incomplete.
+        
+        Args:
+            provider_name: Name of the provider to check
+            
+        Returns:
+            Dictionary with status fields: name, installed, configured, available, error
+        """
+        status = {
+            "name": provider_name,
+            "installed": False,
+            "configured": False, 
+            "available": False,
+            "error": None
+        }
+        
+        # Check if we're in test mode
+        is_test_mode = os.environ.get("TTS_TEST_MODE", "").lower() in ("true", "1", "yes")
+        
+        try:
+            # Try to load the provider class (checks if module exists)
+            provider_class = self.load_provider(provider_name)
+            status["installed"] = True
+            
+            # Check if provider needs API key and if it's configured
+            api_key_needed = self._provider_needs_api_key(provider_name)
+            if api_key_needed:
+                api_key_provider = self._get_api_key_provider_name(provider_name)
+                api_key = get_api_key(api_key_provider)
+                status["configured"] = api_key is not None
+            else:
+                # Providers like edge_tts don't need API keys
+                status["configured"] = True
+                
+            # In test mode, don't attempt actual provider instantiation
+            if is_test_mode:
+                status["available"] = status["installed"] and status["configured"]
+            else:
+                # Try basic provider instantiation without network calls
+                try:
+                    provider = provider_class()
+                    status["available"] = True
+                except Exception as e:
+                    status["error"] = f"Provider instantiation failed: {str(e)}"
+                    
+        except ProviderNotFoundError:
+            status["error"] = f"Provider '{provider_name}' not found in registry"
+        except ProviderLoadError as e:
+            status["error"] = f"Failed to load provider: {str(e)}"
+        except ImportError as e:
+            status["error"] = f"Missing dependencies: {str(e)}"
+        except Exception as e:
+            status["error"] = f"Unexpected error: {str(e)}"
+            
+        return status
+
+    def get_provider_info_safe(self, provider_name: str) -> Dict[str, Any]:
+        """Get provider information safely without authentication requirements.
+        
+        Returns basic provider info even when API keys are missing. Falls back to
+        static information when authentication fails.
+        
+        Args:
+            provider_name: Name of the provider
+            
+        Returns:
+            Dictionary with provider information (never None)
+        """
+        # Start with basic fallback info
+        info = {
+            "name": provider_name,
+            "description": f"{provider_name.title()} TTS Provider",
+            "sample_voices": [],
+            "all_voices": [],
+            "capabilities": [],
+            "status": "unknown"
+        }
+        
+        try:
+            # Try to get the actual provider info
+            provider_info = self.get_provider_info(provider_name)
+            if provider_info:
+                info.update(provider_info)
+                info["status"] = "available"
+            else:
+                # Provider exists but info failed (likely auth issue)
+                info.update(self._get_static_provider_info(provider_name))
+                info["status"] = "authentication_required"
+                
+        except (ProviderNotFoundError, ProviderLoadError):
+            info["status"] = "not_installed"
+        except Exception as e:
+            info["status"] = "error"
+            info["error"] = str(e)
+            # Still return static info even on error
+            info.update(self._get_static_provider_info(provider_name))
+            
+        return info
+
+    def _provider_needs_api_key(self, provider_name: str) -> bool:
+        """Check if a provider requires an API key for operation.
+        
+        Args:
+            provider_name: Name of the provider
+            
+        Returns:
+            True if provider needs API key, False otherwise
+        """
+        # Providers that need API keys (match actual registry names)
+        api_key_providers = {"openai_tts", "elevenlabs", "google_tts"}
+        return provider_name.lower() in api_key_providers
+
+    def _get_api_key_provider_name(self, provider_name: str) -> str:
+        """Map provider registry name to API key config name.
+        
+        Args:
+            provider_name: Provider name from registry (e.g., "openai_tts")
+            
+        Returns:
+            API key provider name (e.g., "openai")
+        """
+        # Map registry names to config API key names
+        mapping = {
+            "openai_tts": "openai",
+            "google_tts": "google", 
+            "elevenlabs": "elevenlabs"
+        }
+        return mapping.get(provider_name, provider_name)
+
+    def _get_static_provider_info(self, provider_name: str) -> Dict[str, Any]:
+        """Get static information about a provider when dynamic info fails.
+        
+        Args:
+            provider_name: Name of the provider
+            
+        Returns:
+            Dictionary with static provider information
+        """
+        static_info = {
+            "edge_tts": {
+                "description": "Microsoft Azure Edge TTS - Free neural voices",
+                "capabilities": ["streaming", "neural_voices", "multiple_languages"],
+                "sample_voices": ["en-US-JennyNeural", "en-IE-EmilyNeural", "en-GB-LibbyNeural"]
+            },
+            "openai_tts": {
+                "description": "OpenAI Text-to-Speech API",
+                "capabilities": ["streaming", "high_quality", "api_key_required"],
+                "sample_voices": ["alloy", "echo", "fable", "nova", "onyx", "shimmer"]
+            },
+            "elevenlabs": {
+                "description": "ElevenLabs AI Voice Synthesis",
+                "capabilities": ["voice_cloning", "streaming", "high_quality", "api_key_required"],
+                "sample_voices": ["rachel", "domi", "bella", "antoni", "elli"]
+            },
+            "google_tts": {
+                "description": "Google Cloud Text-to-Speech",
+                "capabilities": ["neural_voices", "wavenet", "api_key_required"],
+                "sample_voices": ["en-US-Neural2-A", "en-US-Neural2-C", "en-US-Wavenet-A"]
+            },
+            "chatterbox": {
+                "description": "Local voice cloning with GPU/CPU support",
+                "capabilities": ["voice_cloning", "local_processing", "file_input"],
+                "sample_voices": ["<voice_file.wav>", "<voice_file.mp3>"]
+            }
+        }
+        
+        return static_info.get(provider_name, {
+            "description": f"Unknown provider: {provider_name}",
+            "capabilities": [],
+            "sample_voices": []
+        })
 
     def test_provider(self, provider_name: str) -> Dict[str, Any]:
         """Test a provider's availability and basic functionality.
