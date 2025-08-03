@@ -7,9 +7,9 @@ basic functionality is working. Use this for quick smoke testing
 during development.
 
 Usage:
-    python tests/test_cli_quick.py
+    python scripts/cli_validation.py
     # Or from virtual environment:
-    source venv/bin/activate && python tests/test_cli_quick.py
+    source venv/bin/activate && python scripts/cli_validation.py
 """
 
 import subprocess

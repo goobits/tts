@@ -51,8 +51,8 @@ def test_cli_save_mode(mock_cli_environment, tmp_path):
 # =============================================================================
 
 
-class TestPhase1BackwardCompatibility:
-    """Tests for Phase 1 backward compatibility requirements"""
+class TestBackwardCompatibility:
+    """Tests for backward compatibility requirements"""
 
     def test_essential_subcommands_work(self, mock_cli_environment):
         """Test that essential subcommands like 'info', 'providers' still work"""
@@ -69,8 +69,8 @@ class TestPhase1BackwardCompatibility:
         assert "chatterbox" in result.output
 
 
-class TestPhase1NewSubcommands:
-    """Tests for Phase 1 new subcommand functionality"""
+class TestNewSubcommands:
+    """Tests for new subcommand functionality"""
 
     def test_save_subcommand_exists(self):
         """Test that new 'tts save' subcommand works"""
@@ -122,8 +122,8 @@ class TestPhase1NewSubcommands:
         assert "edge_tts" in result.output
 
 
-class TestPhase1ProviderShortcuts:
-    """Tests for Phase 1 @provider shortcut functionality"""
+class TestProviderShortcuts:
+    """Tests for @provider shortcut functionality"""
 
     def test_provider_shortcuts_defined(self):
         """Test that provider shortcuts are properly defined"""
@@ -148,8 +148,8 @@ class TestPhase1ProviderShortcuts:
         assert "Available providers:" in result.output
 
 
-class TestPhase1CommandParity:
-    """Tests for Phase 1 command parity (new syntax verification)"""
+class TestCommandParity:
+    """Tests for command parity (new syntax verification)"""
 
     def test_save_command_works(self, mock_cli_environment, tmp_path):
         """Test that 'tts save' command works correctly"""
@@ -182,8 +182,8 @@ class TestPhase1CommandParity:
         assert result.exit_code == 0
 
 
-class TestPhase1ErrorHandling:
-    """Tests for Phase 1 error handling"""
+class TestErrorHandling:
+    """Tests for error handling"""
 
     def test_unknown_provider_error(self, mock_cli_environment):
         """Test error handling for unknown providers"""
@@ -213,8 +213,8 @@ class TestPhase1ErrorHandling:
 # =============================================================================
 
 
-class TestPhase1Integration:
-    """Integration tests for Phase 1 complete functionality"""
+class TestCLIIntegration:
+    """Integration tests for CLI functionality"""
 
     def test_full_backward_compatibility(self, mock_cli_environment):
         """Test that all backward compatible functionality still works"""
@@ -258,8 +258,8 @@ class TestPhase1Integration:
             assert result.exit_code == 0, f"Provider shortcut @{shortcut} failed: {result.output}"
 
 
-class TestPhase3DeprecatedCommandRejection:
-    """Tests for Phase 3 deprecated command rejection"""
+class TestDeprecatedCommands:
+    """Tests for deprecated command rejection"""
 
     def test_save_flag_rejected(self):
         """Test that --save flag is now rejected with unknown option error"""
@@ -330,7 +330,7 @@ class TestPhase3DeprecatedCommandRejection:
 # =============================================================================
 
 
-class TestCurrentCLIBehavior:
+class TestCLIBehavior:
     """Comprehensive tests for TTS CLI v1.1 behavior with speak as default command."""
 
     def test_version_display(self, mock_cli_environment):

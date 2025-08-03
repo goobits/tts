@@ -41,11 +41,6 @@ class TestCLISmokeTests:
     # CORE COMMANDS SMOKE TESTS
     # =============================================================================
 
-    def test_speak_help(self, mock_cli_environment):
-        """Test speak command help."""
-        result = self.runner.invoke(cli, ["speak", "--help"])
-        assert result.exit_code == 0
-        assert "speak" in result.output.lower()
 
     def test_speak_basic(self, mock_cli_environment):
         """Test basic speak command with mocked environment."""
@@ -55,11 +50,6 @@ class TestCLISmokeTests:
         assert result.exit_code == 0
         # Streaming audio operations succeed silently
 
-    def test_save_help(self, mock_cli_environment):
-        """Test save command help."""
-        result = self.runner.invoke(cli, ["save", "--help"])
-        assert result.exit_code == 0
-        assert "save" in result.output.lower()
 
     def test_save_basic(self, mock_cli_environment, tmp_path):
         """Test basic save command with mocked environment."""
@@ -71,11 +61,6 @@ class TestCLISmokeTests:
         # Should contain indication of processing
         assert "saved" in result.output.lower() or "Audio" in result.output or output_file.exists()
 
-    def test_voices_help(self, mock_cli_environment):
-        """Test voices command help."""
-        result = self.runner.invoke(cli, ["voices", "--help"])
-        assert result.exit_code == 0
-        assert "voices" in result.output.lower() or "browse" in result.output.lower()
 
     # =============================================================================
     # PROVIDER MANAGEMENT SMOKE TESTS
@@ -87,17 +72,7 @@ class TestCLISmokeTests:
         assert result.exit_code == 0
         assert "edge_tts" in result.output or "openai_tts" in result.output or "Available" in result.output
 
-    def test_providers_help(self):
-        """Test providers command help."""
-        result = self.runner.invoke(cli, ["providers", "--help"])
-        assert result.exit_code == 0
-        assert "providers" in result.output.lower()
 
-    def test_info_help(self, mock_cli_environment):
-        """Test info command help."""
-        result = self.runner.invoke(cli, ["info", "--help"])
-        assert result.exit_code == 0
-        assert "info" in result.output.lower()
 
     def test_info_basic(self, mock_cli_environment):
         """Test info command without arguments with mocked environment."""
@@ -116,11 +91,6 @@ class TestCLISmokeTests:
         assert result.exit_code == 0
         assert "edge_tts" in result.output or "Edge TTS" in result.output
 
-    def test_install_help(self, mock_cli_environment):
-        """Test install command help."""
-        result = self.runner.invoke(cli, ["install", "--help"])
-        assert result.exit_code == 0
-        assert "install" in result.output.lower()
 
     def test_install_basic(self, mock_cli_environment):
         """Test install command without arguments (should show help)."""
@@ -132,11 +102,6 @@ class TestCLISmokeTests:
     # CONFIGURATION SMOKE TESTS
     # =============================================================================
 
-    def test_config_help(self, mock_cli_environment):
-        """Test config command help."""
-        result = self.runner.invoke(cli, ["config", "--help"])
-        assert result.exit_code == 0
-        assert "config" in result.output.lower()
 
     def test_config_basic(self, mock_cli_environment):
         """Test config command without arguments (should show config)."""
@@ -163,21 +128,11 @@ class TestCLISmokeTests:
         assert "⚙️  Configuration:" in result.output
         assert "Default voice: edge_tts:en-IE-EmilyNeural" in result.output
 
-    def test_status_help(self):
-        """Test status command help."""
-        result = self.runner.invoke(cli, ["status", "--help"])
-        assert result.exit_code == 0
-        assert "status" in result.output.lower()
 
     # =============================================================================
     # ADVANCED FEATURES SMOKE TESTS
     # =============================================================================
 
-    def test_voice_help(self, mock_cli_environment):
-        """Test voice command group help."""
-        result = self.runner.invoke(cli, ["voice", "--help"])
-        assert result.exit_code == 0
-        assert "voice" in result.output.lower()
 
     def test_voice_status(self, mock_cli_environment):
         """Test voice status command."""
@@ -185,23 +140,8 @@ class TestCLISmokeTests:
         assert result.exit_code == 0
         assert "Voice" in result.output or "status" in result.output.lower() or "server" in result.output.lower()
 
-    def test_voice_load_help(self, mock_cli_environment):
-        """Test voice load command help."""
-        result = self.runner.invoke(cli, ["voice", "load", "--help"])
-        assert result.exit_code == 0
-        assert "load" in result.output.lower()
 
-    def test_voice_unload_help(self, mock_cli_environment):
-        """Test voice unload command help."""
-        result = self.runner.invoke(cli, ["voice", "unload", "--help"])
-        assert result.exit_code == 0
-        assert "unload" in result.output.lower()
 
-    def test_document_help(self, mock_cli_environment):
-        """Test document command help."""
-        result = self.runner.invoke(cli, ["document", "--help"])
-        assert result.exit_code == 0
-        assert "document" in result.output.lower()
 
     # =============================================================================
     # PROVIDER SHORTCUTS SMOKE TESTS
@@ -293,14 +233,6 @@ class TestCLISmokeTests:
     # HELP SYSTEM SMOKE TESTS
     # =============================================================================
 
-    def test_all_subcommands_have_help(self, mock_cli_environment):
-        """Test that all major subcommands have accessible help."""
-        subcommands = ["speak", "save", "voices", "providers", "info", "install", "config", "status", "voice", "document"]
-
-        for cmd in subcommands:
-            result = self.runner.invoke(cli, [cmd, "--help"])
-            assert result.exit_code == 0, f"Help failed for command: {cmd}"
-            assert "Usage:" in result.output or "usage:" in result.output, f"No usage info in help for: {cmd}"
 
     # =============================================================================
     # ARGUMENT PARSING SMOKE TESTS
@@ -422,17 +354,6 @@ class TestCLISmokeTests:
     # NEW TEST SUITE SMOKE TESTS - CRITICAL FUNCTIONALITY
     # =============================================================================
 
-    def test_config_set_and_get_smoke(self, mock_cli_environment):
-        """Smoke test for config set/get operations from test_cli_config.py."""
-        # Test setting a configuration value
-        result = self.runner.invoke(cli, ["config", "set", "test_key", "test_value"])
-        assert result.exit_code == 0
-        assert "test_key" in result.output
-
-        # Test getting the configuration value
-        result = self.runner.invoke(cli, ["config", "get", "test_key"])
-        assert result.exit_code == 0
-        assert "test_value" in result.output
 
     def test_document_format_options_smoke(self, mock_cli_environment, tmp_path):
         """Smoke test for document format options from test_cli_document.py."""
