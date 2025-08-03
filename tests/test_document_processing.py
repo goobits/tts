@@ -86,24 +86,35 @@ class TestDocumentProcessing:
             pytest.fail("Generated SSML is not valid XML")
 
     def test_mixed_content_processing(self):
-        """Test mixed document and transcription content"""
+        """Test mixed document and transcription content processing"""
         from tts.document_processing.mixed_content_processor import MixedContentProcessor
 
         processor = MixedContentProcessor()
 
-        # Test document content
+        # Test document content processing
         doc_result = processor.process_mixed_content(
             "# Title\n\nDocument content",
             content_type="document"
         )
-        assert "Title" in doc_result
+        assert "Title" in doc_result, "Title should be preserved in document processing"
+        assert len(doc_result) > 0, "Document result should not be empty"
+        assert isinstance(doc_result, str), "Document result should be a string"
 
-        # Test transcription content
+        # Test transcription content processing 
         trans_result = processor.process_mixed_content(
             "Um, this is like, you know, spoken text",
             content_type="transcription"
         )
-        assert trans_result  # Should process filler words appropriately
+        assert isinstance(trans_result, str), "Transcription result should be a string"
+        assert len(trans_result) > 0, "Transcription result should not be empty"
+        
+        # The processing should handle the transcription type appropriately
+        # It may or may not clean up filler words depending on implementation
+        # The key test is that it processes without error and returns meaningful content
+        assert "text" in trans_result.lower(), "Core content should be preserved"
+        
+        # Verify that transcription and document processing produce different results
+        assert trans_result != doc_result, "Transcription and document processing should handle content differently"
 
     def test_cache_functionality(self):
         """Test document caching functionality"""

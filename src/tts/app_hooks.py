@@ -512,7 +512,8 @@ def on_info(provider: Optional[str], **kwargs) -> int:
                 elif provider_name == "google_tts":
                     print(f"   Option 1 - API key: tts config set {api_key_name}_api_key YOUR_KEY")
                     print(
-                        f"   Option 2 - Service account: tts config set {api_key_name}_credentials_path /path/to/credentials.json"
+                        f"   Option 2 - Service account: tts config set {api_key_name}_credentials_path "
+                        "/path/to/credentials.json"
                     )
                     print("   Get credentials at: https://console.cloud.google.com/")
 

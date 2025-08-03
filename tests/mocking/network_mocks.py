@@ -42,9 +42,9 @@ class MockHTTPResponse:
         if self.text:
             try:
                 return json.loads(self.text)
-            except json.JSONDecodeError:
-                raise ValueError("No JSON object could be decoded")
-        raise ValueError("No JSON object could be decoded")
+            except json.JSONDecodeError as e:
+                raise requests.exceptions.JSONDecodeError(e.msg, e.doc, e.pos) from None
+        raise requests.exceptions.JSONDecodeError("Expecting value", "", 0) from None
 
     def raise_for_status(self) -> None:
         """Raise HTTPError if status indicates an error."""

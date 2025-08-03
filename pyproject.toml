@@ -24,7 +24,7 @@ chatterbox = [ "chatterbox-tts>=0.1.2", "torch>=2.6.0", "torchaudio>=2.6.0", "so
 cloud = [ "openai>=1.0.0", "google-cloud-texttospeech>=2.0.0", "elevenlabs>=1.0.0",]
 local = [ "chatterbox-tts>=0.1.2", "torch>=2.6.0", "torchaudio>=2.6.0", "soundfile>=0.13.0",]
 all = [ "openai>=1.0.0", "google-cloud-texttospeech>=2.0.0", "elevenlabs>=1.0.0", "chatterbox-tts>=0.1.2", "torch>=2.6.0", "torchaudio>=2.6.0", "soundfile>=0.13.0",]
-dev = [ "pytest>=7.0", "pytest-asyncio", "pytest-cov", "black", "ruff", "mypy", "build", "twine",]
+dev = [ "pytest>=7.0", "pytest-asyncio", "pytest-cov", "black", "ruff", "mypy", "build", "twine", "hypothesis",]
 
 [project.scripts]
 tts = "tts.cli:cli_entry"
@@ -58,10 +58,6 @@ cache_dir = ".temp/mypy"
 [tool.setuptools.package-data]
 tts = [ "setup.sh",]
 
-# Minimize egg-info generation in development
-[tool.setuptools.egg_info]
-tag_build = ""
-tag_date = 0
 
 [tool.ruff.lint]
 select = [ "E", "W", "F", "I", "B",]
@@ -102,9 +98,17 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
+    "e2e: marks tests as end-to-end tests",
     "config: marks tests related to configuration",
     "audio: marks tests related to audio processing",
-    "provider: marks tests related to TTS providers"
+    "provider: marks tests related to TTS providers",
+    "workflow: marks tests as workflow tests",
+    "benchmark: marks tests as benchmark tests",
+    "pipeline: marks tests as pipeline integration tests",
+    "realuser: marks tests as real user scenario tests",
+    "stress: marks tests as stress tests",
+    "performance: marks tests as performance tests",
+    "regression: marks tests as regression tests"
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

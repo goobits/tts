@@ -1,0 +1,110 @@
+{
+  "files": {
+    "markdown_5912a16b7654bd32.pkl": {
+      "size": 2486,
+      "content_length": 1112,
+      "format_hint": "markdown",
+      "processing_time": 0.00022840499877929688,
+      "cached_at": 1752966218.2315054,
+      "last_accessed": 1752967493.1316564
+    },
+    "markdown_ec7f4feddd1c1349.pkl": {
+      "size": 288,
+      "content_length": 24,
+      "format_hint": "markdown",
+      "processing_time": 8.559226989746094e-05,
+      "cached_at": 1752974109.9305913,
+      "last_accessed": 1752974115.5452604
+    },
+    "markdown_1013af9424c4f758.pkl": {
+      "size": 381,
+      "content_length": 31,
+      "format_hint": "markdown",
+      "processing_time": 9.989738464355469e-05,
+      "cached_at": 1752974804.7243874,
+      "last_accessed": 1752974804.7244668
+    },
+    "markdown_f2ca1bb6c7e907d0.pkl": {
+      "size": 268,
+      "content_length": 5,
+      "format_hint": "markdown",
+      "processing_time": 8.487701416015625e-05,
+      "cached_at": 1752975502.0763192,
+      "last_accessed": 1752975502.0764043
+    },
+    "markdown_40fc882fadaada36.pkl": {
+      "size": 300,
+      "content_length": 36,
+      "format_hint": "markdown",
+      "processing_time": 8.654594421386719e-05,
+      "cached_at": 1752976139.2696407,
+      "last_accessed": 1752976139.2697284
+    },
+    "markdown_9a5736fd6959125e.pkl": {
+      "size": 285,
+      "content_length": 21,
+      "format_hint": "markdown",
+      "processing_time": 8.916854858398438e-05,
+      "cached_at": 1752976350.038815,
+      "last_accessed": 1752976350.0389254
+    },
+    "json_5f9de8f9fed9a855.pkl": {
+      "size": 2689,
+      "content_length": 552,
+      "format_hint": "json",
+      "processing_time": 0.00017189979553222656,
+      "cached_at": 1752977898.6085,
+      "last_accessed": 1752977898.608641
+    },
+    "markdown_aebcdde088d4e8ca.pkl": {
+      "size": 18104,
+      "content_length": 8564,
+      "format_hint": "markdown",
+      "processing_time": 0.0008242130279541016,
+      "cached_at": 1752978105.6496341,
+      "last_accessed": 1752978105.64992
+    },
+    "markdown_9fbc4cc21e458a19.pkl": {
+      "size": 381,
+      "content_length": 32,
+      "format_hint": "markdown",
+      "processing_time": 0.00010251998901367188,
+      "cached_at": 1752979303.0296984,
+      "last_accessed": 1752979303.029795
+    },
+    "markdown_a84c50e6256f69f4.pkl": {
+      "size": 278,
+      "content_length": 15,
+      "format_hint": "markdown",
+      "processing_time": 8.7738037109375e-05,
+      "cached_at": 1752980106.3885617,
+      "last_accessed": 1752980106.388662
+    },
+    "markdown_bdf1c166bc83c43d.pkl": {
+      "size": 285,
+      "content_length": 22,
+      "format_hint": "markdown",
+      "processing_time": 9.179115295410156e-05,
+      "cached_at": 1752992488.2706444,
+      "last_accessed": 1752992488.2707424
+    },
+    "markdown_b95b1e35ff857782.pkl": {
+      "size": 364,
+      "content_length": 14,
+      "format_hint": "markdown",
+      "processing_time": 0.0007956027984619141,
+      "cached_at": 1753137082.7458425,
+      "last_accessed": 1753141764.7507226
+    },
+    "markdown_524772545bbdc96f.pkl": {
+      "size": 383,
+      "content_length": 38,
+      "format_hint": "markdown",
+      "processing_time": 0.00027108192443847656,
+      "cached_at": 1754255386.7309728,
+      "last_accessed": 1754257536.907042
+    }
+  },
+  "total_size": 26492,
+  "last_cleanup": 1752966218.231258
+}

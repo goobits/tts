@@ -25,18 +25,7 @@ from tts.base import TTSProvider
 from tts.types import Config, ProviderInfo
 
 # Import network-only mocking infrastructure (selective imports)
-try:
-    from .mocking import (
-        comprehensive_audio_mocks,
-        mock_http_requests,
-        network_mock_registry,
-    )
-
-    # Don't import API-specific mocks yet - let's use a simpler approach
-    MOCKING_AVAILABLE = True
-except ImportError:
-    # Fallback if mocking module not available
-    MOCKING_AVAILABLE = False
+# Note: These imports were removed as they were unused in the codebase
 
 
 # ==============================================================================
@@ -502,8 +491,7 @@ def mock_edge_tts_simple(monkeypatch):
 
     # Also set up monkeypatch mocking in case edge_tts is already imported
     try:
-        import edge_tts
-
+        # Use the mock_edge_module we already created instead of importing edge_tts
         monkeypatch.setattr("edge_tts.Communicate", MockCommunicate)
 
         # Mock list_voices as well
