@@ -17,20 +17,21 @@ import shutil
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from tts.base import TTSProvider
-from tts.types import Config, ProviderInfo, VoiceInfo
+from tts.types import Config, ProviderInfo
 
 # Import network-only mocking infrastructure (selective imports)
 try:
     from .mocking import (
-        mock_http_requests,
         comprehensive_audio_mocks,
+        mock_http_requests,
         network_mock_registry,
     )
+
     # Don't import API-specific mocks yet - let's use a simpler approach
     MOCKING_AVAILABLE = True
 except ImportError:
@@ -88,32 +89,33 @@ def mock_audio_playback(monkeypatch):
 @pytest.fixture
 def mock_audio_conversion(monkeypatch):
     """Mock audio conversion functions."""
-    
+
     def mock_convert_with_cleanup(input_path: str, output_path: str, output_format: str) -> None:
         """Mock audio conversion that copies the input file to output."""
         input_file = Path(input_path)
         output_file = Path(output_path)
-        
+
         # Create output directory if needed
         output_file.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Copy the input file to output (simulating conversion)
         if input_file.exists():
             import shutil
+
             shutil.copy2(input_path, output_path)
         else:
             # Create a mock file if input doesn't exist
             with open(output_path, "wb") as f:
                 f.write(b"mock converted audio data")
-    
+
     def mock_convert_audio(input_path: str, output_path: str, target_format: str = "mp3") -> None:
         """Mock convert_audio function."""
         mock_convert_with_cleanup(input_path, output_path, target_format)
-    
+
     # Mock both conversion functions
     monkeypatch.setattr("tts.audio_utils.convert_with_cleanup", mock_convert_with_cleanup)
     monkeypatch.setattr("tts.audio_utils.convert_audio", mock_convert_audio)
-    
+
     return mock_convert_with_cleanup
 
 
@@ -125,25 +127,25 @@ def mock_audio_conversion(monkeypatch):
 @pytest.fixture
 def test_safe_environment(monkeypatch):
     """Create a minimal test environment that only sets environment variables.
-    
+
     This fixture sets TEST_MODE environment variables to bypass API key validation
     and other external checks without using mocking. It's the most minimal approach
     for fixing tests while using real code paths.
     """
     # Set TEST_MODE environment variable
     monkeypatch.setenv("TTS_TEST_MODE", "true")
-    
+
     # Set valid test API keys as environment variables
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test1234567890abcdefghijklmnopqrstuvwxyz12345678")
     monkeypatch.setenv("ELEVENLABS_API_KEY", "abcdef0123456789abcdef0123456789")
     monkeypatch.setenv("GOOGLE_API_KEY", "AIzaSyD-test1234567890abcdefghijklmnopq")
-    
+
     # Return the environment settings for inspection if needed
     return {
         "test_mode": True,
         "openai_key": "sk-test1234567890abcdefghijklmnopqrstuvwxyz12345678",
         "elevenlabs_key": "abcdef0123456789abcdef0123456789",
-        "google_key": "AIzaSyD-test1234567890abcdefghijklmnopq"
+        "google_key": "AIzaSyD-test1234567890abcdefghijklmnopq",
     }
 
 
@@ -172,7 +174,7 @@ def isolated_config_dir(tmp_path, monkeypatch):
 
     # Mock XDG config directory
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    
+
     # Mock the get_config_path function to return our test config file
     monkeypatch.setattr("tts.config.get_config_path", lambda: config_file)
 
@@ -234,34 +236,36 @@ def mock_config(isolated_config_dir, monkeypatch):
 @pytest.fixture
 def mock_selective_imports():
     """Mock only problematic imports while preserving provider loading logic."""
-    
+
     # Mock only the heavy external dependencies that cause import issues
     # while keeping the actual provider classes and logic intact
-    
+
     mocks = {}
-    
+
     # Mock edge-tts async operations that can cause issues in test environment
     try:
         mock_edge_module = MagicMock()
         mock_edge_module.Communicate = MagicMock()
-        mock_edge_module.list_voices = AsyncMock(return_value=[
-            {"Name": "en-US-AvaNeural", "ShortName": "en-US-AvaNeural", "Gender": "Female"},
-            {"Name": "en-GB-SoniaNeural", "ShortName": "en-GB-SoniaNeural", "Gender": "Female"},
-        ])
-        mocks['edge_tts'] = mock_edge_module
+        mock_edge_module.list_voices = AsyncMock(
+            return_value=[
+                {"Name": "en-US-AvaNeural", "ShortName": "en-US-AvaNeural", "Gender": "Female"},
+                {"Name": "en-GB-SoniaNeural", "ShortName": "en-GB-SoniaNeural", "Gender": "Female"},
+            ]
+        )
+        mocks["edge_tts"] = mock_edge_module
     except ImportError:
         pass
-    
+
     # Don't mock the actual provider modules - let them load normally
     # The network mocking will handle external calls
-    
+
     yield mocks
 
 
 # ==============================================================================
 # LEGACY MOCK PROVIDERS (for backward compatibility only)
 # ==============================================================================
-# 
+#
 # NOTE: These are kept for any remaining tests that still use them directly.
 # New tests should use the selective mocking approach that preserves real
 # provider logic while mocking only external dependencies.
@@ -408,20 +412,20 @@ def cli_runner():
 @pytest.fixture
 def mock_minimal_network_calls(monkeypatch):
     """Minimal network mocking - just mock requests to avoid actual network calls."""
-    
+
     def mock_request_handler(method, url, *args, **kwargs):
         """Handle different API endpoints with realistic responses."""
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.headers = {"content-type": "application/json"}
-        
+
         # ElevenLabs API endpoints
         if "api.elevenlabs.io" in str(url):
             if "/voices" in str(url):
                 mock_response.json.return_value = {
                     "voices": [
                         {"voice_id": "21m00Tcm4TlvDq8ikWAM", "name": "Rachel"},
-                        {"voice_id": "AZnzlk1XvdvUeBnXmlld", "name": "Domi"}
+                        {"voice_id": "AZnzlk1XvdvUeBnXmlld", "name": "Domi"},
                     ]
                 }
             elif "/text-to-speech" in str(url):
@@ -430,34 +434,34 @@ def mock_minimal_network_calls(monkeypatch):
                 mock_response.iter_content = lambda chunk_size: [b"chunk1", b"chunk2"]
             else:
                 mock_response.json.return_value = {"status": "ok"}
-        
+
         # OpenAI API endpoints
         elif "api.openai.com" in str(url):
             mock_response.json.return_value = {"status": "ok"}
-            
+
         # Google Cloud TTS endpoints
         elif "texttospeech.googleapis.com" in str(url):
             mock_response.json.return_value = {"audioContent": "bW9jayBhdWRpbw=="}
-            
+
         # Default response
         else:
             mock_response.content = b"mock audio content"
             mock_response.headers = {"content-type": "audio/mpeg"}
             mock_response.json.return_value = {"status": "ok"}
-        
+
         return mock_response
-    
+
     # Mock requests at the module level
     monkeypatch.setattr("requests.get", lambda *args, **kwargs: mock_request_handler("GET", *args, **kwargs))
     monkeypatch.setattr("requests.post", lambda *args, **kwargs: mock_request_handler("POST", *args, **kwargs))
-    
+
     return mock_request_handler
 
 
-@pytest.fixture  
+@pytest.fixture
 def mock_edge_tts_simple(monkeypatch):
     """Simple edge-tts mocking that handles basic synthesis."""
-    
+
     class MockCommunicate:
         def __init__(self, text, voice, **kwargs):
             self.text = text
@@ -473,38 +477,46 @@ def mock_edge_tts_simple(monkeypatch):
 
         def stream(self):
             """Mock async generator for streaming."""
+
             async def _stream():
                 yield {"type": "audio", "data": b"chunk1"}
                 yield {"type": "audio", "data": b"chunk2"}
                 yield {"type": "audio", "data": b"chunk3"}
+
             return _stream()
 
     # Create a comprehensive edge_tts mock module
     mock_edge_module = MagicMock()
     mock_edge_module.Communicate = MockCommunicate
-    mock_edge_module.list_voices = AsyncMock(return_value=[
-        {"Name": "en-US-AvaNeural", "ShortName": "en-US-AvaNeural", "Gender": "Female"},
-        {"Name": "en-GB-SoniaNeural", "ShortName": "en-GB-SoniaNeural", "Gender": "Female"},
-    ])
-    
+    mock_edge_module.list_voices = AsyncMock(
+        return_value=[
+            {"Name": "en-US-AvaNeural", "ShortName": "en-US-AvaNeural", "Gender": "Female"},
+            {"Name": "en-GB-SoniaNeural", "ShortName": "en-GB-SoniaNeural", "Gender": "Female"},
+        ]
+    )
+
     # Mock the import in sys.modules so any import will get our mock
     import sys
-    sys.modules['edge_tts'] = mock_edge_module
-    
+
+    sys.modules["edge_tts"] = mock_edge_module
+
     # Also set up monkeypatch mocking in case edge_tts is already imported
     try:
         import edge_tts
+
         monkeypatch.setattr("edge_tts.Communicate", MockCommunicate)
+
         # Mock list_voices as well
         async def mock_list_voices():
             return [
                 {"Name": "en-US-AvaNeural", "ShortName": "en-US-AvaNeural", "Gender": "Female"},
                 {"Name": "en-GB-SoniaNeural", "ShortName": "en-GB-SoniaNeural", "Gender": "Female"},
             ]
+
         monkeypatch.setattr("edge_tts.list_voices", mock_list_voices)
     except ImportError:
         pass
-    
+
     return MockCommunicate
 
 
@@ -581,10 +593,10 @@ def mock_cli_environment(
 @pytest.fixture
 def minimal_test_environment(monkeypatch):
     """Minimal test environment that only sets essential environment variables.
-    
+
     This fixture uses environment variables to control behavior instead of heavy mocking.
     It's the simplest approach for most tests and should be the default choice.
-    
+
     Environment variables set:
     - TTS_TEST_MODE=1: Bypasses network calls and provider instantiation in core.py
     - TTS_DISABLE_PLAYBACK=1: Prevents audio output during testing
@@ -593,23 +605,19 @@ def minimal_test_environment(monkeypatch):
     # Core test mode flags
     monkeypatch.setenv("TTS_TEST_MODE", "1")
     monkeypatch.setenv("TTS_DISABLE_PLAYBACK", "1")
-    
+
     # Set valid test API keys to pass authentication checks
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test1234567890abcdefghijklmnopqrstuvwxyz12345678")
     monkeypatch.setenv("ELEVENLABS_API_KEY", "abcdef0123456789abcdef0123456789")
     monkeypatch.setenv("GOOGLE_API_KEY", "AIzaSyD-test1234567890abcdefghijklmnopq")
-    
-    return {
-        "test_mode": True,
-        "disable_playback": True,
-        "has_api_keys": True
-    }
+
+    return {"test_mode": True, "disable_playback": True, "has_api_keys": True}
 
 
 @pytest.fixture
 def unit_test_config(minimal_test_environment, tmp_path, monkeypatch):
     """Unit test fixture that combines minimal environment with isolated config.
-    
+
     Use this for:
     - Testing individual functions or classes
     - Tests that need config isolation but minimal mocking
@@ -618,46 +626,43 @@ def unit_test_config(minimal_test_environment, tmp_path, monkeypatch):
     # Create isolated config directory
     config_dir = tmp_path / "config"
     config_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Mock XDG config directory
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    
+
     # Create minimal config file
     config_file = config_dir / "config.json"
     config_data = {
-        "default_voice": "en-US-AvaNeural", 
+        "default_voice": "en-US-AvaNeural",
         "default_provider": "edge_tts",
         "output_format": "mp3",
-        "output_directory": str(tmp_path / "output")
+        "output_directory": str(tmp_path / "output"),
     }
-    
+
     import json
+
     with open(config_file, "w") as f:
         json.dump(config_data, f)
-    
+
     # Mock the get_config_path function to return our test config file
     monkeypatch.setattr("tts.config.get_config_path", lambda: config_file)
-    
+
     # Create output directory
     (tmp_path / "output").mkdir(exist_ok=True)
-    
-    return {
-        **minimal_test_environment,
-        "config_dir": config_dir,
-        "config_file": config_file,
-        "config_data": config_data
-    }
+
+    return {**minimal_test_environment, "config_dir": config_dir, "config_file": config_file, "config_data": config_data}
 
 
 @pytest.fixture
 def integration_test_env(unit_test_config, monkeypatch):
     """Integration test fixture that adds minimal audio mocking.
-    
+
     Use this for:
     - Testing CLI commands and integration between components
     - Tests that need audio environment but want real provider logic
     - Integration tests that cross multiple modules
     """
+
     # Mock only the audio environment to prevent hardware dependencies
     def mock_check_audio_env() -> Dict[str, Any]:
         return {
@@ -666,55 +671,52 @@ def integration_test_env(unit_test_config, monkeypatch):
             "pulse_available": True,
             "alsa_available": True,
         }
-    
+
     monkeypatch.setattr("tts.audio_utils.check_audio_environment", mock_check_audio_env)
-    
+
     # Mock subprocess calls for audio playback
     from unittest.mock import MagicMock
+
     mock_popen = MagicMock()
     mock_popen.wait.return_value = 0
     mock_popen.returncode = 0
     mock_popen.poll.return_value = 0
-    
+
     monkeypatch.setattr("subprocess.Popen", lambda *args, **kwargs: mock_popen)
     monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: MagicMock(returncode=0))
     monkeypatch.setattr("shutil.which", lambda x: f"/usr/bin/{x}")
-    
-    return {
-        **unit_test_config,
-        "audio_mocked": True,
-        "mock_popen": mock_popen
-    }
+
+    return {**unit_test_config, "audio_mocked": True, "mock_popen": mock_popen}
 
 
 @pytest.fixture
 def full_cli_env(integration_test_env, monkeypatch):
     """Full CLI test environment with comprehensive mocking.
-    
+
     Use this for:
     - Comprehensive CLI smoke tests
     - Tests that need full provider mocking (network calls, etc.)
     - Backward compatibility with existing tests
     - Tests that specifically test mocking behavior
-    
+
     This is equivalent to the old mock_cli_environment but built on the new architecture.
     """
     # Add network mocking for comprehensive testing
     from unittest.mock import MagicMock
-    
+
     def mock_request_handler(method, url, *args, **kwargs):
         """Handle different API endpoints with realistic responses."""
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.headers = {"content-type": "application/json"}
-        
+
         # ElevenLabs API endpoints
         if "api.elevenlabs.io" in str(url):
             if "/voices" in str(url):
                 mock_response.json.return_value = {
                     "voices": [
                         {"voice_id": "21m00Tcm4TlvDq8ikWAM", "name": "Rachel"},
-                        {"voice_id": "AZnzlk1XvdvUeBnXmlld", "name": "Domi"}
+                        {"voice_id": "AZnzlk1XvdvUeBnXmlld", "name": "Domi"},
                     ]
                 }
             elif "/text-to-speech" in str(url):
@@ -723,27 +725,27 @@ def full_cli_env(integration_test_env, monkeypatch):
                 mock_response.iter_content = lambda chunk_size: [b"chunk1", b"chunk2"]
             else:
                 mock_response.json.return_value = {"status": "ok"}
-        
+
         # OpenAI API endpoints
         elif "api.openai.com" in str(url):
             mock_response.json.return_value = {"status": "ok"}
-            
+
         # Google Cloud TTS endpoints
         elif "texttospeech.googleapis.com" in str(url):
             mock_response.json.return_value = {"audioContent": "bW9jayBhdWRpbw=="}
-            
+
         # Default response
         else:
             mock_response.content = b"mock audio content"
             mock_response.headers = {"content-type": "audio/mpeg"}
             mock_response.json.return_value = {"status": "ok"}
-        
+
         return mock_response
-    
+
     # Mock requests at the module level
     monkeypatch.setattr("requests.get", lambda *args, **kwargs: mock_request_handler("GET", *args, **kwargs))
     monkeypatch.setattr("requests.post", lambda *args, **kwargs: mock_request_handler("POST", *args, **kwargs))
-    
+
     # Add edge-tts mocking for comprehensive testing
     class MockCommunicate:
         def __init__(self, text, voice, **kwargs):
@@ -753,6 +755,7 @@ def full_cli_env(integration_test_env, monkeypatch):
         async def save(self, output_path):
             """Mock save method that creates a real audio file."""
             from pathlib import Path
+
             output_path = Path(output_path)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             with open(output_path, "wb") as f:
@@ -760,64 +763,65 @@ def full_cli_env(integration_test_env, monkeypatch):
 
         def stream(self):
             """Mock async generator for streaming."""
+
             async def _stream():
                 yield {"type": "audio", "data": b"chunk1"}
                 yield {"type": "audio", "data": b"chunk2"}
                 yield {"type": "audio", "data": b"chunk3"}
+
             return _stream()
 
     # Mock edge_tts module
     mock_edge_module = MagicMock()
     mock_edge_module.Communicate = MockCommunicate
     from unittest.mock import AsyncMock
-    mock_edge_module.list_voices = AsyncMock(return_value=[
-        {"Name": "en-US-AvaNeural", "ShortName": "en-US-AvaNeural", "Gender": "Female"},
-        {"Name": "en-GB-SoniaNeural", "ShortName": "en-GB-SoniaNeural", "Gender": "Female"},
-    ])
-    
+
+    mock_edge_module.list_voices = AsyncMock(
+        return_value=[
+            {"Name": "en-US-AvaNeural", "ShortName": "en-US-AvaNeural", "Gender": "Female"},
+            {"Name": "en-GB-SoniaNeural", "ShortName": "en-GB-SoniaNeural", "Gender": "Female"},
+        ]
+    )
+
     # Mock OpenAI client for comprehensive testing
     class MockOpenAIResponse:
         def __init__(self, content=b"mock audio content"):
             self.content = content
-        
+
         def stream_to_file(self, path):
             """Mock stream_to_file method."""
             with open(path, "wb") as f:
                 f.write(self.content)
-        
+
         def iter_bytes(self, chunk_size=1024):
             """Mock iter_bytes method for streaming."""
             # Return chunks of audio data
             for i in range(0, len(self.content), chunk_size):
-                yield self.content[i:i + chunk_size]
-    
+                yield self.content[i : i + chunk_size]
+
     class MockOpenAIAudio:
         def __init__(self):
             self.speech = self
-        
+
         def create(self, **kwargs):
             """Mock OpenAI audio.speech.create method."""
             return MockOpenAIResponse()
-    
+
     class MockOpenAIClient:
         def __init__(self, **kwargs):
             self.audio = MockOpenAIAudio()
-    
+
     # Mock OpenAI module
     mock_openai_module = MagicMock()
     mock_openai_module.OpenAI = MockOpenAIClient
-    
+
     # Mock the import in sys.modules so any import will get our mock
     import sys
-    sys.modules['edge_tts'] = mock_edge_module
-    sys.modules['openai'] = mock_openai_module
-    
-    return {
-        **integration_test_env,
-        "network_mocked": True,
-        "edge_tts_mocked": True,
-        "comprehensive_mocking": True
-    }
+
+    sys.modules["edge_tts"] = mock_edge_module
+    sys.modules["openai"] = mock_openai_module
+
+    return {**integration_test_env, "network_mocked": True, "edge_tts_mocked": True, "comprehensive_mocking": True}
 
 
 # ==============================================================================

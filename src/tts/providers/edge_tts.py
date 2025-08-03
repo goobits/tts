@@ -11,7 +11,7 @@ from ..audio_utils import (
 )
 from ..base import TTSProvider
 from ..config import get_config_value
-from ..exceptions import AudioPlaybackError, DependencyError, NetworkError, ProviderError
+from ..exceptions import DependencyError, NetworkError, ProviderError
 from ..types import ProviderInfo
 
 
@@ -36,7 +36,7 @@ class EdgeTTSProvider(TTSProvider):
         """Safely run async coroutine, handling existing event loops."""
         try:
             # Try to get current event loop
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # If we're already in an event loop, run in thread pool
             return self._executor.submit(asyncio.run, coro).result()
         except RuntimeError:
@@ -238,12 +238,12 @@ class EdgeTTSProvider(TTSProvider):
                 return
             except (IOError, OSError, RuntimeError) as e:
                 # Check if it's actually a broken pipe error in disguise
-                if "Broken pipe" in str(e) or "EPIPE" in str(e) or (hasattr(e, 'errno') and e.errno == errno.EPIPE):
+                if "Broken pipe" in str(e) or "EPIPE" in str(e) or (hasattr(e, "errno") and e.errno == errno.EPIPE):
                     self.logger.debug("Broken pipe error detected - handling gracefully")
                     if ffplay_process.poll() is None:
                         ffplay_process.terminate()
                     return
-                
+
                 self.logger.error(f"Audio streaming failed: {e}")
                 # Ensure ffplay is terminated
                 if ffplay_process.poll() is None:

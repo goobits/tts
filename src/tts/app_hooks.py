@@ -113,7 +113,7 @@ def on_speak(
                     text_input = sys.stdin.read().strip()
                     if text_input:
                         all_text.append(text_input)
-                except (BrokenPipeError, IOError) as e:
+                except (BrokenPipeError, IOError):
                     # Stdin was closed (e.g., in a pipeline that was interrupted)
                     # Exit gracefully without error message
                     sys.exit(0)
@@ -158,6 +158,7 @@ def on_speak(
     except IOError as e:
         # Check if it's a broken pipe error
         import errno
+
         if e.errno == errno.EPIPE:
             return 0
         # Re-raise other IO errors
@@ -447,7 +448,7 @@ def on_info(provider: Optional[str], **kwargs) -> int:
             # Use safe info method that handles authentication gracefully
             info = engine.get_provider_info_safe(provider_name)
             status = engine.get_provider_status(provider_name)
-            
+
             # Determine status indicator
             if status["available"] and status["configured"]:
                 status_icon = "✅"
@@ -468,7 +469,7 @@ def on_info(provider: Optional[str], **kwargs) -> int:
             print(f"📋 Provider: {provider_name} {status_icon}")
             print("=" * 40)
             print(f"🔄 Status: {status_text}")
-            
+
             for key, value in info.items():
                 if key == "name":
                     print(f"🏢 Name: {value}")
@@ -497,10 +498,10 @@ def on_info(provider: Optional[str], **kwargs) -> int:
                         print(f"⭐ Capabilities: {', '.join(value)}")
                 elif key not in ["status", "error"]:  # Skip internal status fields
                     print(f"   {key}: {value}")
-            
+
             # Show setup instructions for unconfigured providers
             if not status["configured"] and status["installed"]:
-                print(f"\n💡 Setup Instructions:")
+                print("\n💡 Setup Instructions:")
                 api_key_name = engine._get_api_key_provider_name(provider_name)
                 if provider_name == "openai_tts":
                     print(f"   Set API key: tts config set {api_key_name}_api_key YOUR_KEY")
@@ -510,7 +511,9 @@ def on_info(provider: Optional[str], **kwargs) -> int:
                     print("   Get your key at: https://elevenlabs.io/profile")
                 elif provider_name == "google_tts":
                     print(f"   Option 1 - API key: tts config set {api_key_name}_api_key YOUR_KEY")
-                    print(f"   Option 2 - Service account: tts config set {api_key_name}_credentials_path /path/to/credentials.json")
+                    print(
+                        f"   Option 2 - Service account: tts config set {api_key_name}_credentials_path /path/to/credentials.json"
+                    )
                     print("   Get credentials at: https://console.cloud.google.com/")
 
         else:
@@ -522,7 +525,7 @@ def on_info(provider: Optional[str], **kwargs) -> int:
             for provider_name in available:
                 info = engine.get_provider_info_safe(provider_name)
                 status = engine.get_provider_status(provider_name)
-                
+
                 # Determine status indicator
                 if status["available"] and status["configured"]:
                     status_icon = "✅"
@@ -537,7 +540,7 @@ def on_info(provider: Optional[str], **kwargs) -> int:
                 description = info.get("description", "No description")
                 print(f"\n{status_icon} {name}")
                 print(f"   {description}")
-                
+
                 # Find shortcut
                 shortcut = None
                 for k, v in PROVIDER_SHORTCUTS.items():
@@ -877,14 +880,14 @@ def on_status(**kwargs) -> int:
 
         print("\n📋 Provider Status:")
         available = engine.get_available_providers()
-        
+
         ready_count = 0
         needs_setup_count = 0
         error_count = 0
-        
+
         for provider in available:
             status = engine.get_provider_status(provider)
-            
+
             # Determine status indicator and count
             if status["available"] and status["configured"]:
                 status_icon = "✅"
@@ -906,9 +909,9 @@ def on_status(**kwargs) -> int:
                 status_icon = "❓"
                 status_text = "Unknown"
                 error_count += 1
-            
+
             print(f"  {status_icon} {provider:<15} {status_text}")
-            
+
             # Show helpful setup hints for providers that need configuration
             if not status["configured"] and status["installed"]:
                 api_key_name = engine._get_api_key_provider_name(provider)
@@ -927,7 +930,7 @@ def on_status(**kwargs) -> int:
         print("\n⚙️  Configuration:")
         print(f"  Default voice: {config.get('voice', 'Not set')}")
         print(f"  Config file: {config.get('config_path', 'Default location')}")
-        
+
         # Show some important config values
         important_keys = ["openai_api_key", "elevenlabs_api_key", "google_api_key", "google_credentials_path"]
         configured_apis = []
@@ -935,7 +938,7 @@ def on_status(**kwargs) -> int:
             if config.get(key):
                 api_name = key.replace("_api_key", "").replace("_credentials_path", "")
                 configured_apis.append(api_name)
-        
+
         if configured_apis:
             print(f"  Configured APIs: {', '.join(configured_apis)}")
         else:
