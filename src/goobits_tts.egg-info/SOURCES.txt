@@ -15,6 +15,7 @@ src/tts/cli.py
 src/tts/config.py
 src/tts/core.py
 src/tts/exceptions.py
+src/tts/setup.sh
 src/tts/types.py
 src/tts/voice_browser.py
 src/tts/voice_manager.py
