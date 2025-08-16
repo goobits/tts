@@ -981,7 +981,7 @@ class DefaultGroup(RichGroup):
 
 
 def main(ctx, help_json=False, help_all=False):
-    """🔊 [bold color(6)]GOOBITS TTS CLI v1.1.2[/bold color(6)] - Multi-provider text-to-speech with voice cloning
+    """🔊 [bold color(6)]GOOBITS TTS CLI v1.1.4[/bold color(6)] - Multi-provider text-to-speech with voice cloning
 
 
     \b

@@ -496,7 +496,7 @@ def detect_silence(file_path: Path, silence_threshold: float = 0.01) -> bool:
             # Single channel
             rms = (data ** 2).mean() ** 0.5
 
-        return rms < silence_threshold
+        return bool(rms < silence_threshold)
 
     except Exception:
         return False

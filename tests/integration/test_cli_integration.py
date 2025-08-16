@@ -645,7 +645,7 @@ class TestCLIAudioValidationIntegration:
             assert validation_result.file_size > 1000
             # Check silence detection if available
             if validation_result.has_silence is not None:
-                assert validation_result.has_silence is False  # Should contain audio content
+                assert validation_result.has_silence == False  # Should contain audio content
 
     def test_multiple_providers_audio_consistency(self, full_cli_env, tmp_path):
         """Test that different providers produce consistent audio output."""

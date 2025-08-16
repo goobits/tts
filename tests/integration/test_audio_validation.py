@@ -258,7 +258,7 @@ class TestSilenceDetection:
         )
 
         is_silent = detect_silence(silent_file, silence_threshold=0.1)
-        assert is_silent is True
+        assert is_silent == True
 
     @pytest.mark.skipif(not SOUNDFILE_SUPPORT, reason="Soundfile not available")
     def test_detect_silence_with_audio(self, tmp_path):
@@ -271,7 +271,7 @@ class TestSilenceDetection:
         )
 
         is_silent = detect_silence(audio_file, silence_threshold=0.01)
-        assert is_silent is False
+        assert is_silent == False
 
     def test_detect_silence_no_soundfile(self, tmp_path):
         """Test silence detection when soundfile not available."""
@@ -575,7 +575,7 @@ class TestAudioValidationIntegration:
         assert result.channels == 2
         assert result.file_size >= 1000
         # has_silence may be None if silence detection fails, or numpy False, accept that
-        assert result.has_silence is False or result.has_silence is None or (hasattr(result.has_silence, 'item') and not result.has_silence.item())
+        assert result.has_silence == False or result.has_silence is None or (hasattr(result.has_silence, 'item') and not result.has_silence.item())
 
         # Test format compatibility
         assert validate_audio_format_compatibility(audio_file, "mp3") is True
