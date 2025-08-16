@@ -51,14 +51,14 @@ After generation, use `./setup.sh install --dev` for development installation wi
 
 **Testing:**
 ```bash
-# Use the virtual environment when running commands, not the global python (see README for setup details)
+# Use the virtual environment when running commands, not the global python
 ./test.sh               # Main test runner with coverage
 python -m pytest tests/ -v    # Direct pytest execution
 
 # CLI-specific testing
-python -m pytest tests/test_cli.py -v           # Detailed CLI functionality tests
-python -m pytest tests/test_cli_smoke.py -v     # Comprehensive CLI smoke tests  
-python test_cli_quick.py                        # Quick CLI validation script
+python -m pytest tests/integration/test_cli_integration.py -v  # Detailed CLI functionality tests
+python -m pytest tests/e2e/test_cli_smoke.py -v               # Comprehensive CLI smoke tests  
+python test_cli.py                                             # Quick CLI validation script
 ```
 
 **Code Quality:**
@@ -106,7 +106,7 @@ Provider loading is dynamic via the `PROVIDERS_REGISTRY` dict in `src/tts/app_ho
 
 ### Configuration System
 
-- Default config in `config.py:11-19`
+- Default config in `config.py:114-115`
 - XDG-compliant paths (`~/.config/tts/config.json`)
 - Voice format: `provider:voice_name` (e.g., `edge_tts:en-IE-EmilyNeural`)
 - Auto-detection of providers from voice strings in `parse_voice_setting()`
@@ -164,7 +164,7 @@ stt recording.wav | tts @edge               # Transcribe and speak
 
 ## Code Style & Standards
 
-- **Line length**: 100 characters (Black + Ruff configured)
+- **Line length**: 128 characters (Black + Ruff configured)
 - **Type hints**: Required for all functions (`mypy` enforced)
 - **Error handling**: Use custom exceptions from `exceptions.py`
 - **Logging**: Structured logging to `logs/tts.log` + console
@@ -182,7 +182,7 @@ voice_manager.load_voice("/path/to/voice.wav")  # Pre-load for speed
 ```
 
 ### Interactive Voice Browser
-Advanced curses-based interface in `src/tts/cli.py` with:
+Advanced curses-based interface in `src/tts/voice_browser.py` with:
 - Three-panel layout (filters, voices, preview)
 - Mouse and keyboard navigation
 - Real-time voice preview with background audio playback
@@ -193,14 +193,18 @@ All provider dependencies (including PyTorch for Chatterbox with GPU support) ar
 
 ## Testing Notes
 
-- Tests are in `tests/` directory
-- Provider-specific tests check availability before running
+- Tests organized by type with clear boundaries:
+  - `tests/unit/` - Pure unit tests with mocks
+  - `tests/integration/` - Integration tests with mocked external dependencies  
+  - `tests/e2e/` - End-to-end workflow tests
+  - `tests/providers/` - Provider-specific tests
+- Tests gracefully skip when providers unavailable (CI-friendly)
 - Use `pytest -v` for verbose output
-- Mock external dependencies for unit tests
+- All external dependencies properly mocked for reliable testing
 
 ## Recent Features
 
-### CLI Enhancement (v2.0.0)
+### CLI Enhancement (v1.1.3)
 - **Enhanced user experience**: Emoji-enhanced interface with visual status indicators
 - **Provider shortcuts**: Use `@edge`, `@openai`, `@elevenlabs`, etc. for quick provider selection
 - **Rich configuration display**: Organized sections showing API keys, defaults, audio settings, and paths

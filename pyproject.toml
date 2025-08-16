@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "goobits-tts"
 version = "1.1.3"
 description = "Command-line text-to-speech tool with multiple providers, voice cloning, and smart auto-selection"
-readme = "README.md"
+readme = "CLAUDE.md"
 requires-python = ">=3.8"
 classifiers = [ "Development Status :: 4 - Beta", "Intended Audience :: Developers", "License :: OSI Approved :: MIT License", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3.8", "Programming Language :: Python :: 3.9", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12", "Topic :: Multimedia :: Sound/Audio :: Speech", "Topic :: Software Development :: Libraries :: Python Modules",]
 dependencies = [ "click>=8.0.0", "rich-click>=1.7.0", "rich>=13.0.0", "edge-tts>=7.0.0", "requests>=2.25.0",]
@@ -78,6 +78,6 @@ testpaths = [ "tests",]
 python_files = [ "test_*.py",]
 python_classes = [ "Test*",]
 python_functions = [ "test_*",]
-addopts = [ "-v", "--tb=short", "--strict-markers", "--strict-config", "--durations=10", "--cov-report=html:.temp/htmlcov", "--cov-report=term",]
-markers = [ "slow: marks tests as slow (deselect with '-m \"not slow\"')", "integration: marks tests as integration tests", "unit: marks tests as unit tests", "e2e: marks tests as end-to-end tests", "config: marks tests related to configuration", "audio: marks tests related to audio processing", "provider: marks tests related to TTS providers", "workflow: marks tests as workflow tests", "benchmark: marks tests as benchmark tests", "pipeline: marks tests as pipeline integration tests", "realuser: marks tests as real user scenario tests", "stress: marks tests as stress tests", "performance: marks tests as performance tests", "regression: marks tests as regression tests",]
+addopts = [ "-v", "--tb=short", "--strict-markers", "--strict-config", "--durations=10",]
+markers = [ "slow: marks tests as slow (deselect with '-m \"not slow\"')", "integration: marks tests as integration tests", "unit: marks tests as unit tests", "e2e: marks tests as end-to-end tests", "config: marks tests related to configuration", "audio: marks tests related to audio processing", "provider: marks tests related to TTS providers", "workflow: marks tests as workflow tests", "benchmark: marks tests as benchmark tests", "pipeline: marks tests as pipeline integration tests", "realuser: marks tests as real user scenario tests", "stress: marks tests as stress tests", "performance: marks tests as performance tests", "regression: marks tests as regression tests", "requires_providers: mark test to require actual TTS providers",]
 filterwarnings = [ "ignore::DeprecationWarning", "ignore::PendingDeprecationWarning",]

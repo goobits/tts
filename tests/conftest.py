@@ -25,6 +25,30 @@ import pytest
 from tts.base import TTSProvider
 from tts.types import Config, ProviderInfo
 
+
+def provider_available() -> bool:
+    """Check if any real TTS provider is available for testing."""
+    if os.getenv("CI") or os.getenv("GITHUB_ACTIONS"):
+        return False
+    
+    # Quick check for Edge TTS (most reliable free provider)
+    try:
+        import edge_tts
+        return True
+    except ImportError:
+        pass
+    
+    # Check for other providers via environment variables
+    api_keys = [
+        "OPENAI_API_KEY",
+        "ELEVENLABS_API_KEY", 
+        "GOOGLE_API_KEY",
+        "GOOGLE_APPLICATION_CREDENTIALS"
+    ]
+    
+    return any(os.getenv(key) for key in api_keys)
+
+
 # Import network-only mocking infrastructure (selective imports)
 # Note: These imports were removed as they were unused in the codebase
 
@@ -181,6 +205,21 @@ def test_config_factory():
         return base_config
 
     return _create_config
+
+
+@pytest.fixture
+def requires_providers():
+    """Fixture that skips tests if no providers are available."""
+    if not provider_available():
+        pytest.skip("No TTS providers available for testing")
+
+
+# Pytest markers
+def pytest_configure(config):
+    """Register custom pytest markers."""
+    config.addinivalue_line(
+        "markers", "requires_providers: mark test to require actual TTS providers"
+    )
 
 
 @pytest.fixture

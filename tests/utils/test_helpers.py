@@ -1195,7 +1195,7 @@ def validate_test_environment(env_dict: Dict[str, Any]) -> None:
 # =============================================================================
 
 
-def test_rate_limiting_handling(
+def handle_rate_limiting_test(
     provider: Any,
     test_voice: str,
     max_requests: int = 5,
@@ -1259,7 +1259,7 @@ def test_rate_limiting_handling(
             time.sleep(request_delay)
 
 
-def test_invalid_api_key_handling(
+def handle_invalid_api_key_test(
     provider_class: type,
     invalid_key: str,
     test_voice: str,
