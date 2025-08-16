@@ -19,8 +19,20 @@ services:
     enabled: false
     type: auto
     memory_mb: 1024
-npm_packages:
-  - browsertap
 terminal:
   emoji: 🎤
   username: tts-dev
+aliases:
+  claudeyolo: claude --dangerously-skip-permissions
+  geminiyolo: GEMINI_API_KEY=${GEMINI_API_KEY:-} gemini
+claude_sync: true
+gemini_sync: true
+pip_packages:
+  - claudeflow
+package_linking:
+  npm: true
+  pip: true
+  cargo: true
+# Ports 3120-3129 reserved for tts
+ports:
+  www_dev: 3120

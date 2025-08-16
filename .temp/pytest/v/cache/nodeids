@@ -823,5 +823,7 @@
   "tests/unit/test_utils_validation.py::TestUtilitiesValidation::test_cli_helper_initialization",
   "tests/unit/test_utils_validation.py::TestUtilitiesValidation::test_config_creation",
   "tests/unit/test_utils_validation.py::TestUtilitiesValidation::test_mock_provider_creation",
-  "tests/unit/test_utils_validation.py::TestUtilitiesValidation::test_provider_shortcuts_data"
+  "tests/unit/test_utils_validation.py::TestUtilitiesValidation::test_provider_shortcuts_data",
+  "tests/utils/test_helpers.py::test_invalid_api_key_handling",
+  "tests/utils/test_helpers.py::test_rate_limiting_handling"
 ]

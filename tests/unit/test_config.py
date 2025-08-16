@@ -8,7 +8,6 @@ external dependencies or mocks. They test core business logic for:
 - SSML detection and processing
 """
 
-
 from tts.config import (
     CONFIG_DEFAULTS,
     _parse_env_value,
@@ -29,16 +28,16 @@ class TestParseEnvValue:
         assert _parse_env_value('true', bool) is True
         assert _parse_env_value('1', bool) is True
         assert _parse_env_value('yes', bool) is True
-        
+
         # Test key false values
         assert _parse_env_value('false', bool) is False
         assert _parse_env_value('0', bool) is False
         assert _parse_env_value('no', bool) is False
-        
+
         # Test case insensitivity for common cases
         assert _parse_env_value('TRUE', bool) is True
         assert _parse_env_value('FALSE', bool) is False
-        
+
         # Test unknown values default to False (important behavior)
         assert _parse_env_value('maybe', bool) is False
         assert _parse_env_value('', bool) is False

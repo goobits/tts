@@ -148,7 +148,10 @@ class TTSEngine:
             raise TTSError(f"Provider {provider_name} unavailable: {e}") from e
 
         # Prepare synthesis parameters
-        synthesis_kwargs = {"voice": voice, "stream": stream, "output_format": output_format, **kwargs}
+        synthesis_kwargs = {"stream": stream, "output_format": output_format, **kwargs}
+        # Only include voice if it's not None to allow provider defaults
+        if voice is not None:
+            synthesis_kwargs["voice"] = voice
 
         # Generate output path if needed
         if not stream and not output_path:

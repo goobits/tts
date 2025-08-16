@@ -12,6 +12,7 @@ Design: Uses real provider classes with mocked external dependencies,
 preserving provider logic while avoiding network/hardware dependencies.
 """
 
+import json
 import os
 import shutil
 import tempfile
@@ -139,24 +140,72 @@ def test_safe_environment(monkeypatch):
 
 
 @pytest.fixture
-def isolated_config_dir(tmp_path, monkeypatch):
-    """Create an isolated configuration directory for testing."""
+def test_config_factory():
+    """Factory for creating test configuration data with customizable options."""
+    def _create_config(
+        include_api_keys: bool = True,
+        provider: str = "edge_tts",
+        voice: str = "en-US-AvaNeural",
+        output_format: str = "mp3",
+        custom_settings: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Create test configuration data.
+
+        Args:
+            include_api_keys: Whether to include API keys in config
+            provider: Default provider to use
+            voice: Default voice to use  
+            output_format: Default output format
+            custom_settings: Additional custom settings to include
+
+        Returns:
+            Configuration dictionary
+        """
+        base_config = {
+            "default_voice": voice,
+            "default_provider": provider,
+            "output_format": output_format,
+        }
+
+        if include_api_keys:
+            base_config.update({
+                "openai_api_key": "sk-test1234567890abcdefghijklmnopqrstuvwxyz12345678",
+                "elevenlabs_api_key": "abcdef0123456789abcdef0123456789",
+                "google_cloud_api_key": "AIzaSyD-test1234567890abcdefghijklmnopq",
+            })
+
+        if custom_settings:
+            base_config.update(custom_settings)
+
+        return base_config
+
+    return _create_config
+
+
+@pytest.fixture
+def isolated_config_dir(tmp_path, monkeypatch, test_config_factory):
+    """Create an isolated configuration directory for testing with full config."""
     config_dir = tmp_path / "config"
     config_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create a test config file
+    # Create a test config file with comprehensive settings
     config_file = config_dir / "config.json"
-    config_data = {
-        "default_voice": "en-US-AvaNeural",
-        "default_provider": "edge_tts",
-        "output_format": "mp3",
-        "output_directory": str(tmp_path / "output"),
-        "openai_api_key": "sk-test1234567890abcdefghijklmnopqrstuvwxyz12345678",
-        "elevenlabs_api_key": "abcdef0123456789abcdef0123456789",
-        "google_cloud_api_key": "AIzaSyD-test1234567890abcdefghijklmnopq",
-    }
-
-    import json
+    config_data = test_config_factory(
+        include_api_keys=True,
+        custom_settings={
+            "output_directory": str(tmp_path / "output"),
+            "auto_provider_selection": True,
+            "voice_loading_enabled": True,
+            "http_streaming_chunk_size": 1024,
+            "streaming_progress_interval": 100,
+            "ffmpeg_conversion_timeout": 300,
+            "ffplay_timeout": 120,
+            "thread_pool_max_workers": 4,
+            "browser_page_size": 20,
+            "browser_preview_text": "Hello, this is a test.",
+        }
+    )
 
     with open(config_file, "w") as f:
         json.dump(config_data, f)
@@ -252,52 +301,219 @@ def mock_selective_imports():
 
 
 # ==============================================================================
-# LEGACY MOCK PROVIDERS (for backward compatibility only)
+# UNIFIED MOCK BACKEND INFRASTRUCTURE
 # ==============================================================================
-#
-# NOTE: These are kept for any remaining tests that still use them directly.
-# New tests should use the selective mocking approach that preserves real
-# provider logic while mocking only external dependencies.
 
 
-class MockTTSProvider(TTSProvider):
-    """Base mock TTS provider for testing (legacy - use selective mocking instead)."""
+class MockBackend:
+    """
+    Unified mock backend infrastructure for TTS provider testing.
 
-    def __init__(self, name: str = "mock_provider"):
+    This class consolidates all mock provider functionality into a single,
+    configurable backend that can simulate different provider behaviors.
+    """
+
+    def __init__(self, provider_type: str = "generic", name: str = "mock_provider"):
+        """
+        Initialize mock backend for a specific provider type.
+
+        Args:
+            provider_type: Type of provider ("generic", "edge_tts", "openai", "elevenlabs", "google")
+            name: Provider name for identification
+        """
+        self.provider_type = provider_type
         self.name = name
         self.synthesize_called = False
         self.last_text = None
         self.last_output_path = None
         self.last_kwargs = {}
+        self._call_history = []
+
+    def create_tts_provider(self) -> "MockTTSProvider":
+        """Create a mock TTS provider instance."""
+        return MockTTSProvider(self)
+
+    def create_communicate_class(self):
+        """Create a mock Communicate class for edge-tts."""
+        backend = self
+
+        class MockCommunicate:
+            def __init__(self, text, voice, **kwargs):
+                self.text = text
+                self.voice = voice
+                backend._record_call("communicate_init", {"text": text, "voice": voice, **kwargs})
+
+            async def save(self, output_path):
+                """Mock save method that creates a real audio file."""
+                output_path = Path(output_path)
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                # Create provider-specific mock audio content
+                content = backend._get_mock_audio_content()
+                with open(output_path, "wb") as f:
+                    f.write(content)
+                backend._record_call("save", {"output_path": str(output_path)})
+
+            def stream(self):
+                """Mock async generator for streaming."""
+                async def _stream():
+                    chunks = backend._get_stream_chunks()
+                    for chunk in chunks:
+                        yield chunk
+                backend._record_call("stream", {})
+                return _stream()
+
+        return MockCommunicate
+
+    def create_openai_client(self):
+        """Create a mock OpenAI client."""
+        backend = self
+
+        class MockOpenAIResponse:
+            def __init__(self, content=None):
+                self.content = content or backend._get_mock_audio_content()
+
+            def stream_to_file(self, path):
+                """Mock stream_to_file method."""
+                with open(path, "wb") as f:
+                    f.write(self.content)
+                backend._record_call("stream_to_file", {"path": str(path)})
+
+            def iter_bytes(self, chunk_size=1024):
+                """Mock iter_bytes method for streaming."""
+                for i in range(0, len(self.content), chunk_size):
+                    yield self.content[i : i + chunk_size]
+
+        class MockOpenAIAudio:
+            def __init__(self):
+                self.speech = self
+
+            def create(self, **kwargs):
+                """Mock OpenAI audio.speech.create method."""
+                backend._record_call("openai_create", kwargs)
+                return MockOpenAIResponse()
+
+        class MockOpenAIClient:
+            def __init__(self, **kwargs):
+                self.audio = MockOpenAIAudio()
+                backend._record_call("openai_client_init", kwargs)
+
+        return MockOpenAIClient
+
+    def _get_mock_audio_content(self) -> bytes:
+        """Get provider-specific mock audio content."""
+        provider_content = {
+            "edge_tts": b"mock edge-tts audio data with sufficient content for testing",
+            "openai": b"mock openai audio content",
+            "elevenlabs": b"mock elevenlabs audio content",
+            "google": b"mock google tts audio content",
+            "generic": b"mock audio data"
+        }
+        return provider_content.get(self.provider_type, provider_content["generic"])
+
+    def _get_stream_chunks(self) -> List[Dict[str, Any]]:
+        """Get mock streaming chunks."""
+        return [
+            {"type": "audio", "data": b"chunk1"},
+            {"type": "audio", "data": b"chunk2"},
+            {"type": "audio", "data": b"chunk3"}
+        ]
+
+    def _record_call(self, method: str, args: Dict[str, Any]) -> None:
+        """Record method calls for testing verification."""
+        self._call_history.append({"method": method, "args": args})
+
+    def get_call_history(self) -> List[Dict[str, Any]]:
+        """Get recorded call history."""
+        return self._call_history.copy()
+
+    def reset_call_history(self) -> None:
+        """Reset call history."""
+        self._call_history.clear()
+
+
+class MockTTSProvider(TTSProvider):
+    """Unified mock TTS provider backed by MockBackend."""
+
+    def __init__(self, backend: MockBackend):
+        self.backend = backend
+        self.name = backend.name
 
     def synthesize(self, text: str, output_path: Optional[str], **kwargs: Any) -> None:
         """Mock synthesize method that tracks calls."""
-        self.synthesize_called = True
-        self.last_text = text
-        self.last_output_path = output_path
-        self.last_kwargs = kwargs
+        self.backend.synthesize_called = True
+        self.backend.last_text = text
+        self.backend.last_output_path = output_path
+        self.backend.last_kwargs = kwargs
+        self.backend._record_call("synthesize", {"text": text, "output_path": output_path, **kwargs})
 
         # If output_path is provided, create a dummy file
         if output_path:
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             with open(output_path, "wb") as f:
-                f.write(b"mock audio data")
+                f.write(self.backend._get_mock_audio_content())
 
     def get_info(self) -> Optional[ProviderInfo]:
         """Return mock provider info."""
+        provider_samples = {
+            "edge_tts": ["en-US-AvaNeural", "en-GB-SoniaNeural"],
+            "openai": ["alloy", "echo", "fable"],
+            "elevenlabs": ["Rachel", "Domi"],
+            "google": ["en-US-Standard-A", "en-US-Standard-B"],
+            "generic": ["mock-voice-1", "mock-voice-2"]
+        }
+
         return {
-            "name": self.name,
-            "ShortName": self.name.lower().replace(" ", "_"),
-            "description": f"Mock {self.name} provider for testing",
+            "name": self.backend.name,
+            "ShortName": self.backend.name.lower().replace(" ", "_"),
+            "description": f"Mock {self.backend.name} provider for testing",
             "options": {"voice": "Mock voice selection"},
             "output_formats": ["mp3", "wav"],
-            "sample_voices": ["mock-voice-1", "mock-voice-2"],
+            "sample_voices": provider_samples.get(self.backend.provider_type, provider_samples["generic"]),
             "capabilities": ["stream", "save"],
         }
 
 
-# Legacy fixtures removed - use selective mocking approach instead
-# which preserves real provider logic while mocking external dependencies
+# ==============================================================================
+# MOCK BACKEND FIXTURES
+# ==============================================================================
+
+
+@pytest.fixture
+def mock_backend():
+    """Create a generic mock backend for testing."""
+    return MockBackend()
+
+
+@pytest.fixture
+def mock_edge_tts_backend():
+    """Create an edge-tts specific mock backend."""
+    return MockBackend("edge_tts", "edge_tts")
+
+
+@pytest.fixture
+def mock_openai_backend():
+    """Create an OpenAI specific mock backend."""
+    return MockBackend("openai", "openai_tts")
+
+
+@pytest.fixture
+def mock_elevenlabs_backend():
+    """Create an ElevenLabs specific mock backend."""
+    return MockBackend("elevenlabs", "elevenlabs")
+
+
+@pytest.fixture
+def mock_google_backend():
+    """Create a Google TTS specific mock backend."""
+    return MockBackend("google", "google_tts")
+
+
+# Legacy compatibility - provide the old MockTTSProvider interface
+@pytest.fixture
+def mock_tts_provider():
+    """Legacy fixture for backward compatibility."""
+    backend = MockBackend()
+    return backend.create_tts_provider()
 
 
 # ==============================================================================
@@ -448,31 +664,11 @@ def mock_minimal_network_calls(monkeypatch):
 
 
 @pytest.fixture
-def mock_edge_tts_simple(monkeypatch):
-    """Simple edge-tts mocking that handles basic synthesis."""
+def mock_edge_tts_simple(monkeypatch, mock_edge_tts_backend):
+    """Simple edge-tts mocking using unified MockBackend."""
 
-    class MockCommunicate:
-        def __init__(self, text, voice, **kwargs):
-            self.text = text
-            self.voice = voice
-
-        async def save(self, output_path):
-            """Mock save method that creates a real audio file."""
-            output_path = Path(output_path)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            # Create a mock audio file with some realistic content
-            with open(output_path, "wb") as f:
-                f.write(b"mock edge-tts audio data with sufficient content for testing")
-
-        def stream(self):
-            """Mock async generator for streaming."""
-
-            async def _stream():
-                yield {"type": "audio", "data": b"chunk1"}
-                yield {"type": "audio", "data": b"chunk2"}
-                yield {"type": "audio", "data": b"chunk3"}
-
-            return _stream()
+    # Use the unified backend to create MockCommunicate
+    MockCommunicate = mock_edge_tts_backend.create_communicate_class()
 
     # Create a comprehensive edge_tts mock module
     mock_edge_module = MagicMock()
@@ -603,7 +799,7 @@ def minimal_test_environment(monkeypatch):
 
 
 @pytest.fixture
-def unit_test_config(minimal_test_environment, tmp_path, monkeypatch):
+def unit_test_config(minimal_test_environment, tmp_path, monkeypatch, test_config_factory):
     """Unit test fixture that combines minimal environment with isolated config.
 
     Use this for:
@@ -618,16 +814,12 @@ def unit_test_config(minimal_test_environment, tmp_path, monkeypatch):
     # Mock XDG config directory
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
 
-    # Create minimal config file
+    # Create minimal config file using factory (without API keys for unit tests)
     config_file = config_dir / "config.json"
-    config_data = {
-        "default_voice": "en-US-AvaNeural",
-        "default_provider": "edge_tts",
-        "output_format": "mp3",
-        "output_directory": str(tmp_path / "output"),
-    }
-
-    import json
+    config_data = test_config_factory(
+        include_api_keys=False,
+        custom_settings={"output_directory": str(tmp_path / "output")}
+    )
 
     with open(config_file, "w") as f:
         json.dump(config_data, f)
@@ -678,8 +870,8 @@ def integration_test_env(unit_test_config, monkeypatch):
 
 
 @pytest.fixture
-def full_cli_env(integration_test_env, monkeypatch):
-    """Full CLI test environment with comprehensive mocking.
+def full_cli_env(integration_test_env, monkeypatch, mock_edge_tts_backend, mock_openai_backend):
+    """Full CLI test environment with comprehensive mocking using unified MockBackend.
 
     Use this for:
     - Comprehensive CLI smoke tests
@@ -734,30 +926,8 @@ def full_cli_env(integration_test_env, monkeypatch):
     monkeypatch.setattr("requests.get", lambda *args, **kwargs: mock_request_handler("GET", *args, **kwargs))
     monkeypatch.setattr("requests.post", lambda *args, **kwargs: mock_request_handler("POST", *args, **kwargs))
 
-    # Add edge-tts mocking for comprehensive testing
-    class MockCommunicate:
-        def __init__(self, text, voice, **kwargs):
-            self.text = text
-            self.voice = voice
-
-        async def save(self, output_path):
-            """Mock save method that creates a real audio file."""
-            from pathlib import Path
-
-            output_path = Path(output_path)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(output_path, "wb") as f:
-                f.write(b"mock edge-tts audio data with sufficient content for testing")
-
-        def stream(self):
-            """Mock async generator for streaming."""
-
-            async def _stream():
-                yield {"type": "audio", "data": b"chunk1"}
-                yield {"type": "audio", "data": b"chunk2"}
-                yield {"type": "audio", "data": b"chunk3"}
-
-            return _stream()
+    # Use unified backend for edge-tts mocking
+    MockCommunicate = mock_edge_tts_backend.create_communicate_class()
 
     # Mock edge_tts module
     mock_edge_module = MagicMock()
@@ -771,33 +941,8 @@ def full_cli_env(integration_test_env, monkeypatch):
         ]
     )
 
-    # Mock OpenAI client for comprehensive testing
-    class MockOpenAIResponse:
-        def __init__(self, content=b"mock audio content"):
-            self.content = content
-
-        def stream_to_file(self, path):
-            """Mock stream_to_file method."""
-            with open(path, "wb") as f:
-                f.write(self.content)
-
-        def iter_bytes(self, chunk_size=1024):
-            """Mock iter_bytes method for streaming."""
-            # Return chunks of audio data
-            for i in range(0, len(self.content), chunk_size):
-                yield self.content[i : i + chunk_size]
-
-    class MockOpenAIAudio:
-        def __init__(self):
-            self.speech = self
-
-        def create(self, **kwargs):
-            """Mock OpenAI audio.speech.create method."""
-            return MockOpenAIResponse()
-
-    class MockOpenAIClient:
-        def __init__(self, **kwargs):
-            self.audio = MockOpenAIAudio()
+    # Use unified backend for OpenAI mocking
+    MockOpenAIClient = mock_openai_backend.create_openai_client()
 
     # Mock OpenAI module
     mock_openai_module = MagicMock()
@@ -809,7 +954,14 @@ def full_cli_env(integration_test_env, monkeypatch):
     sys.modules["edge_tts"] = mock_edge_module
     sys.modules["openai"] = mock_openai_module
 
-    return {**integration_test_env, "network_mocked": True, "edge_tts_mocked": True, "comprehensive_mocking": True}
+    return {
+        **integration_test_env,
+        "network_mocked": True,
+        "edge_tts_mocked": True,
+        "comprehensive_mocking": True,
+        "edge_backend": mock_edge_tts_backend,
+        "openai_backend": mock_openai_backend
+    }
 
 
 # ==============================================================================

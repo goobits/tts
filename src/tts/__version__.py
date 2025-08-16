@@ -1,5 +1,7 @@
-import tomllib
 from pathlib import Path
+
+import tomllib
+
 
 def _get_version() -> str:
     """Read version from pyproject.toml"""
