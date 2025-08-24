@@ -60,3 +60,5 @@ Thumbs.db
 # Project specific
 logs/
 *.log
+# Symbolic links directory
+.links
