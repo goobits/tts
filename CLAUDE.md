@@ -235,21 +235,6 @@ All provider dependencies (including PyTorch for Chatterbox with GPU support) ar
 ### Temporary Files
 When creating temporary debug or test scripts, use `/tmp` directory to keep the project clean.
 
-### Git Repository Cleanup (August 2025)
-
-**⚠️ Important Note**: This repository previously had git tracking issues where virtual environments and cache files were accidentally committed. These issues have been resolved:
-
-- **Removed 3,849 venv/ files** from git tracking (virtual environment should never be committed)
-- **Removed 29 cache/temp files** (.cache/ and .temp/ directories) 
-- **Updated .gitignore** to prevent future violations
-
-If you're working on a fork or have an old clone, you may want to:
-```bash
-git pull origin main  # Get the cleanup commits
-# Or for a fresh start:
-git clone [repo-url]  # Re-clone to get clean history
-```
-
 ### Preventing __pycache__ Directories During Development
 
 The setup script automatically sets `PYTHONDONTWRITEBYTECODE=1` during installation to prevent Python from creating `__pycache__` directories. 
@@ -272,6 +257,3 @@ The `.gitignore` file is already configured to exclude all Python build artifact
 - `*.egg-info/`
 - `build/`
 - `dist/`
-- `venv/` (virtual environments)
-- `.cache/` (cache directories)
-- `.temp/` (temporary directories)
