@@ -41,18 +41,6 @@
   "tests/security/test_provider_security.py::TestProviderSecurity::test_ssml_injection_in_provider_context": true,
   "tests/security/test_provider_security.py::TestProviderSecurity::test_file_upload_security": true,
   "tests/security/test_provider_security.py::TestProviderSecurity::test_api_rate_limiting_bypass_attempts": true,
-  "tests/integration/test_real_audio_synthesis.py::TestRealAudioSynthesis::test_multiple_format_synthesis_validation": true,
-  "tests/integration/test_real_audio_synthesis.py::TestRealAudioSynthesis::test_voice_specification_synthesis_validation": true,
-  "tests/e2e/test_pipeline_integration.py::TestMultiProviderComparison::test_provider_synthesis_comparison": true,
-  "tests/e2e/test_pipeline_integration.py::TestMultiProviderComparison::test_voice_selection_across_providers": true,
-  "tests/e2e/test_pipeline_integration.py::TestProviderFallbackMechanisms::test_provider_fallback_workflow": true,
-  "tests/e2e/test_pipeline_integration.py::TestProviderFallbackMechanisms::test_configuration_based_provider_selection": true,
-  "tests/e2e/test_pipeline_integration.py::TestProviderPipelinePerformance::test_provider_switching_performance": true,
-  "tests/e2e/test_complete_workflows.py::TestComplexWorkflowScenarios::test_multi_step_content_processing_workflow": true,
-  "tests/e2e/test_complete_workflows.py::TestBasicSynthesisWorkflows::test_multiple_format_synthesis_workflow": true,
-  "tests/integration/test_audio_validation.py::TestSilenceDetection::test_detect_silence_no_audio": true,
-  "tests/integration/test_audio_validation.py::TestSilenceDetection::test_detect_silence_with_audio": true,
-  "tests/integration/test_cli.py::TestCLIAudioValidationIntegration::test_save_command_audio_validation_comprehensive": true,
   "tests/utils/test_helpers.py::test_rate_limiting_handling": true,
   "tests/utils/test_helpers.py::test_invalid_api_key_handling": true
 }
