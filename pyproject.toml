@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "goobits-tts"
 version = "1.1.4"
 description = "Command-line text-to-speech tool with multiple providers, voice cloning, and smart auto-selection"
-readme = "CLAUDE.md"
+readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [ "Development Status :: 4 - Beta", "Intended Audience :: Developers", "License :: OSI Approved :: MIT License", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3.8", "Programming Language :: Python :: 3.9", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12", "Topic :: Multimedia :: Sound/Audio :: Speech", "Topic :: Software Development :: Libraries :: Python Modules",]
 dependencies = [ "click>=8.0.0", "rich-click>=1.7.0", "rich>=13.0.0", "edge-tts>=7.0.0", "requests>=2.25.0",]
@@ -30,8 +30,8 @@ dev = [ "pytest>=7.0", "pytest-asyncio", "pytest-cov", "black", "ruff", "mypy", 
 tts = "tts.cli:cli_entry"
 
 [project.urls]
-Homepage = "https://github.com/mudcube/tts-cli"
-"Bug Tracker" = "https://github.com/mudcube/tts-cli/issues"
+Homepage = "https://github.com/goobits/tts"
+"Bug Tracker" = "https://github.com/goobits/tts/issues"
 
 [tool.setuptools]
 packages = [ "tts", "tts.providers", "tts.document_processing", "tts.speech_synthesis",]

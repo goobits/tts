@@ -63,9 +63,9 @@ python test_cli.py                                             # Quick CLI valid
 
 **Code Quality:**
 ```bash
-ruff check .                                              # Lint code 
+ruff check .                                              # Lint code
 ruff check . --fix                                        # Auto-fix linting issues
-black .                                                   # Format code (line-length 100)
+black .                                                   # Format code (line-length 128)
 mypy src/tts/                                            # Type checking
 ```
 
@@ -79,7 +79,6 @@ mypy src/tts/                                            # Type checking
 **Building:**
 ```bash
 python -m build         # Build package
-make build              # Alternative build command
 ```
 
 ## Architecture Overview
@@ -106,8 +105,8 @@ Provider loading is dynamic via the `PROVIDERS_REGISTRY` dict in `src/tts/app_ho
 
 ### Configuration System
 
-- Default config in `config.py:114-115`
-- XDG-compliant paths (`~/.config/tts/config.json`)
+- Default config in `config.py` (DEFAULT_CONFIG constant)
+- XDG-compliant paths (`~/.config/tts/config.toml`)
 - Voice format: `provider:voice_name` (e.g., `edge_tts:en-IE-EmilyNeural`)
 - Auto-detection of providers from voice strings in `parse_voice_setting()`
 
@@ -144,7 +143,7 @@ tts voice status              # Show loaded voices
 tts providers                 # Enhanced provider status display
 tts providers @openai         # Provider-specific setup instructions
 tts status                    # System health check
-tts version                   # Show version with suite branding
+tts --version                 # Show version with suite branding
 
 # Configuration (enhanced display)
 tts config show               # Rich config display with emoji sections
@@ -167,7 +166,7 @@ stt recording.wav | tts @edge               # Transcribe and speak
 - **Line length**: 128 characters (Black + Ruff configured)
 - **Type hints**: Required for all functions (`mypy` enforced)
 - **Error handling**: Use custom exceptions from `exceptions.py`
-- **Logging**: Structured logging to `logs/tts.log` + console
+- **Logging**: Structured logging to console
 
 ## Key Implementation Details
 
@@ -204,7 +203,7 @@ All provider dependencies (including PyTorch for Chatterbox with GPU support) ar
 
 ## Recent Features
 
-### CLI Enhancement (v1.1.3)
+### CLI Enhancement (v1.1.4)
 - **Enhanced user experience**: Emoji-enhanced interface with visual status indicators
 - **Provider shortcuts**: Use `@edge`, `@openai`, `@elevenlabs`, etc. for quick provider selection
 - **Rich configuration display**: Organized sections showing API keys, defaults, audio settings, and paths

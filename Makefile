@@ -25,7 +25,7 @@ lint: ## Run linting with ruff
 
 format: ## Format code with black
 	@echo "🎨 Formatting code..."
-	black src/tts/ tests/ --line-length 100
+	black src/tts/ tests/ --line-length 128
 
 type-check: ## Run type checking with mypy
 	@echo "🔎 Running type checker..."
