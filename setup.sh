@@ -1134,7 +1134,7 @@ main() {
     
     # Header
     if [[ "$TREE_MODE" == "true" ]]; then
-        tree_start "${command^} Process"
+        tree_start "$(echo ${command:0:1} | tr '[:lower:]' '[:upper:]')${command:1} Process"
     else
         echo
         log_info "Starting $DISPLAY_NAME setup..."
