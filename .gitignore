@@ -62,3 +62,4 @@ logs/
 *.log
 # Symbolic links directory
 .links
+.claude/settings.json
