@@ -1207,11 +1207,6 @@ def speak(ctx, text, options, voice, rate, pitch, debug):
     help="🎤 Voice selection (e.g., en-GB-SoniaNeural for edge_tts)"
 )
 
-@click.option("--clone",
-    type=str,
-    help="🎭 Audio file to clone voice from (deprecated: use --voice instead)"
-)
-
 @click.option("--json",
     is_flag=True,
     help="🔧 Output results as JSON"
@@ -1473,11 +1468,6 @@ def info(ctx, provider):
 @click.option("-v", "--voice",
     type=str,
     help="🎤 Voice to use"
-)
-
-@click.option("--clone",
-    type=str,
-    help="🎭 Audio file to clone voice from (deprecated: use --voice instead)"
 )
 
 @click.option("--json",

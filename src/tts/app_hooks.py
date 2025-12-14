@@ -174,7 +174,6 @@ def on_save(
     output: Optional[str],
     format: Optional[str],
     voice: Optional[str],
-    clone: Optional[str],
     json: bool,
     debug: bool,
     rate: Optional[str],
@@ -275,18 +274,6 @@ def on_voices(args: tuple, **kwargs) -> int:
     except Exception:
         # Re-raise to let CLI handle it with user-friendly messages
         raise
-        print(f"  Interactive: {sys.stdout.isatty()}")
-        print(f"  Terminal size: {os.get_terminal_size() if sys.stdout.isatty() else 'N/A'}")
-
-        import traceback
-
-        traceback.print_exc()
-
-        print("\nTroubleshooting:")
-        print("1. Try running: export TERM=xterm-256color")
-        print("2. Or run: reset && tts voices")
-        print("3. If in tmux/screen, try running outside of it")
-        return 1
 
 
 def on_providers(provider_name: Optional[str], **kwargs) -> int:
@@ -569,7 +556,6 @@ def on_document(
     output: Optional[str],
     format: Optional[str],
     voice: Optional[str],
-    clone: Optional[str],
     json: bool,
     debug: bool,
     doc_format: str,
