@@ -713,6 +713,11 @@ install_with_pipx() {
 
 install_with_pip() {
     local install_dev="$1"
+    local pip_user_flag="--user"
+
+    if [[ -n "$VIRTUAL_ENV" ]]; then
+        pip_user_flag=""
+    fi
 
     tree_sub_node "warning" "Using pip instead of pipx (not recommended)"
 
@@ -724,7 +729,7 @@ install_with_pip() {
     if [[ "$install_dev" == "true" ]]; then
         tree_sub_node "progress" "Installing in development mode with pip..."
         
-        (cd "$PROJECT_DIR" && python3 -m pip install --editable "$DEVELOPMENT_PATH[dev,all]" --user) &
+        (cd "$PROJECT_DIR" && python3 -m pip install --editable "$DEVELOPMENT_PATH[dev,all]" $pip_user_flag) &
         
         show_spinner $!
         wait $!
@@ -741,7 +746,7 @@ install_with_pip() {
     else
         tree_sub_node "progress" "Installing from PyPI with pip..."
         
-        python3 -m pip install "$PYPI_NAME[dev,all]" --user &
+        python3 -m pip install "$PYPI_NAME[dev,all]" $pip_user_flag &
         
         show_spinner $!
         wait $!
@@ -786,7 +791,7 @@ upgrade_package() {
 
         # Capture pip output to prevent it from breaking tree structure
         
-        python3 -m pip install --upgrade "$PYPI_NAME[dev,all]" --user >/dev/null 2>&1 &
+        python3 -m pip install --upgrade "$PYPI_NAME[dev,all]" $pip_user_flag >/dev/null 2>&1 &
         
         show_spinner $!
         wait $!
