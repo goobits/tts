@@ -6,7 +6,7 @@ import tempfile
 import time
 from typing import Any, Dict, List, Optional, cast
 
-import requests  # type: ignore
+import httpx
 
 from ..audio_utils import (
     check_audio_environment,
@@ -48,7 +48,7 @@ class ElevenLabsProvider(TTSProvider):
         self._voices_cache: Optional[List[Dict[str, Any]]] = None
         self.base_url = "https://api.elevenlabs.io/v1"
 
-    def _make_request(self, method: str, endpoint: str, **kwargs: Any) -> requests.Response:
+    def _make_request(self, method: str, endpoint: str, **kwargs: Any) -> httpx.Response:
         """Make authenticated request to ElevenLabs API."""
         api_key = get_api_key("elevenlabs")
         if not api_key:
@@ -59,9 +59,9 @@ class ElevenLabsProvider(TTSProvider):
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
 
         try:
-            response = requests.request(method, url, headers=headers, **kwargs)
+            response = httpx.request(method, url, headers=headers, **kwargs)
             return response
-        except requests.RequestException as e:
+        except httpx.RequestError as e:
             raise NetworkError(f"ElevenLabs API request failed: {e}") from e
 
     def _get_available_voices(self) -> List[Dict[str, Any]]:
@@ -90,7 +90,7 @@ class ElevenLabsProvider(TTSProvider):
                     self.logger.warning(f"Failed to fetch ElevenLabs voices: {response.status_code}")
                     self._voices_cache = []
 
-            except (requests.RequestException, ValueError, KeyError) as e:
+            except (httpx.RequestError, ValueError, KeyError) as e:
                 self.logger.warning(f"Failed to fetch ElevenLabs voices: {e}")
                 self._voices_cache = []
 
@@ -205,7 +205,7 @@ class ElevenLabsProvider(TTSProvider):
 
                     os.unlink(tmp_path)
 
-        except requests.RequestException as e:
+        except httpx.RequestError as e:
             if "response" in locals():
                 # Use standardized HTTP error mapping for request exceptions too
                 raise map_http_error(response.status_code, str(e), "ElevenLabs") from e
@@ -249,62 +249,61 @@ class ElevenLabsProvider(TTSProvider):
 
                 url = f"{self.base_url}/text-to-speech/{voice_id}/stream"
 
-                # Make streaming request
+                # Make streaming request with httpx
                 self.logger.debug("Starting ElevenLabs streaming request")
-                response = requests.post(url, headers=headers, json=payload, stream=True)
-
-                if response.status_code != 200:
-                    error_msg = f"ElevenLabs API error {response.status_code}"
-                    try:
-                        error_detail = response.json().get("detail", {})
-                        if isinstance(error_detail, dict):
-                            error_msg += f": {error_detail.get('message', 'Unknown error')}"
-                        else:
-                            error_msg += f": {error_detail}"
-                    except (ValueError, KeyError, AttributeError):
-                        # JSON parsing failed or missing expected keys
-                        error_msg += f": {response.text[:200]}"
-                    raise ProviderError(error_msg)
-
-                # Stream audio data chunks
-                self.logger.debug("Starting chunk-by-chunk audio streaming")
-                chunk_count = 0
-                bytes_written = 0
-                first_chunk_time = None
-
-                # ElevenLabs streams in chunks
-                for chunk in response.iter_content(chunk_size=get_config_value("http_streaming_chunk_size")):
-                    if chunk:
-                        chunk_count += 1
-
-                        # Log when we get the first chunk (latency measurement)
-                        if chunk_count == 1:
-                            first_chunk_time = time.time()
-                            self.logger.debug("First audio chunk received - starting immediate playback")
-
+                with httpx.stream("POST", url, headers=headers, json=payload) as response:
+                    if response.status_code != 200:
+                        error_msg = f"ElevenLabs API error {response.status_code}"
                         try:
-                            # Write chunk immediately to start playback ASAP
-                            if ffplay_process.stdin is not None:
-                                ffplay_process.stdin.write(chunk)
-                                ffplay_process.stdin.flush()
-                                bytes_written += len(chunk)
-
-                            # Log progress every N chunks
-                            if chunk_count % get_config_value("streaming_progress_interval") == 0:
-                                self.logger.debug(f"Streamed {chunk_count} chunks, {bytes_written} bytes")
-
-                        except BrokenPipeError:
-                            # Check if ffplay process ended early
-                            if ffplay_process.poll() is not None:
-                                stderr_output = ""
-                                if ffplay_process.stderr is not None:
-                                    stderr_output = ffplay_process.stderr.read().decode("utf-8", errors="ignore")
-                                self.logger.warning(
-                                    f"FFplay ended early (exit code: {ffplay_process.returncode}): {stderr_output}"
-                                )
-                                break
+                            error_detail = response.json().get("detail", {})
+                            if isinstance(error_detail, dict):
+                                error_msg += f": {error_detail.get('message', 'Unknown error')}"
                             else:
-                                raise
+                                error_msg += f": {error_detail}"
+                        except (ValueError, KeyError, AttributeError):
+                            # JSON parsing failed or missing expected keys
+                            error_msg += f": {response.text[:200]}"
+                        raise ProviderError(error_msg)
+
+                    # Stream audio data chunks
+                    self.logger.debug("Starting chunk-by-chunk audio streaming")
+                    chunk_count = 0
+                    bytes_written = 0
+                    first_chunk_time = None
+
+                    # ElevenLabs streams in chunks (httpx uses iter_bytes instead of iter_content)
+                    for chunk in response.iter_bytes(chunk_size=get_config_value("http_streaming_chunk_size")):
+                        if chunk:
+                            chunk_count += 1
+
+                            # Log when we get the first chunk (latency measurement)
+                            if chunk_count == 1:
+                                first_chunk_time = time.time()
+                                self.logger.debug("First audio chunk received - starting immediate playback")
+
+                            try:
+                                # Write chunk immediately to start playback ASAP
+                                if ffplay_process.stdin is not None:
+                                    ffplay_process.stdin.write(chunk)
+                                    ffplay_process.stdin.flush()
+                                    bytes_written += len(chunk)
+
+                                # Log progress every N chunks
+                                if chunk_count % get_config_value("streaming_progress_interval") == 0:
+                                    self.logger.debug(f"Streamed {chunk_count} chunks, {bytes_written} bytes")
+
+                            except BrokenPipeError:
+                                # Check if ffplay process ended early
+                                if ffplay_process.poll() is not None:
+                                    stderr_output = ""
+                                    if ffplay_process.stderr is not None:
+                                        stderr_output = ffplay_process.stderr.read().decode("utf-8", errors="ignore")
+                                    self.logger.warning(
+                                        f"FFplay ended early (exit code: {ffplay_process.returncode}): {stderr_output}"
+                                    )
+                                    break
+                                else:
+                                    raise
 
                 # Close stdin and wait for ffplay to finish
                 try:
@@ -343,7 +342,7 @@ class ElevenLabsProvider(TTSProvider):
                     ) from e
                 raise ProviderError(f"Audio streaming failed: {e}") from e
 
-        except (requests.RequestException, ConnectionError, ValueError, RuntimeError) as e:
+        except (httpx.RequestError, ConnectionError, ValueError, RuntimeError) as e:
             if "authentication" in str(e).lower() or "api_key" in str(e).lower():
                 self.logger.error(f"Authentication error during ElevenLabs streaming: {e}")
                 raise ProviderError(f"ElevenLabs API authentication failed: {e}") from e
@@ -410,7 +409,7 @@ class ElevenLabsProvider(TTSProvider):
             # Get actual voice names for the browser
             voice_names = [v["name"] for v in all_voices]
 
-        except (requests.RequestException, ValueError, KeyError, AttributeError):
+        except (httpx.RequestError, ValueError, KeyError, AttributeError):
             voice_list = [f"{name}: {desc}" for name, desc in self.DEFAULT_VOICES.items()]
             voice_names = list(self.DEFAULT_VOICES.keys())
             custom_voices = []

@@ -5,7 +5,7 @@ import logging
 import tempfile
 from typing import Any, List, Optional
 
-import requests  # type: ignore
+import httpx
 
 from ..audio_utils import convert_audio, stream_audio_file
 from ..base import TTSProvider
@@ -99,7 +99,7 @@ class GoogleTTSProvider(TTSProvider):
 
         return self._client
 
-    def _make_request(self, method: str, endpoint: str, **kwargs: Any) -> requests.Response:
+    def _make_request(self, method: str, endpoint: str, **kwargs: Any) -> httpx.Response:
         """Make authenticated request to Google Cloud TTS REST API (for API key auth)."""
         api_key = get_api_key("google")
         if not api_key:
@@ -109,9 +109,9 @@ class GoogleTTSProvider(TTSProvider):
         params = {"key": api_key}
 
         try:
-            response = requests.request(method, url, params=params, **kwargs)
+            response = httpx.request(method, url, params=params, **kwargs)
             return response
-        except requests.RequestException as e:
+        except httpx.RequestError as e:
             raise NetworkError(f"Google Cloud TTS API request failed: {e}") from e
 
     def get_info(self) -> ProviderInfo:
@@ -193,7 +193,7 @@ class GoogleTTSProvider(TTSProvider):
                 else:
                     self.logger.warning(f"Failed to fetch voices: HTTP {response.status_code}")
                     self._voices_cache = []
-        except (requests.RequestException, ValueError, KeyError) as e:
+        except (httpx.RequestError, ValueError, KeyError) as e:
             self.logger.warning(f"Failed to fetch Google voices: {e}")
             self._voices_cache = []
 
@@ -319,7 +319,7 @@ class GoogleTTSProvider(TTSProvider):
 
                         shutil.move(tmp_path, output_path)
 
-        except requests.RequestException as e:
+        except httpx.RequestError as e:
             error_str = str(e).lower()
             if "authentication" in error_str or "api_key" in error_str or "credentials" in error_str:
                 raise AuthenticationError(f"Google Cloud authentication failed: {e}") from e
