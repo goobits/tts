@@ -204,6 +204,8 @@ class DocumentCache:
 
     def get_cache_stats(self) -> Dict:
         """Get cache statistics."""
+        # Flush pending writes so stats reflect current state
+        self._flush()
         total_files = len(self.metadata["files"])
         total_size_mb = self.metadata["total_size"] / (1024 * 1024)
 
@@ -238,7 +240,8 @@ class DocumentCache:
             cache_file.unlink()
 
         self.metadata = {"files": {}, "total_size": 0, "last_cleanup": time.time()}
-        self._mark_dirty()
+        # Flush immediately - destructive operations should persist right away
+        self._save_metadata()
 
 
 class PerformanceOptimizer:

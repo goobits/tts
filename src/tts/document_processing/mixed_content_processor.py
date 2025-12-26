@@ -1,6 +1,7 @@
 """Mixed content processor integrating document parsing with text formatting."""
 
 import re
+from collections import defaultdict
 from typing import Any, Dict, List
 
 from tts.document_processing.base_parser import SemanticElement
@@ -19,37 +20,46 @@ class MixedContentProcessor:
         # Import document parsing
         self.document_factory = DocumentParserFactory()
 
-        # Content type detection patterns
-        self.document_indicators = [
-            r"<[^>]+>",  # HTML tags
-            r"#+\s",  # Markdown headers
-            r"```[\s\S]*?```",  # Code blocks
-            r"\[.*?\]\(.*?\)",  # Markdown links
-            r"^\s*[\-\*\+]\s",  # List items
-            r"^\s*\d+\.\s",  # Numbered lists
-            r'"[^"]*":\s*[{\[]',  # JSON structure
-            r'{\s*"[^"]*"',  # JSON object start
-        ]
+        # Combined single-pass pattern for document indicators (named groups)
+        # Each match increments the corresponding indicator count
+        self._doc_pattern = re.compile(
+            r"(?P<html_tag><[a-zA-Z][^>]*>)"
+            r"|(?P<md_header>^#{1,6}\s)"
+            r"|(?P<code_block>```)"
+            r"|(?P<md_link>\[[^\]]*\]\([^)]*\))"
+            r"|(?P<list_item>^\s*[-*+]\s)"
+            r"|(?P<num_list>^\s*\d+\.\s)"
+            r"|(?P<json_struct>\"[^\"]*\":\s*[{\[])"
+            r"|(?P<json_start>{\s*\"[^\"]*\")",
+            re.MULTILINE | re.IGNORECASE
+        )
 
-        self.transcription_indicators = [
-            r"\b(?:um|uh|ah|er|mm)\b",  # Filler words
-            r"\b(?:like|you know|I mean)\b",  # Speech patterns
-            r"\b(?:gonna|wanna|gotta)\b",  # Contractions
-            r"\.{2,}",  # Pause indicators
-            r"\?\s*\?",  # Uncertainty markers
-        ]
+        # Combined single-pass pattern for transcription indicators
+        self._trans_pattern = re.compile(
+            r"(?P<filler>\b(?:um|uh|ah|er|mm)\b)"
+            r"|(?P<speech_pattern>\b(?:like|you know|I mean)\b)"
+            r"|(?P<contraction>\b(?:gonna|wanna|gotta)\b)"
+            r"|(?P<pause>\.{2,})"
+            r"|(?P<uncertainty>\?\s*\?)",
+            re.MULTILINE | re.IGNORECASE
+        )
 
-        # Pre-compile document indicators for better performance
-        self._compiled_doc_patterns = [
-            re.compile(pattern, re.MULTILINE | re.IGNORECASE)
-            for pattern in self.document_indicators
-        ]
+        # Additional heuristic patterns (single-pass combined)
+        self._extra_doc_pattern = re.compile(
+            r"(?P<struct_header>(?:^|\n)#{1,6}\s+\w+)"
+            r"|(?P<html_struct><(?:html|head|body|div|p|h[1-6]))"
+            r"|(?P<code_pre>```[\s\S]*?```|<pre>[\s\S]*?</pre>)",
+            re.MULTILINE | re.IGNORECASE
+        )
 
-        # Pre-compile transcription indicators for better performance
-        self._compiled_trans_patterns = [
-            re.compile(pattern, re.MULTILINE | re.IGNORECASE)
-            for pattern in self.transcription_indicators
-        ]
+        self._extra_trans_pattern = re.compile(
+            r"(?P<think>\bi\s+(?:think|believe|feel|want|need)\b)"
+            r"|(?P<you_know>\byou\s+(?:know|see|think)\b)"
+            r"|(?P<lets>\blet's\s+\w+)"
+            r"|(?P<what_do>\bwhat\s+do\s+you\b)"
+            r"|(?P<spoken_num>\b(?:one|two|three|four|five|six|seven|eight|nine|ten)\b)",
+            re.MULTILINE | re.IGNORECASE
+        )
 
     def process_mixed_content(self, content: str, content_type: str = "auto", format_hint: str = "") -> str:
         """Process content that might be document OR transcribed speech.
@@ -90,72 +100,45 @@ class MixedContentProcessor:
             return self._process_transcription(content)
 
     def _detect_content_type(self, content: str, format_hint: str = "") -> str:
-        """Heuristics to distinguish documents from transcriptions."""
+        """Heuristics to distinguish documents from transcriptions.
 
+        Uses single-pass regex scanning for performance.
+        """
         # If we have a format hint, prefer document processing
         if format_hint and format_hint in ["html", "markdown", "json"]:
             return "document"
 
-        content_lower = content.lower()
-
-        # Count document indicators using pre-compiled patterns
+        # Single-pass document indicator scan
         doc_score = 0
-        for pattern in self._compiled_doc_patterns:
-            matches = len(pattern.findall(content))
-            doc_score += matches
+        for match in self._doc_pattern.finditer(content):
+            # Each named group match counts as 1
+            doc_score += 1
 
-        # Count transcription indicators using pre-compiled patterns
+        # Single-pass transcription indicator scan
         trans_score = 0
-        for pattern in self._compiled_trans_patterns:
-            matches = len(pattern.findall(content))
-            trans_score += matches
+        for match in self._trans_pattern.finditer(content):
+            trans_score += 1
 
-        # Additional document heuristics
+        # Single-pass additional heuristics scan
+        extra_weights = {"struct_header": 3, "html_struct": 5, "code_pre": 2}
+        for match in self._extra_doc_pattern.finditer(content):
+            for name, val in match.groupdict().items():
+                if val:
+                    doc_score += extra_weights.get(name, 1)
 
-        # Structured headers (#, ##, <h1>)
-        if re.search(r"(^|\n)#{1,6}\s+\w+", content, re.MULTILINE):
-            doc_score += 3
+        for match in self._extra_trans_pattern.finditer(content):
+            trans_score += 1
 
-        # HTML structure
-        if re.search(r"<(html|head|body|div|p|h[1-6])", content, re.IGNORECASE):
-            doc_score += 5
-
-        # JSON structure
-        if content.strip().startswith("{") and content.strip().endswith("}"):
+        # JSON structure bonus (quick check, not regex)
+        stripped = content.strip()
+        if stripped.startswith("{") and stripped.endswith("}"):
             doc_score += 4
 
-        # Formatted lists (-, *, <li>)
-        list_items = len(re.findall(r"^\s*[\-\*\+]\s+\w+", content, re.MULTILINE))
-        if list_items >= 2:
-            doc_score += list_items
-
-        # Code blocks (```, <pre>)
-        code_blocks = len(re.findall(r"```[\s\S]*?```|<pre>[\s\S]*?</pre>", content))
-        if code_blocks > 0:
-            doc_score += code_blocks * 2
-
-        # Additional transcription heuristics
-
-        # Conversational language
-        conversation_patterns = [
-            r"\bi\s+(?:think|believe|feel|want|need)\b",
-            r"\byou\s+(?:know|see|think)\b",
-            r"\blet\'s\s+\w+",
-            r"\bwhat\s+do\s+you\b",
-        ]
-        for pattern in conversation_patterns:
-            if re.search(pattern, content_lower):
-                trans_score += 1
-
-        # Incomplete sentences (common in speech)
+        # Incomplete sentences heuristic (common in speech)
         sentences = re.split(r"[.!?]+", content)
         short_sentences = sum(1 for s in sentences if len(s.split()) <= 3 and len(s.strip()) > 0)
         if short_sentences >= 2:
             trans_score += short_sentences
-
-        # Spoken numbers/entities
-        spoken_numbers = len(re.findall(r"\b(?:one|two|three|four|five|six|seven|eight|nine|ten)\b", content_lower))
-        trans_score += spoken_numbers
 
         # Decision logic
         if doc_score > trans_score * 1.5:  # Bias slightly toward document detection
@@ -199,25 +182,32 @@ class MixedContentProcessor:
         """Analyze content and return detailed classification information."""
         content_type = self._detect_content_type(content, format_hint)
 
-        # Count various indicators using pre-compiled patterns
-        doc_indicators = sum(
-            len(pattern.findall(content)) for pattern in self._compiled_doc_patterns
-        )
-
-        trans_indicators = sum(
-            len(pattern.findall(content)) for pattern in self._compiled_trans_patterns
-        )
+        # Count indicators using single-pass patterns
+        doc_indicators = len(list(self._doc_pattern.finditer(content)))
+        trans_indicators = len(list(self._trans_pattern.finditer(content)))
 
         # Word and sentence statistics
         words = len(content.split())
         sentences = len(re.split(r"[.!?]+", content))
         avg_sentence_length = words / max(sentences, 1)
 
-        # Structure analysis
-        has_headers = bool(re.search(r"(^|\n)#{1,6}\s+\w+|<h[1-6]", content, re.MULTILINE | re.IGNORECASE))
-        has_lists = bool(re.search(r"^\s*[\-\*\+]\s+\w+|<li>", content, re.MULTILINE | re.IGNORECASE))
-        has_code = bool(re.search(r"```[\s\S]*?```|<pre>|<code>", content))
-        has_links = bool(re.search(r"\[.*?\]\(.*?\)|<a\s+href", content))
+        # Structure analysis using single-pass scanning
+        structure_matches = defaultdict(bool)
+        for match in self._extra_doc_pattern.finditer(content):
+            for name, val in match.groupdict().items():
+                if val:
+                    structure_matches[name] = True
+
+        # Check main doc pattern for lists and links
+        for match in self._doc_pattern.finditer(content):
+            for name, val in match.groupdict().items():
+                if val:
+                    structure_matches[name] = True
+
+        has_headers = structure_matches.get("struct_header", False) or structure_matches.get("html_struct", False) or structure_matches.get("md_header", False)
+        has_code = structure_matches.get("code_pre", False) or structure_matches.get("code_block", False)
+        has_lists = structure_matches.get("list_item", False) or structure_matches.get("num_list", False)
+        has_links = structure_matches.get("md_link", False) or bool(re.search(r"<a\s+href", content))
 
         return {
             "detected_type": content_type,
