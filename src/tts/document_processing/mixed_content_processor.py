@@ -39,6 +39,18 @@ class MixedContentProcessor:
             r"\?\s*\?",  # Uncertainty markers
         ]
 
+        # Pre-compile document indicators for better performance
+        self._compiled_doc_patterns = [
+            re.compile(pattern, re.MULTILINE | re.IGNORECASE)
+            for pattern in self.document_indicators
+        ]
+
+        # Pre-compile transcription indicators for better performance
+        self._compiled_trans_patterns = [
+            re.compile(pattern, re.MULTILINE | re.IGNORECASE)
+            for pattern in self.transcription_indicators
+        ]
+
     def process_mixed_content(self, content: str, content_type: str = "auto", format_hint: str = "") -> str:
         """Process content that might be document OR transcribed speech.
 
@@ -86,16 +98,16 @@ class MixedContentProcessor:
 
         content_lower = content.lower()
 
-        # Count document indicators
+        # Count document indicators using pre-compiled patterns
         doc_score = 0
-        for pattern in self.document_indicators:
-            matches = len(re.findall(pattern, content, re.MULTILINE | re.IGNORECASE))
+        for pattern in self._compiled_doc_patterns:
+            matches = len(pattern.findall(content))
             doc_score += matches
 
-        # Count transcription indicators
+        # Count transcription indicators using pre-compiled patterns
         trans_score = 0
-        for pattern in self.transcription_indicators:
-            matches = len(re.findall(pattern, content, re.MULTILINE | re.IGNORECASE))
+        for pattern in self._compiled_trans_patterns:
+            matches = len(pattern.findall(content))
             trans_score += matches
 
         # Additional document heuristics
@@ -187,13 +199,13 @@ class MixedContentProcessor:
         """Analyze content and return detailed classification information."""
         content_type = self._detect_content_type(content, format_hint)
 
-        # Count various indicators
+        # Count various indicators using pre-compiled patterns
         doc_indicators = sum(
-            len(re.findall(pattern, content, re.MULTILINE | re.IGNORECASE)) for pattern in self.document_indicators
+            len(pattern.findall(content)) for pattern in self._compiled_doc_patterns
         )
 
         trans_indicators = sum(
-            len(re.findall(pattern, content, re.MULTILINE | re.IGNORECASE)) for pattern in self.transcription_indicators
+            len(pattern.findall(content)) for pattern in self._compiled_trans_patterns
         )
 
         # Word and sentence statistics

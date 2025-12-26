@@ -1,7 +1,9 @@
 """Document caching and performance optimization for large documents."""
 
+import atexit
 import hashlib
 import pickle
+import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -28,6 +30,12 @@ class DocumentCache:
         # Cache metadata file
         self.metadata_file = self.cache_dir / "cache_metadata.json"
         self.metadata = self._load_metadata()
+
+        # Batched metadata writing
+        self._dirty = False
+        self._save_timer: Optional[threading.Timer] = None
+        self._save_lock = threading.Lock()
+        atexit.register(self._flush)
 
     def get_cache_key(self, content: str, format_hint: str = "") -> str:
         """Generate cache key from content hash and format hint."""
@@ -126,6 +134,25 @@ class DocumentCache:
         except Exception:
             pass
 
+    def _mark_dirty(self) -> None:
+        """Mark metadata as needing save, schedule debounced write."""
+        with self._save_lock:
+            self._dirty = True
+            if self._save_timer is None:
+                self._save_timer = threading.Timer(5.0, self._flush)
+                self._save_timer.daemon = True
+                self._save_timer.start()
+
+    def _flush(self) -> None:
+        """Flush pending metadata changes to disk."""
+        with self._save_lock:
+            if self._save_timer:
+                self._save_timer.cancel()
+                self._save_timer = None
+            if self._dirty:
+                self._save_metadata()
+                self._dirty = False
+
     def _add_to_metadata(self, cache_key: str, cache_data: Dict) -> None:
         """Add file to metadata tracking."""
         cache_file = self.cache_dir / cache_key
@@ -141,20 +168,20 @@ class DocumentCache:
         }
 
         self.metadata["total_size"] = sum(f["size"] for f in self.metadata["files"].values())
-        self._save_metadata()
+        self._mark_dirty()
 
     def _remove_from_metadata(self, cache_key: str) -> None:
         """Remove file from metadata tracking."""
         if cache_key in self.metadata["files"]:
             del self.metadata["files"][cache_key]
             self.metadata["total_size"] = sum(f["size"] for f in self.metadata["files"].values())
-            self._save_metadata()
+            self._mark_dirty()
 
     def _update_access_time(self, cache_key: str) -> None:
         """Update last access time for a cache file."""
         if cache_key in self.metadata["files"]:
             self.metadata["files"][cache_key]["last_accessed"] = time.time()
-            self._save_metadata()
+            self._mark_dirty()
 
     def _cleanup_cache_if_needed(self) -> None:
         """Clean up cache if it exceeds size limit."""
@@ -211,7 +238,7 @@ class DocumentCache:
             cache_file.unlink()
 
         self.metadata = {"files": {}, "total_size": 0, "last_cleanup": time.time()}
-        self._save_metadata()
+        self._mark_dirty()
 
 
 class PerformanceOptimizer:
