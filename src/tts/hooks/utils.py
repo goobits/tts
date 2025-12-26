@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+"""Hook handlers for TTS CLI."""
+
+import sys
+from typing import Any, Dict, Optional
+
+from tts.config import load_config, save_config
+from tts.core import get_tts_engine
+
+# Provider registry - this should match what was in the original CLI
+PROVIDERS_REGISTRY = {
+    "edge_tts": "tts.providers.edge_tts",
+    "openai_tts": "tts.providers.openai_tts",
+    "elevenlabs": "tts.providers.elevenlabs",
+    "google_tts": "tts.providers.google_tts",
+    "chatterbox": "tts.providers.chatterbox",
+}
+
+# Provider shortcuts mapping for @provider syntax
+PROVIDER_SHORTCUTS = {
+    "edge": "edge_tts",
+    "openai": "openai_tts",
+    "elevenlabs": "elevenlabs",
+    "google": "google_tts",
+    "chatterbox": "chatterbox",
+}
+
+def parse_provider_shortcuts(args: list) -> tuple[Optional[str], list]:
+    """Parse @provider shortcuts from arguments"""
+    if not args:
+        return None, args
+
+    # Check if first argument is a provider shortcut
+    first_arg = args[0]
+    if first_arg.startswith("@"):
+        shortcut = first_arg[1:]  # Remove @
+        if shortcut in PROVIDER_SHORTCUTS:
+            provider_name = PROVIDER_SHORTCUTS[shortcut]
+            remaining_args = args[1:]  # Rest of the arguments
+            return provider_name, remaining_args
+        else:
+            # Invalid shortcut - let calling function handle the error
+            return first_arg, args[1:]
+
+    return None, args
+
+
+
+def handle_provider_shortcuts(provider_arg: Optional[str]) -> Optional[str]:
+    """Handle @provider syntax in commands"""
+    if not provider_arg:
+        return None
+
+    if provider_arg.startswith("@"):
+        shortcut = provider_arg[1:]  # Remove @
+        if shortcut in PROVIDER_SHORTCUTS:
+            return PROVIDER_SHORTCUTS[shortcut]
+        else:
+            # Return the original for error handling
+            return provider_arg
+
+    return provider_arg
+
+
+
+def get_engine() -> Any:
+    """Get or create TTS engine instance"""
+    try:
+        return get_tts_engine()
+    except (ImportError, AttributeError, RuntimeError):
+        from tts.core import initialize_tts_engine
+
+        return initialize_tts_engine(PROVIDERS_REGISTRY)
+
