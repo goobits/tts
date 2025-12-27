@@ -1,4 +1,4 @@
-# Goobits TTS
+# 🔊 Matilda Voice
 
 One CLI for all TTS providers. Stream to speakers, save to files, or clone voices. Works with your text processing pipeline.
 
@@ -7,23 +7,23 @@ One CLI for all TTS providers. Stream to speakers, save to files, or clone voice
 ## Quick Start
 
 1. **Install**: `./setup.sh install`
-2. **Test**: `tts "Hello world"`
+2. **Test**: `voice "Hello world"`
 3. **Done**: You just synthesized speech
 
 ## Basic Usage
 
 ```bash
 # Stream audio to speakers
-tts "Hello world"
+voice "Hello world"
 echo "Hello world" | tts
 
 # Save to file
-tts save "Hello world" -o greeting.mp3
+voice save "Hello world" -o greeting.mp3
 
 # Use specific provider
-tts @edge "Hello from Microsoft"
-tts @openai "Hello from OpenAI"
-tts @elevenlabs "Hello from ElevenLabs"
+voice @edge "Hello from Microsoft"
+voice @openai "Hello from OpenAI"
+voice @elevenlabs "Hello from ElevenLabs"
 ```
 
 ## Provider Comparison
@@ -40,26 +40,26 @@ tts @elevenlabs "Hello from ElevenLabs"
 
 ```bash
 # Set API keys
-tts config set openai_api_key YOUR_KEY
-tts config set elevenlabs_api_key YOUR_KEY
-tts config set google_api_key YOUR_KEY
+voice config set openai_api_key YOUR_KEY
+voice config set elevenlabs_api_key YOUR_KEY
+voice config set google_api_key YOUR_KEY
 
 # View configuration
-tts config show
+voice config show
 
 # Interactive editor
-tts config edit
+voice config edit
 ```
 
 ## Voice Selection
 
 ```bash
 # Browse voices interactively
-tts voices
+voice voices
 
 # Use specific voice
-tts @edge "Hello" --voice en-US-AriaNeural
-tts @openai "Hello" --voice alloy
+voice @edge "Hello" --voice en-US-AriaNeural
+voice @openai "Hello" --voice alloy
 ```
 
 ## Pipeline Integration
@@ -74,7 +74,7 @@ stt recording.wav | tts @edge
 echo "Hello" | ttt "translate to Spanish" | tts @google
 
 # Document processing
-tts document report.html --emotion-profile technical
+voice document report.html --emotion-profile technical
 ```
 
 ## Documentation
@@ -93,9 +93,9 @@ tts document report.html --emotion-profile technical
 
 **Alternative methods**:
 ```bash
-pipx install goobits-tts[all]      # Global install
-pip install goobits-tts[all]       # User install
-pip install goobits-tts[openai]    # Single provider
+pipx install goobits-matilda-voice[all]      # Global install
+pip install goobits-matilda-voice[all]       # User install
+pip install goobits-matilda-voice[openai]    # Single provider
 ```
 
 **Development**:
@@ -114,9 +114,9 @@ pip install goobits-tts[openai]    # Single provider
 Part of the Goobits AI toolkit:
 
 - **[Matilda](https://github.com/goobits/matilda)** - AI assistant
-- **[Goobits STT](https://github.com/goobits/stt)** - Speech-to-Text
-- **[Goobits TTS](https://github.com/goobits/tts)** - Text-to-Speech (this project)
-- **[Goobits TTT](https://github.com/goobits/ttt)** - Text-to-Text processing
+- **[Matilda Ears](https://github.com/goobits/matilda-ears)** - Speech-to-Text
+- **[Matilda Voice](https://github.com/goobits/matilda-voice)** - Text-to-Speech (this project)
+- **[Matilda Brain](https://github.com/goobits/matilda-brain)** - Text-to-Text processing
 
 ## License
 

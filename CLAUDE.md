@@ -4,15 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TTS CLI is a Python text-to-speech command-line tool that supports multiple TTS providers with smart auto-selection, voice cloning capabilities, and intelligent document processing. The project uses a pluggable provider architecture to support:
+Voice CLI is a Python text-to-speech command-line tool that supports multiple Voice providers with smart auto-selection, voice cloning capabilities, and intelligent document processing. The project uses a pluggable provider architecture to support:
 
-- **Edge TTS** (Microsoft Azure): Free, high-quality neural voices  
+- **Edge Voice** (Microsoft Azure): Free, high-quality neural voices  
 - **Chatterbox**: Local voice cloning with GPU/CPU support
-- **OpenAI TTS**: API-based synthesis with premium voices
-- **Google Cloud TTS**: Google's neural voices via REST API
+- **OpenAI Voice**: API-based synthesis with premium voices
+- **Google Cloud Voice**: Google's neural voices via REST API
 - **ElevenLabs**: Advanced voice synthesis and cloning
 
-Additionally, TTS CLI now includes advanced document-to-speech capabilities:
+Additionally, Voice CLI now includes advanced document-to-speech capabilities:
 - **Multi-format support**: HTML, JSON, Markdown auto-conversion
 - **Emotion detection**: Context-aware emotion profiles (technical, marketing, narrative, tutorial)
 - **SSML generation**: Platform-optimized speech synthesis markup (Azure, Google, Amazon)
@@ -66,14 +66,14 @@ python test_cli.py                                             # Quick CLI valid
 ruff check .                                              # Lint code
 ruff check . --fix                                        # Auto-fix linting issues
 black .                                                   # Format code (line-length 128)
-mypy src/tts/                                            # Type checking
+mypy src/matilda_voice/                                            # Type checking
 ```
 
 **Note:** If tools are installed via pipx, use the full path:
 ```bash
-~/.local/share/pipx/venvs/goobits-tts/bin/ruff check .    # Lint code
-~/.local/share/pipx/venvs/goobits-tts/bin/black .         # Format code  
-~/.local/share/pipx/venvs/goobits-tts/bin/mypy src/tts/   # Type checking
+~/.local/share/pipx/venvs/goobits-matilda-voice/bin/ruff check .    # Lint code
+~/.local/share/pipx/venvs/goobits-matilda-voice/bin/black .         # Format code  
+~/.local/share/pipx/venvs/goobits-matilda-voice/bin/mypy src/matilda_voice/   # Type checking
 ```
 
 **Building:**
@@ -85,23 +85,23 @@ python -m build         # Build package
 
 ### Core Components
 
-1. **src/tts/cli.py** - Main CLI entry point with generated commands
-2. **src/tts/app_hooks.py** - Hook implementations connecting CLI to TTS functionality
-3. **src/tts/core.py** - Core TTS engine with provider management
-4. **src/tts/base.py** - Abstract `TTSProvider` base class
-5. **src/tts/config.py** - Configuration management with XDG compliance
-6. **src/tts/voice_manager.py** - Voice loading/caching for fast access
-7. **src/tts/providers/** - Provider implementations
-8. **src/tts/document_processing/** - Document parsing (HTML, JSON, Markdown)
-9. **src/tts/speech_synthesis/** - Emotion detection and SSML generation
+1. **src/matilda_voice/cli.py** - Main CLI entry point with generated commands
+2. **src/matilda_voice/app_hooks.py** - Hook implementations connecting CLI to Voice functionality
+3. **src/matilda_voice/core.py** - Core Voice engine with provider management
+4. **src/matilda_voice/base.py** - Abstract `VoiceProvider` base class
+5. **src/matilda_voice/config.py** - Configuration management with XDG compliance
+6. **src/matilda_voice/voice_manager.py** - Voice loading/caching for fast access
+7. **src/matilda_voice/providers/** - Provider implementations
+8. **src/matilda_voice/document_processing/** - Document parsing (HTML, JSON, Markdown)
+9. **src/matilda_voice/speech_synthesis/** - Emotion detection and SSML generation
 
 ### Provider Architecture
 
-All providers inherit from `TTSProvider` and implement:
+All providers inherit from `VoiceProvider` and implement:
 - `synthesize(text, output_path, **kwargs)` - Core synthesis method
 - `get_info()` - Returns provider capabilities and sample voices
 
-Provider loading is dynamic via the `PROVIDERS_REGISTRY` dict in `src/tts/app_hooks.py:16-22`.
+Provider loading is dynamic via the `PROVIDERS_REGISTRY` dict in `src/matilda_voice/app_hooks.py:16-22`.
 
 ### Configuration System
 
@@ -112,7 +112,7 @@ Provider loading is dynamic via the `PROVIDERS_REGISTRY` dict in `src/tts/app_ho
 
 ### Key CLI Commands
 
-**Package name:** `goobits-tts` (installs as `tts` command)
+**Package name:** `goobits-matilda-voice` (installs as `tts` command)
 
 **IMPORTANT: Always use the setup script for installation:**
 ```bash
@@ -121,41 +121,41 @@ Provider loading is dynamic via the `PROVIDERS_REGISTRY` dict in `src/tts/app_ho
 
 ```bash
 # Basic synthesis (direct streaming to speakers)
-tts "Hello world"             # Stream audio (default behavior)
-tts Hello world               # Unquoted text also works
+voice "Hello world"             # Stream audio (default behavior)
+voice Hello world               # Unquoted text also works
 echo "Hello world" | tts      # Pipe input support
 
 # Provider shortcuts
-tts @edge "Hello world"       # Edge TTS (free)
-tts @openai "Hello world"     # OpenAI TTS
-tts @elevenlabs "Hello world" # ElevenLabs
-tts @google "Hello world"     # Google Cloud TTS
-tts @chatterbox "Hello world" # Local voice cloning
+voice @edge "Hello world"       # Edge Voice (free)
+voice @openai "Hello world"     # OpenAI Voice
+voice @elevenlabs "Hello world" # ElevenLabs
+voice @google "Hello world"     # Google Cloud Voice
+voice @chatterbox "Hello world" # Local voice cloning
 
 # Save to file
-tts save "text"               # Save to file
-tts save @edge "text" -o audio.mp3  # Save with specific provider
+voice save "text"               # Save to file
+voice save @edge "text" -o audio.mp3  # Save with specific provider
 
 # Voice and system management
-tts voices                    # Interactive voice browser
-tts voice load voice.wav      # Preload voice for fast access
-tts voice status              # Show loaded voices
-tts providers                 # Enhanced provider status display
-tts providers @openai         # Provider-specific setup instructions
-tts status                    # System health check
-tts --version                 # Show version with suite branding
+voice voices                    # Interactive voice browser
+voice voice load voice.wav      # Preload voice for fast access
+voice voice status              # Show loaded voices
+voice providers                 # Enhanced provider status display
+voice providers @openai         # Provider-specific setup instructions
+voice status                    # System health check
+voice --version                 # Show version with suite branding
 
 # Configuration (enhanced display)
-tts config show               # Rich config display with emoji sections
-tts config set openai_api_key YOUR_KEY    # Set API keys
-tts config edit               # Interactive editor
+voice config show               # Rich config display with emoji sections
+voice config set openai_api_key YOUR_KEY    # Set API keys
+voice config edit               # Interactive editor
 
 # Document processing
-tts document report.html      # Convert HTML to speech
-tts document api.json --emotion-profile technical --save
-tts document README.md --ssml-platform azure
+voice document report.html      # Convert HTML to speech
+voice document api.json --emotion-profile technical --save
+voice document README.md --ssml-platform azure
 
-# Pipeline examples (integration with STT/TTT)
+# Pipeline examples (integration with Ears/Brain)
 echo "Hello world" | tts                     # Simple pipe
 ttt "Fix grammar" < essay.txt | tts          # Fix then speak
 stt recording.wav | tts @edge               # Transcribe and speak
@@ -181,7 +181,7 @@ voice_manager.load_voice("/path/to/voice.wav")  # Pre-load for speed
 ```
 
 ### Interactive Voice Browser
-Advanced curses-based interface in `src/tts/voice_browser.py` with:
+Advanced curses-based interface in `src/matilda_voice/voice_browser.py` with:
 - Three-panel layout (filters, voices, preview)
 - Mouse and keyboard navigation
 - Real-time voice preview with background audio playback
@@ -207,13 +207,13 @@ All provider dependencies (including PyTorch for Chatterbox with GPU support) ar
 - **Enhanced user experience**: Emoji-enhanced interface with visual status indicators
 - **Provider shortcuts**: Use `@edge`, `@openai`, `@elevenlabs`, etc. for quick provider selection
 - **Rich configuration display**: Organized sections showing API keys, defaults, audio settings, and paths
-- **Pipeline integration examples**: Clear demonstrations of STT → TTT → TTS workflows
+- **Pipeline integration examples**: Clear demonstrations of Ears → Brain → Voice workflows
 - **Comprehensive providers command**: Detailed status checking and setup instructions
 
 ### Core Features
 - **Real-time streaming support**: OpenAI, ElevenLabs with minimal latency
 - **Enhanced voice browser**: Three-panel curses interface with advanced filtering
-- **Dual authentication**: Google Cloud TTS supports both API key and service account
+- **Dual authentication**: Google Cloud Voice supports both API key and service account
 - **Voice loading/caching**: Preload voices for fast synthesis (Chatterbox)
 - **Interactive configuration**: User-friendly config editor with validation
 - **Document processing**: Multi-format support (HTML, JSON, Markdown) with emotion detection
@@ -222,12 +222,12 @@ All provider dependencies (including PyTorch for Chatterbox with GPU support) ar
 
 ## Important Files to Understand
 
-- `src/tts/cli.py` - Generated CLI entry point with dynamic command loading
-- `src/tts/app_hooks.py` - Hook implementations that provide actual TTS functionality
-- `src/tts/core.py` - Core TTS engine with provider management and synthesis logic
-- `src/tts/config.py` - Configuration management with voice parsing logic  
-- `src/tts/voice_browser.py` - Interactive voice browser implementation
-- `src/tts/providers/` - Provider implementations (Edge TTS, Chatterbox, etc.)
+- `src/matilda_voice/cli.py` - Generated CLI entry point with dynamic command loading
+- `src/matilda_voice/app_hooks.py` - Hook implementations that provide actual Voice functionality
+- `src/matilda_voice/core.py` - Core Voice engine with provider management and synthesis logic
+- `src/matilda_voice/config.py` - Configuration management with voice parsing logic  
+- `src/matilda_voice/voice_browser.py` - Interactive voice browser implementation
+- `src/matilda_voice/providers/` - Provider implementations (Edge Voice, Chatterbox, etc.)
 - `setup.sh` - Installation script (use this for all installs)
 - `pyproject.toml` - Package configuration and dependencies
 
