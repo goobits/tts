@@ -4,8 +4,8 @@ import re
 from collections import defaultdict
 from typing import Any, Dict, List
 
-from tts.document_processing.base_parser import SemanticElement
-from tts.document_processing.parser_factory import DocumentParserFactory
+from matilda_voice.document_processing.base_parser import SemanticElement
+from matilda_voice.document_processing.parser_factory import DocumentParserFactory
 
 # TextFormatter removed - not needed for document processing
 
@@ -170,7 +170,7 @@ class MixedContentProcessor:
             return ""
 
         # Import speech synthesis components
-        from tts.speech_synthesis.speech_markdown import SpeechMarkdownConverter
+        from matilda_voice.speech_synthesis.speech_markdown import SpeechMarkdownConverter
 
         # Convert to speech markdown
         converter = SpeechMarkdownConverter()

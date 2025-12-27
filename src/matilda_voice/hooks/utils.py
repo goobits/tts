@@ -4,16 +4,16 @@
 import sys
 from typing import Any, Dict, Optional
 
-from tts.config import load_config, save_config
-from tts.core import get_tts_engine
+from matilda_voice.config import load_config, save_config
+from matilda_voice.core import get_tts_engine
 
 # Provider registry - this should match what was in the original CLI
 PROVIDERS_REGISTRY = {
-    "edge_tts": "tts.providers.edge_tts",
-    "openai_tts": "tts.providers.openai_tts",
-    "elevenlabs": "tts.providers.elevenlabs",
-    "google_tts": "tts.providers.google_tts",
-    "chatterbox": "tts.providers.chatterbox",
+    "edge_tts": "matilda_voice.providers.edge_tts",
+    "openai_tts": "matilda_voice.providers.openai_tts",
+    "elevenlabs": "matilda_voice.providers.elevenlabs",
+    "google_tts": "matilda_voice.providers.google_tts",
+    "chatterbox": "matilda_voice.providers.chatterbox",
 }
 
 # Provider shortcuts mapping for @provider syntax
@@ -68,7 +68,7 @@ def get_engine() -> Any:
     try:
         return get_tts_engine()
     except (ImportError, AttributeError, RuntimeError):
-        from tts.core import initialize_tts_engine
+        from matilda_voice.core import initialize_tts_engine
 
         return initialize_tts_engine(PROVIDERS_REGISTRY)
 

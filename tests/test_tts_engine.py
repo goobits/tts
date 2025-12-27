@@ -12,8 +12,8 @@ These tests cover the TTS engine functionality including:
 import subprocess
 from unittest.mock import MagicMock, call, patch
 
-from tts.document_processing.base_parser import SemanticElement, SemanticType
-from tts.speech_synthesis.tts_engine import SimpleTTSEngine
+from matilda_voice.document_processing.base_parser import SemanticElement, SemanticType
+from matilda_voice.speech_synthesis.tts_engine import SimpleTTSEngine
 
 
 class TestSimpleTTSEngine:

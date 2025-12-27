@@ -1,9 +1,9 @@
 
 import pytest
 
-from tts.document_processing.parser_factory import DocumentParserFactory
-from tts.document_processing.performance_cache import PerformanceOptimizer
-from tts.speech_synthesis.ssml_generator import SSMLGenerator, SSMLPlatform
+from matilda_voice.document_processing.parser_factory import DocumentParserFactory
+from matilda_voice.document_processing.performance_cache import PerformanceOptimizer
+from matilda_voice.speech_synthesis.ssml_generator import SSMLGenerator, SSMLPlatform
 
 
 class TestDocumentProcessing:
@@ -19,7 +19,7 @@ class TestDocumentProcessing:
 
         assert len(elements) > 0
         # Check for heading - type is an enum, need to check value
-        from tts.document_processing.base_parser import SemanticType
+        from matilda_voice.document_processing.base_parser import SemanticType
         assert any(e.type == SemanticType.HEADING or e.type.value == "heading" for e in elements)
         assert any("important" in e.content for e in elements)
 
@@ -40,7 +40,7 @@ class TestDocumentProcessing:
 
         assert len(elements) > 0
         # Check type value or enum
-        from tts.document_processing.base_parser import SemanticType
+        from matilda_voice.document_processing.base_parser import SemanticType
         assert elements[0].type == SemanticType.HEADING or elements[0].type.value == "heading"
 
     def test_ssml_generation_azure(self):
@@ -87,7 +87,7 @@ class TestDocumentProcessing:
 
     def test_mixed_content_processing(self):
         """Test mixed document and transcription content processing"""
-        from tts.document_processing.mixed_content_processor import MixedContentProcessor
+        from matilda_voice.document_processing.mixed_content_processor import MixedContentProcessor
 
         processor = MixedContentProcessor()
 
@@ -135,7 +135,7 @@ class TestDocumentProcessing:
 
     def test_emotion_detection_integration(self):
         """Test emotion detection in document processing"""
-        from tts.speech_synthesis.advanced_emotion_detector import AdvancedEmotionDetector
+        from matilda_voice.speech_synthesis.advanced_emotion_detector import AdvancedEmotionDetector
 
         # Technical content
         tech_content = """
@@ -209,7 +209,7 @@ class TestDocumentProcessing:
 
     def test_configuration_integration(self):
         """Test that configuration settings are respected"""
-        from tts.config import load_config, save_config
+        from matilda_voice.config import load_config, save_config
 
         # Save current config
         original_config = load_config()

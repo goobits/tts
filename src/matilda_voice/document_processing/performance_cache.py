@@ -8,9 +8,9 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from tts.config import get_config_value
-from tts.document_processing.base_parser import SemanticElement
-from tts.document_processing.parser_factory import DocumentParserFactory
+from matilda_voice.config import get_config_value
+from matilda_voice.document_processing.base_parser import SemanticElement
+from matilda_voice.document_processing.parser_factory import DocumentParserFactory
 
 
 class DocumentCache:

@@ -3,8 +3,8 @@
 import re
 from typing import Any, Dict, List
 
-from tts.document_processing.base_parser import SemanticElement, SemanticType
-from tts.speech_synthesis.emotion_detector import ContentEmotionDetector
+from matilda_voice.document_processing.base_parser import SemanticElement, SemanticType
+from matilda_voice.speech_synthesis.emotion_detector import ContentEmotionDetector
 
 
 class AdvancedEmotionDetector(ContentEmotionDetector):

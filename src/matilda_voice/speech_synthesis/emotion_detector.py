@@ -2,7 +2,7 @@
 
 from typing import Dict
 
-from tts.document_processing.base_parser import SemanticElement, SemanticType
+from matilda_voice.document_processing.base_parser import SemanticElement, SemanticType
 
 
 class ContentEmotionDetector:

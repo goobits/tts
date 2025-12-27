@@ -10,7 +10,7 @@ without requiring external dependencies or mocks. They test:
 
 import pytest
 
-from tts.exceptions import (
+from matilda_voice.exceptions import (
     AudioPlaybackError,
     AuthenticationError,
     DependencyError,

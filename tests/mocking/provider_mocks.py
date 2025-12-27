@@ -303,7 +303,7 @@ def mock_openai_api(monkeypatch):
         mock_openai.OpenAI.return_value = mock_client
         return mock_openai
 
-    monkeypatch.setattr("tts.providers.openai_tts.OpenAI", lambda **kwargs: mock_client)
+    monkeypatch.setattr("matilda_voice.providers.openai_tts.OpenAI", lambda **kwargs: mock_client)
 
     return mock_client
 

@@ -222,7 +222,7 @@ def mock_audio_environment(monkeypatch):
     """Mock audio environment detection."""
     env_mock = AudioEnvironmentMock()
 
-    monkeypatch.setattr("tts.audio_utils.check_audio_environment", env_mock.check_audio_environment)
+    monkeypatch.setattr("matilda_voice.audio_utils.check_audio_environment", env_mock.check_audio_environment)
 
     return env_mock
 
@@ -232,7 +232,7 @@ def mock_audio_environment_unavailable(monkeypatch):
     """Mock audio environment as unavailable."""
     env_mock = AudioEnvironmentMock(available=False)
 
-    monkeypatch.setattr("tts.audio_utils.check_audio_environment", env_mock.check_audio_environment)
+    monkeypatch.setattr("matilda_voice.audio_utils.check_audio_environment", env_mock.check_audio_environment)
 
     return env_mock
 
@@ -290,8 +290,8 @@ def mock_audio_file_operations(monkeypatch, tmp_path):
         """Mock audio streaming."""
         conversions.append(("stream", audio_path, "playback"))
 
-    monkeypatch.setattr("tts.audio_utils.convert_audio", mock_convert_audio)
-    monkeypatch.setattr("tts.audio_utils.stream_audio_file", mock_stream_audio_file)
+    monkeypatch.setattr("matilda_voice.audio_utils.convert_audio", mock_convert_audio)
+    monkeypatch.setattr("matilda_voice.audio_utils.stream_audio_file", mock_stream_audio_file)
 
     return {"conversions": conversions}
 
@@ -366,4 +366,4 @@ def create_audio_conversion_failure_scenario(monkeypatch) -> None:
     def failing_convert_audio(input_path: str, output_path: str, output_format: str) -> None:
         raise RuntimeError("Audio conversion failed")
 
-    monkeypatch.setattr("tts.audio_utils.convert_audio", failing_convert_audio)
+    monkeypatch.setattr("matilda_voice.audio_utils.convert_audio", failing_convert_audio)

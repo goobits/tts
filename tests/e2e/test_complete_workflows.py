@@ -17,7 +17,7 @@ from tests.utils.test_helpers import (
     estimate_audio_duration_from_text,
     validate_audio_file_comprehensive,
 )
-from tts.cli import main as cli
+from matilda_voice.cli import main as cli
 
 
 class WorkflowTestBase:

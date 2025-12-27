@@ -1,15 +1,15 @@
-# Goobits configuration for TTS CLI
+# Goobits configuration for Matilda Voice CLI
 # This file defines the text-to-speech CLI application
 
 # Setup fields for setup.sh
-package_name: "goobits-tts"
-command_name: "tts"
-display_name: "TTS - Text to Speech"
+package_name: "goobits-matilda-voice"
+command_name: "voice"
+display_name: "Matilda Voice - Text to Speech"
 description: "Multi-provider text-to-speech with voice cloning"
 
 # CLI generation configuration
-cli_output_path: "src/tts/cli.py"
-hooks_path: "src/tts/app_hooks.py"
+cli_output_path: "src/matilda_voice/cli.py"
+hooks_path: "src/matilda_voice/app_hooks.py"
 
 python:
   minimum_version: "3.8"
@@ -21,7 +21,7 @@ dependencies:
     - pipx
 
 installation:
-  pypi_name: "goobits-tts"
+  pypi_name: "goobits-matilda-voice"
   development_path: "."
   extras:
     python: ["dev", "all"]  # Include dev tools and all TTS providers
@@ -29,7 +29,7 @@ installation:
 
 shell_integration:
   enabled: false
-  alias: "tts"
+  alias: "voice"
 
 validation:
   check_api_keys: false
@@ -38,36 +38,36 @@ validation:
 
 messages:
   install_success: |
-    TTS has been installed successfully!
-    You can now use 'tts' from your terminal.
-    
+    Matilda Voice has been installed successfully!
+    You can now use 'voice' from your terminal.
+
     Quick start:
-      tts "Hello world"
-      tts save "Hello" -o out.mp3
-      tts voices
-  
+      voice "Hello world"
+      voice save "Hello" -o out.mp3
+      voice voices
+
   install_dev_success: |
-    TTS has been installed in development mode!
+    Matilda Voice has been installed in development mode!
     ✅ Your local changes will be reflected immediately - no reinstalling needed!
-    
+
     Development workflow:
-      - Edit code in src/tts/ directory
-      - Test immediately with: tts "test"
+      - Edit code in src/matilda_voice/ directory
+      - Test immediately with: voice "test"
       - Run tests with: ./test.sh
-      
+
     💡 No need to run ./setup.sh upgrade after code changes!
-  
+
   upgrade_success: |
-    TTS has been upgraded successfully!
-    Check out the latest features with: tts --version
-  
+    Matilda Voice has been upgraded successfully!
+    Check out the latest features with: voice --version
+
   uninstall_success: |
-    TTS has been uninstalled.
-    Thank you for using TTS!
+    Matilda Voice has been uninstalled.
+    Thank you for using Matilda Voice!
 
 # CLI fields for cli.py generation
 cli:
-  name: "GOOBITS TTS CLI"
+  name: "GOOBITS MATILDA VOICE CLI"
   version: "1.1.2"
   display_version: true
   tagline: "Multi-provider text-to-speech with voice cloning"
@@ -75,12 +75,12 @@ cli:
   icon: "🔊"
   enable_recursive_help: true
   enable_help_json: true
-  
+
   header_sections:
     - title: "🚀 Quick Start"
       items:
-        - { item: 'tts "Hello world"', desc: "Instantly speak text (default command)", style: "example" }
-        - { item: 'tts save "Hello" -o out.mp3', desc: "Save speech to audio file", style: "example" }
+        - { item: 'voice "Hello world"', desc: "Instantly speak text (default command)", style: "example" }
+        - { item: 'voice save "Hello" -o out.mp3', desc: "Save speech to audio file", style: "example" }
 
     - title: "💡 Core Commands"
       items:
@@ -90,8 +90,8 @@ cli:
 
     - title: "🔧 First-time Setup"
       items:
-        - { item: "1. Check providers", desc: "tts providers", style: "setup" }
-        - { item: "2. Set API keys", desc: "tts config set openai_api_key YOUR_KEY", style: "setup" }
+        - { item: "1. Check providers", desc: "voice providers", style: "setup" }
+        - { item: "2. Set API keys", desc: "voice config set openai_api_key YOUR_KEY", style: "setup" }
   
   command_groups:
     - name: "Core Commands"

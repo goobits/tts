@@ -4,8 +4,8 @@
 import sys
 from typing import Any, Dict, Optional
 
-from tts.config import load_config, save_config
-from tts.core import get_tts_engine
+from matilda_voice.config import load_config, save_config
+from matilda_voice.core import get_tts_engine
 
 from .utils import get_engine
 def on_voice_load(voice_files: tuple, **kwargs) -> int:
@@ -13,7 +13,7 @@ def on_voice_load(voice_files: tuple, **kwargs) -> int:
     try:
         from pathlib import Path
 
-        from tts.voice_manager import VoiceManager
+        from matilda_voice.voice_manager import VoiceManager
 
         if not voice_files:
             print("Error: No voice files specified")
@@ -79,7 +79,7 @@ def on_voice_unload(voice_files: tuple, all: bool, **kwargs) -> int:
     try:
         from pathlib import Path
 
-        from tts.voice_manager import VoiceManager
+        from matilda_voice.voice_manager import VoiceManager
 
         manager = VoiceManager()
 
@@ -161,7 +161,7 @@ def on_voice_status(**kwargs) -> int:
     try:
         from pathlib import Path
 
-        from tts.voice_manager import VoiceManager
+        from matilda_voice.voice_manager import VoiceManager
 
         manager = VoiceManager()
 

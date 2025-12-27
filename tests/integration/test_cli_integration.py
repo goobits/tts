@@ -6,8 +6,8 @@ from tests.utils.test_helpers import (
     estimate_audio_duration_from_text,
     validate_audio_file_comprehensive,
 )
-from tts.app_hooks import PROVIDER_SHORTCUTS
-from tts.cli import main as cli
+from matilda_voice.app_hooks import PROVIDER_SHORTCUTS
+from matilda_voice.cli import main as cli
 
 
 def test_cli_unknown_model(integration_test_env):
@@ -593,7 +593,7 @@ class TestCLIAudioValidationIntegration:
         text = "This is a comprehensive audio validation test for the TTS CLI system."
         output_file = tmp_path / "comprehensive_test.wav"
 
-        with patch("tts.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
 
             def mock_synthesize(text, output_path=None, **kwargs):
@@ -660,7 +660,7 @@ class TestCLIAudioValidationIntegration:
         for provider in providers_to_test:
             output_file = tmp_path / f"provider_test_{provider[1:]}.mp3"
 
-            with patch("tts.app_hooks.get_engine") as mock_get_engine:
+            with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
                 mock_engine = MagicMock()
 
                 def mock_synthesize(text, output_path=None, **kwargs):
@@ -718,7 +718,7 @@ class TestCLIAudioValidationIntegration:
         for format_name in formats:
             output_file = tmp_path / f"format_conversion_{format_name}.{format_name}"
 
-            with patch("tts.app_hooks.get_engine") as mock_get_engine:
+            with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
                 mock_engine = MagicMock()
 
                 def mock_synthesize(text, output_path=None, **kwargs):
@@ -796,7 +796,7 @@ class TestCLIAudioValidationIntegration:
         output_file = tmp_path / "error_test.mp3"
 
         # Test case where synthesis appears to succeed but produces invalid audio
-        with patch("tts.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
 
             def mock_synthesize_with_errors(text, output_path=None, **kwargs):

@@ -13,7 +13,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from tts.audio_utils import cleanup_file
+from matilda_voice.audio_utils import cleanup_file
 
 
 class TestCleanupFile:

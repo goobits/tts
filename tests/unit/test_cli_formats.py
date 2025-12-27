@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
-from tts.cli import main
+from matilda_voice.cli import main
 
 
 class TestFormatValidation:
@@ -23,7 +23,7 @@ class TestFormatValidation:
         runner = CliRunner()
         valid_formats = ["mp3", "wav", "ogg", "flac"]
 
-        with patch("tts.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -68,7 +68,7 @@ class TestFormatValidation:
         """Test format option short forms (-f) work correctly."""
         runner = CliRunner()
 
-        with patch("tts.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -88,7 +88,7 @@ class TestSaveCommandFormats:
         """Test save command with explicit format specification."""
         runner = CliRunner()
 
-        with patch("tts.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -107,7 +107,7 @@ class TestSaveCommandFormats:
         """Test format handling works with provider shortcuts."""
         runner = CliRunner()
 
-        with patch("tts.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -129,7 +129,7 @@ class TestSaveCommandFormats:
         """Test save command default format behavior when no format specified."""
         runner = CliRunner()
 
-        with patch("tts.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -153,7 +153,7 @@ class TestDocumentCommandFormats:
         test_doc = tmp_path / "test.md"
         test_doc.write_text("# Test Document\n\nThis is a test document for TTS processing.")
 
-        with patch("tts.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -176,7 +176,7 @@ class TestDocumentCommandFormats:
         test_doc = tmp_path / "test.md"
         test_doc.write_text("# Test Document\n\nThis is a test document.")
 
-        with patch("tts.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -218,7 +218,7 @@ class TestFormatErrorHandling:
         """Test behavior when format parameter is missing but output file specified."""
         runner = CliRunner()
 
-        with patch("tts.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -238,7 +238,7 @@ class TestFormatExtensionLogic:
         """Test behavior when file extension conflicts with format."""
         runner = CliRunner()
 
-        with patch("tts.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -267,7 +267,7 @@ class TestFormatExtensionLogic:
         """Test that temporary files are handled correctly with different formats."""
         runner = CliRunner()
 
-        with patch("tts.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -291,7 +291,7 @@ class TestFormatIntegrationScenarios:
         """Test format handling with complex file paths."""
         runner = CliRunner()
 
-        with patch("tts.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine

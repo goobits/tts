@@ -4,8 +4,8 @@
 import sys
 from typing import Any, Dict, Optional
 
-from tts.config import load_config, save_config
-from tts.core import get_tts_engine
+from matilda_voice.config import load_config, save_config
+from matilda_voice.core import get_tts_engine
 
 from .utils import handle_provider_shortcuts, get_engine
 def on_document(
@@ -28,7 +28,7 @@ def on_document(
     try:
         from pathlib import Path
 
-        from tts.document_processing.parser_factory import DocumentParserFactory
+        from matilda_voice.document_processing.parser_factory import DocumentParserFactory
 
         # Check if document file exists
         doc_file = Path(document_path)

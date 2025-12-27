@@ -14,7 +14,7 @@ For detailed functional testing, see test_cli.py.
 import pytest
 from click.testing import CliRunner
 
-from tts.cli import main as cli
+from matilda_voice.cli import main as cli
 
 
 class TestCLISmokeTests:

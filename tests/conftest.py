@@ -22,8 +22,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from tts.base import TTSProvider
-from tts.types import Config, ProviderInfo
+from matilda_voice.base import TTSProvider
+from matilda_voice.types import Config, ProviderInfo
 
 
 def provider_available() -> bool:
@@ -72,7 +72,7 @@ def mock_audio_environment(monkeypatch):
         }
 
     # Apply mock
-    monkeypatch.setattr("tts.audio_utils.check_audio_environment", mock_check_audio_env)
+    monkeypatch.setattr("matilda_voice.audio_utils.check_audio_environment", mock_check_audio_env)
 
     return mock_check_audio_env
 
@@ -127,8 +127,8 @@ def mock_audio_conversion(monkeypatch):
         mock_convert_with_cleanup(input_path, output_path, target_format)
 
     # Mock both conversion functions
-    monkeypatch.setattr("tts.audio_utils.convert_with_cleanup", mock_convert_with_cleanup)
-    monkeypatch.setattr("tts.audio_utils.convert_audio", mock_convert_audio)
+    monkeypatch.setattr("matilda_voice.audio_utils.convert_with_cleanup", mock_convert_with_cleanup)
+    monkeypatch.setattr("matilda_voice.audio_utils.convert_audio", mock_convert_audio)
 
     return mock_convert_with_cleanup
 
@@ -253,7 +253,7 @@ def isolated_config_dir(tmp_path, monkeypatch, test_config_factory):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
 
     # Mock the get_config_path function to return our test config file
-    monkeypatch.setattr("tts.config.get_config_path", lambda: config_file)
+    monkeypatch.setattr("matilda_voice.config.get_config_path", lambda: config_file)
 
     # Create output directory
     (tmp_path / "output").mkdir(exist_ok=True)
@@ -297,10 +297,10 @@ def mock_config(isolated_config_dir, monkeypatch):
     def mock_get_setting(key: str, default: Any = None) -> Any:
         return test_config.get(key, default)
 
-    monkeypatch.setattr("tts.config.load_config", mock_load_config)
-    monkeypatch.setattr("tts.config.get_config_value", mock_get_config_value)
-    monkeypatch.setattr("tts.config.set_setting", mock_set_setting)
-    monkeypatch.setattr("tts.config.get_setting", mock_get_setting)
+    monkeypatch.setattr("matilda_voice.config.load_config", mock_load_config)
+    monkeypatch.setattr("matilda_voice.config.get_config_value", mock_get_config_value)
+    monkeypatch.setattr("matilda_voice.config.set_setting", mock_set_setting)
+    monkeypatch.setattr("matilda_voice.config.get_setting", mock_get_setting)
 
     return test_config
 
@@ -636,7 +636,7 @@ def mock_voice_manager(monkeypatch, tmp_path):
             return self.voice_dir
 
     mock_manager = MockVoiceManager()
-    monkeypatch.setattr("tts.voice_manager.VoiceManager", lambda: mock_manager)
+    monkeypatch.setattr("matilda_voice.voice_manager.VoiceManager", lambda: mock_manager)
     return mock_manager
 
 
@@ -864,7 +864,7 @@ def unit_test_config(minimal_test_environment, tmp_path, monkeypatch, test_confi
         json.dump(config_data, f)
 
     # Mock the get_config_path function to return our test config file
-    monkeypatch.setattr("tts.config.get_config_path", lambda: config_file)
+    monkeypatch.setattr("matilda_voice.config.get_config_path", lambda: config_file)
 
     # Create output directory
     (tmp_path / "output").mkdir(exist_ok=True)
@@ -891,7 +891,7 @@ def integration_test_env(unit_test_config, monkeypatch):
             "alsa_available": True,
         }
 
-    monkeypatch.setattr("tts.audio_utils.check_audio_environment", mock_check_audio_env)
+    monkeypatch.setattr("matilda_voice.audio_utils.check_audio_environment", mock_check_audio_env)
 
     # Mock subprocess calls for audio playback
     from unittest.mock import MagicMock

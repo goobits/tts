@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from tts.exceptions import DependencyError
-from tts.providers.edge_tts import EdgeTTSProvider
+from matilda_voice.exceptions import DependencyError
+from matilda_voice.providers.edge_tts import EdgeTTSProvider
 
 
 def test_edge_tts_synthesize():

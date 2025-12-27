@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 import pytest
 from click.testing import CliRunner
 
-from tts.base import TTSProvider
+from matilda_voice.base import TTSProvider
 
 # =============================================================================
 # AUDIO FILE VALIDATION HELPERS
@@ -928,7 +928,7 @@ class CLITestHelper:
         Returns:
             Tuple of (result, output_path)
         """
-        from tts.cli import main
+        from matilda_voice.cli import main
 
         # Build command
         cmd = ["save"]
@@ -967,7 +967,7 @@ class CLITestHelper:
         extra_args: Optional[List[str]] = None
     ) -> Any:
         """Invoke the speak command with common parameters."""
-        from tts.cli import main
+        from matilda_voice.cli import main
 
         # Build command
         cmd = []
@@ -1217,7 +1217,7 @@ def handle_rate_limiting_test(
     import os
     import time
 
-    from tts.exceptions import ProviderError
+    from matilda_voice.exceptions import ProviderError
 
     successful_requests = 0
 
@@ -1281,7 +1281,7 @@ def handle_invalid_api_key_test(
 
     import pytest
 
-    from tts.exceptions import AuthenticationError, ProviderError
+    from matilda_voice.exceptions import AuthenticationError, ProviderError
 
     with patch.dict(os.environ, {env_var_name: invalid_key}):
         provider = provider_class()

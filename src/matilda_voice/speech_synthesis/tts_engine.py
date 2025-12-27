@@ -4,7 +4,7 @@ import subprocess
 import time
 from typing import List
 
-from tts.document_processing.base_parser import SemanticElement, SemanticType
+from matilda_voice.document_processing.base_parser import SemanticElement, SemanticType
 
 
 class SimpleTTSEngine:

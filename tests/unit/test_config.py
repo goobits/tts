@@ -8,7 +8,7 @@ external dependencies or mocks. They test core business logic for:
 - SSML detection and processing
 """
 
-from tts.config import (
+from matilda_voice.config import (
     CONFIG_DEFAULTS,
     _parse_env_value,
     get_config_value,

@@ -15,7 +15,7 @@ The implementation has been split into:
 """
 
 # Re-export config functions for backward compatibility (used by tests)
-from tts.config import load_config, save_config
+from matilda_voice.config import load_config, save_config
 
 # Re-export all hook handlers for backward compatibility
 from .hooks import (

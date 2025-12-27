@@ -4,14 +4,14 @@
 import sys
 from typing import Any, Dict, Optional
 
-from tts.core import get_tts_engine
+from matilda_voice.core import get_tts_engine
 
 from .utils import PROVIDERS_REGISTRY, get_engine
 
 
 def _get_config_functions():
     """Late-bind config functions to allow patching at tts.app_hooks level."""
-    import tts.app_hooks as app_hooks
+    import matilda_voice.app_hooks as app_hooks
     return app_hooks.load_config, app_hooks.save_config
 def on_status(**kwargs) -> int:
     """Handle the status command"""

@@ -4,8 +4,8 @@
 import sys
 from typing import Any, Dict, Optional
 
-from tts.config import load_config, save_config
-from tts.core import get_tts_engine
+from matilda_voice.config import load_config, save_config
+from matilda_voice.core import get_tts_engine
 
 from .utils import (
     PROVIDERS_REGISTRY,

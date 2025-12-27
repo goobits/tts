@@ -15,7 +15,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from tts.cli import main as cli
+from matilda_voice.cli import main as cli
 
 
 class TestRealConfigOperations:

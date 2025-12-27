@@ -3,7 +3,7 @@ requires = [ "setuptools>=64", "wheel",]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "goobits-tts"
+name = "goobits-matilda-voice"
 version = "1.1.4"
 description = "Command-line text-to-speech tool with multiple providers, voice cloning, and smart auto-selection"
 readme = "README.md"
@@ -28,14 +28,14 @@ dev = [ "pytest>=7.0", "pytest-asyncio", "pytest-cov", "pytest-xdist>=3.0.0", "p
 publish = [ "build", "twine",]
 
 [project.scripts]
-tts = "tts.cli:cli_entry"
+voice = "matilda_voice.cli:cli_entry"
 
 [project.urls]
 Homepage = "https://github.com/goobits/tts"
 "Bug Tracker" = "https://github.com/goobits/tts/issues"
 
 [tool.setuptools]
-packages = [ "tts", "tts.providers", "tts.document_processing", "tts.speech_synthesis",]
+packages = [ "matilda_voice", "matilda_voice.providers", "matilda_voice.document_processing", "matilda_voice.speech_synthesis", "matilda_voice.hooks",]
 
 [tool.black]
 line-length = 128
@@ -57,7 +57,7 @@ cache_dir = ".artifacts/cache/mypy"
 "" = "src"
 
 [tool.setuptools.package-data]
-tts = [ "setup.sh",]
+matilda_voice = [ "setup.sh",]
 
 [tool.ruff.lint]
 select = [ "E", "W", "F", "I", "B",]
@@ -65,7 +65,7 @@ select = [ "E", "W", "F", "I", "B",]
 [tool.coverage.run]
 data_file = ".artifacts/cache/.coverage"
 parallel = true
-source = [ "src/tts",]
+source = [ "src/matilda_voice",]
 
 [tool.coverage.report]
 exclude_lines = [ "pragma: no cover", "def __repr__", "if __name__ == .__main__.:", "raise AssertionError", "raise NotImplementedError",]
