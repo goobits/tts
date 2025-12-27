@@ -18,6 +18,7 @@ from ..exceptions import (
     QuotaError,
     map_http_error,
 )
+from ..http_retry import request_with_retry
 from ..types import ProviderInfo
 
 
@@ -99,8 +100,25 @@ class GoogleTTSProvider(TTSProvider):
 
         return self._client
 
-    def _make_request(self, method: str, endpoint: str, **kwargs: Any) -> httpx.Response:
-        """Make authenticated request to Google Cloud TTS REST API (for API key auth)."""
+    def _make_request(
+        self,
+        method: str,
+        endpoint: str,
+        idempotent: bool = True,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        """Make authenticated request to Google Cloud TTS REST API with retry logic.
+
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            endpoint: API endpoint (e.g., "/text:synthesize")
+            idempotent: If False, only retry on connection errors to avoid duplicate charges.
+                       Set to False for synthesis endpoints.
+            **kwargs: Additional arguments passed to httpx.request
+
+        Returns:
+            httpx.Response object
+        """
         api_key = get_api_key("google")
         if not api_key:
             raise AuthenticationError("Google Cloud API key not found. Set with: tts config google_api_key YOUR_KEY")
@@ -108,11 +126,18 @@ class GoogleTTSProvider(TTSProvider):
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         params = {"key": api_key}
 
-        try:
-            response = httpx.request(method, url, params=params, **kwargs)
-            return response
-        except httpx.RequestError as e:
-            raise NetworkError(f"Google Cloud TTS API request failed: {e}") from e
+        # Merge params if provided in kwargs
+        if "params" in kwargs:
+            params.update(kwargs.pop("params"))
+
+        return request_with_retry(
+            method,
+            url,
+            params=params,
+            idempotent=idempotent,
+            provider_name="Google Cloud TTS",
+            **kwargs,
+        )
 
     def get_info(self) -> ProviderInfo:
         """Get provider information and capabilities."""
@@ -270,7 +295,11 @@ class GoogleTTSProvider(TTSProvider):
                 }
 
                 response = self._make_request(
-                    "POST", "/text:synthesize", json=payload, headers={"Content-Type": "application/json"}
+                    "POST",
+                    "/text:synthesize",
+                    idempotent=False,  # Synthesis creates new audio, don't retry on HTTP errors
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
                 )
 
                 if response.status_code != 200:

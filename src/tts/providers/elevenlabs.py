@@ -24,6 +24,7 @@ from ..exceptions import (
     VoiceNotFoundError,
     map_http_error,
 )
+from ..http_retry import request_with_retry
 from ..types import ProviderInfo
 
 
@@ -48,21 +49,45 @@ class ElevenLabsProvider(TTSProvider):
         self._voices_cache: Optional[List[Dict[str, Any]]] = None
         self.base_url = "https://api.elevenlabs.io/v1"
 
-    def _make_request(self, method: str, endpoint: str, **kwargs: Any) -> httpx.Response:
-        """Make authenticated request to ElevenLabs API."""
+    def _make_request(
+        self,
+        method: str,
+        endpoint: str,
+        idempotent: bool = True,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        """Make authenticated request to ElevenLabs API with retry logic.
+
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            endpoint: API endpoint (e.g., "/voices")
+            idempotent: If False, only retry on connection errors to avoid duplicate charges.
+                       Set to False for synthesis endpoints.
+            **kwargs: Additional arguments passed to httpx.request
+
+        Returns:
+            httpx.Response object
+        """
         api_key = get_api_key("elevenlabs")
         if not api_key:
             raise AuthenticationError("ElevenLabs API key not found. Set with: tts config elevenlabs_api_key YOUR_KEY")
 
         headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
 
+        # Merge headers if provided in kwargs
+        if "headers" in kwargs:
+            headers.update(kwargs.pop("headers"))
+
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
 
-        try:
-            response = httpx.request(method, url, headers=headers, **kwargs)
-            return response
-        except httpx.RequestError as e:
-            raise NetworkError(f"ElevenLabs API request failed: {e}") from e
+        return request_with_retry(
+            method,
+            url,
+            headers=headers,
+            idempotent=idempotent,
+            provider_name="ElevenLabs",
+            **kwargs,
+        )
 
     def _get_available_voices(self) -> List[Dict[str, Any]]:
         """Get list of all available voices from ElevenLabs."""
@@ -167,8 +192,8 @@ class ElevenLabsProvider(TTSProvider):
 
                 self.logger.info(f"Generating speech with ElevenLabs voice '{voice_name}' (ID: {voice_id})")
 
-                # Make synthesis request
-                response = self._make_request("POST", f"/text-to-speech/{voice_id}", json=payload)
+                # Make synthesis request (idempotent=False to avoid duplicate charges)
+                response = self._make_request("POST", f"/text-to-speech/{voice_id}", json=payload, idempotent=False)
 
                 if response.status_code != 200:
                     # Use standardized HTTP error mapping
@@ -369,7 +394,7 @@ class ElevenLabsProvider(TTSProvider):
                 },
             }
 
-            response = self._make_request("POST", f"/text-to-speech/{kwargs['voice_id']}", json=payload)
+            response = self._make_request("POST", f"/text-to-speech/{kwargs['voice_id']}", json=payload, idempotent=False)
 
             if response.status_code != 200:
                 error_msg = f"ElevenLabs API error {response.status_code}: {response.text[:200]}"
