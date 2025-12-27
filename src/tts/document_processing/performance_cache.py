@@ -16,7 +16,7 @@ from tts.document_processing.parser_factory import DocumentParserFactory
 class DocumentCache:
     """Cache parsed documents for performance."""
 
-    def __init__(self, cache_dir: str = ".cache/documents", max_cache_size_mb: int = 100):
+    def __init__(self, cache_dir: str = ".artifacts/cache/documents", max_cache_size_mb: int = 100):
         """Initialize document cache.
 
         Args:
@@ -247,7 +247,7 @@ class DocumentCache:
 class PerformanceOptimizer:
     """Optimize document processing performance."""
 
-    def __init__(self, cache_dir: str = ".cache/documents", enable_caching: bool = True):
+    def __init__(self, cache_dir: str = ".artifacts/cache/documents", enable_caching: bool = True):
         """Initialize performance optimizer.
 
         Args:
