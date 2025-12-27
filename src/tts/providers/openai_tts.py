@@ -21,6 +21,7 @@ from ..exceptions import (
     NetworkError,
     ProviderError,
 )
+from ..http_retry import call_with_retry
 from ..types import ProviderInfo
 
 
@@ -40,6 +41,17 @@ class OpenAITTSProvider(TTSProvider):
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self._client = None
+
+    def _get_retry_exceptions(self) -> tuple[type[BaseException], ...]:
+        """Return OpenAI-specific retryable exceptions if available."""
+        retry_exceptions: tuple[type[BaseException], ...] = (ConnectionError, TimeoutError)
+        try:
+            from openai import APIConnectionError, APITimeoutError, RateLimitError  # type: ignore
+
+            retry_exceptions = retry_exceptions + (APIConnectionError, APITimeoutError, RateLimitError)
+        except ImportError:
+            pass
+        return retry_exceptions
 
     def _get_client(self) -> Any:
         """Get OpenAI client, initializing if needed."""
@@ -93,11 +105,16 @@ class OpenAITTSProvider(TTSProvider):
                 self.logger.info(f"Generating speech with OpenAI voice '{voice}'")
 
                 # OpenAI TTS API call
-                response = client.audio.speech.create(
-                    model="tts-1",  # or "tts-1-hd" for higher quality
-                    voice=voice,
-                    input=text,
-                    response_format="mp3",  # OpenAI outputs MP3
+                response = call_with_retry(
+                    lambda: client.audio.speech.create(
+                        model="tts-1",  # or "tts-1-hd" for higher quality
+                        voice=voice,
+                        input=text,
+                        response_format="mp3",  # OpenAI outputs MP3
+                    ),
+                    idempotent=False,
+                    provider_name="OpenAI",
+                    retry_on=self._get_retry_exceptions(),
                 )
 
                 # Save to temporary MP3 file first
@@ -151,7 +168,17 @@ class OpenAITTSProvider(TTSProvider):
 
             try:
                 # Create streaming response
-                response = client.audio.speech.create(model="tts-1", voice=voice, input=text, response_format="mp3")
+                response = call_with_retry(
+                    lambda: client.audio.speech.create(
+                        model="tts-1",
+                        voice=voice,
+                        input=text,
+                        response_format="mp3",
+                    ),
+                    idempotent=False,
+                    provider_name="OpenAI",
+                    retry_on=self._get_retry_exceptions(),
+                )
 
                 # Stream audio data chunks
                 self.logger.debug("Starting chunk-by-chunk audio streaming")

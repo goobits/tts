@@ -7,10 +7,12 @@ This module provides retry logic for HTTP requests to external APIs:
 - Safe defaults to avoid duplicate charges on non-idempotent endpoints
 """
 
+import contextlib
 import logging
 import random
+import threading
 import time
-from typing import Any, Callable, Optional, Set, Tuple
+from typing import Any, Callable, Iterable, Optional, Set, Tuple, Type
 
 import httpx
 
@@ -146,8 +148,12 @@ def request_with_retry(
     """
     last_exception: Optional[Exception] = None
     last_response: Optional[httpx.Response] = None
+    breaker = get_circuit_breaker(provider_name)
 
-    for attempt in range(max_retries + 1):
+    effective_retries = 1 if not idempotent else max_retries
+    for attempt in range(effective_retries + 1):
+        if not breaker.allow_request():
+            raise ProviderError(f"{provider_name} circuit breaker is open; request blocked")
         try:
             response = httpx.request(method, url, **kwargs)
 
@@ -155,6 +161,8 @@ def request_with_retry(
             retry, reason = should_retry(response.status_code)
 
             if not retry:
+                if 200 <= response.status_code < 300:
+                    breaker.record_success()
                 # Success or non-retryable error
                 return response
 
@@ -168,6 +176,7 @@ def request_with_retry(
 
             # Retryable error
             last_response = response
+            breaker.record_failure()
 
             if attempt < max_retries:
                 delay = calculate_backoff(attempt, base_delay, max_delay, backoff_factor)
@@ -183,6 +192,7 @@ def request_with_retry(
 
         except httpx.TimeoutException as e:
             last_exception = e
+            breaker.record_failure()
             if attempt < max_retries:
                 delay = calculate_backoff(attempt, base_delay, max_delay, backoff_factor)
                 logger.warning(
@@ -195,6 +205,7 @@ def request_with_retry(
 
         except httpx.RequestError as e:
             last_exception = e
+            breaker.record_failure()
             if attempt < max_retries:
                 delay = calculate_backoff(attempt, base_delay, max_delay, backoff_factor)
                 logger.warning(
@@ -217,67 +228,217 @@ def request_with_retry(
     raise NetworkError(f"{provider_name} request failed after {max_retries + 1} attempts")
 
 
-# Circuit breaker state (for future implementation)
-class CircuitBreaker:
-    """Simple circuit breaker for provider health tracking.
+@contextlib.contextmanager
+def stream_with_retry(
+    method: str,
+    url: str,
+    max_retries: int = DEFAULT_MAX_RETRIES,
+    base_delay: float = DEFAULT_BASE_DELAY,
+    max_delay: float = DEFAULT_MAX_DELAY,
+    backoff_factor: float = DEFAULT_BACKOFF_FACTOR,
+    idempotent: bool = True,
+    provider_name: str = "API",
+    **kwargs: Any,
+):
+    """Context manager for streaming HTTP requests with retry logic."""
+    last_exception: Optional[Exception] = None
+    breaker = get_circuit_breaker(provider_name)
 
-    States:
-    - CLOSED: Normal operation, requests go through
-    - OPEN: Too many failures, requests fail fast
-    - HALF_OPEN: Testing if service is back, allow limited requests
+    for attempt in range(max_retries + 1):
+        if not breaker.allow_request():
+            raise ProviderError(f"{provider_name} circuit breaker is open; request blocked")
+        try:
+            with httpx.stream(method, url, **kwargs) as response:
+                retry, reason = should_retry(response.status_code)
 
-    This is a stub for future implementation.
+                if not retry:
+                    if 200 <= response.status_code < 300:
+                        breaker.record_success()
+                    yield response
+                    return
+
+                if not idempotent and response.status_code not in {429}:
+                    logger.warning(
+                        f"[{provider_name}] HTTP {response.status_code} on non-idempotent stream, not retrying"
+                    )
+                    yield response
+                    return
+
+                breaker.record_failure()
+                if attempt < max_retries:
+                    delay = calculate_backoff(attempt, base_delay, max_delay, backoff_factor)
+                    logger.warning(
+                        f"[{provider_name}] {reason}. Attempt {attempt + 1}/{max_retries + 1}. "
+                        f"Retrying in {delay:.1f}s..."
+                    )
+                    time.sleep(delay)
+                    continue
+
+                logger.error(
+                    f"[{provider_name}] {reason}. All {max_retries + 1} attempts exhausted."
+                )
+                raise NetworkError(f"{provider_name} stream failed after {max_retries + 1} attempts")
+
+        except httpx.TimeoutException as e:
+            last_exception = e
+            breaker.record_failure()
+            if attempt < max_retries:
+                delay = calculate_backoff(attempt, base_delay, max_delay, backoff_factor)
+                logger.warning(
+                    f"[{provider_name}] Stream timeout. Attempt {attempt + 1}/{max_retries + 1}. "
+                    f"Retrying in {delay:.1f}s..."
+                )
+                time.sleep(delay)
+            else:
+                logger.error(f"[{provider_name}] Stream timeout. All {max_retries + 1} attempts exhausted.")
+
+        except httpx.RequestError as e:
+            last_exception = e
+            breaker.record_failure()
+            if attempt < max_retries:
+                delay = calculate_backoff(attempt, base_delay, max_delay, backoff_factor)
+                logger.warning(
+                    f"[{provider_name}] Stream network error: {e}. Attempt {attempt + 1}/{max_retries + 1}. "
+                    f"Retrying in {delay:.1f}s..."
+                )
+                time.sleep(delay)
+            else:
+                logger.error(f"[{provider_name}] Stream network error: {e}. All {max_retries + 1} attempts exhausted.")
+
+    if last_exception:
+        raise NetworkError(f"{provider_name} stream failed after {max_retries + 1} attempts: {last_exception}") from last_exception
+
+    raise NetworkError(f"{provider_name} stream failed after {max_retries + 1} attempts")
+
+
+def call_with_retry(
+    func: Callable[[], Any],
+    max_retries: int = DEFAULT_MAX_RETRIES,
+    base_delay: float = DEFAULT_BASE_DELAY,
+    max_delay: float = DEFAULT_MAX_DELAY,
+    backoff_factor: float = DEFAULT_BACKOFF_FACTOR,
+    idempotent: bool = True,
+    provider_name: str = "API",
+    retry_on: Optional[Iterable[Type[BaseException]]] = None,
+) -> Any:
+    """Call a function with retry + circuit breaker.
+
+    This is for SDK calls that don't expose HTTP status codes.
     """
+    last_exception: Optional[Exception] = None
+    breaker = get_circuit_breaker(provider_name)
+    retryable = tuple(retry_on) if retry_on is not None else (ConnectionError, TimeoutError)
 
-    CLOSED = "closed"
-    OPEN = "open"
-    HALF_OPEN = "half_open"
+    for attempt in range(max_retries + 1):
+        if not breaker.allow_request():
+            raise ProviderError(f"{provider_name} circuit breaker is open; request blocked")
+
+        try:
+            result = func()
+            breaker.record_success()
+            return result
+        except retryable as e:
+            last_exception = e
+            breaker.record_failure()
+            if not idempotent and attempt == 0:
+                logger.warning(
+                    f"[{provider_name}] Non-idempotent call failed ({e}); retrying once."
+                )
+            if attempt < effective_retries:
+                delay = calculate_backoff(attempt, base_delay, max_delay, backoff_factor)
+                logger.warning(
+                    f"[{provider_name}] Call failed: {e}. Attempt {attempt + 1}/{effective_retries + 1}. "
+                    f"Retrying in {delay:.1f}s..."
+                )
+                time.sleep(delay)
+            else:
+                logger.error(
+                    f"[{provider_name}] Call failed: {e}. All {effective_retries + 1} attempts exhausted."
+                )
+        except Exception as e:
+            last_exception = e
+            breaker.record_failure()
+            raise
+
+    if last_exception:
+        raise NetworkError(
+            f"{provider_name} call failed after {effective_retries + 1} attempts: {last_exception}"
+        ) from last_exception
+
+    raise NetworkError(f"{provider_name} call failed after {effective_retries + 1} attempts")
+
+class CircuitBreaker:
+    """Basic circuit breaker to prevent cascading failures."""
 
     def __init__(
         self,
         failure_threshold: int = 5,
-        recovery_timeout: float = 60.0,
-        name: str = "circuit",
-    ):
-        self.failure_threshold = failure_threshold
-        self.recovery_timeout = recovery_timeout
-        self.name = name
-        self.state = self.CLOSED
-        self.failure_count = 0
-        self.last_failure_time: Optional[float] = None
+        recovery_timeout: float = 30.0,
+        half_open_success_threshold: int = 2,
+    ) -> None:
+        self._failure_threshold = failure_threshold
+        self._recovery_timeout = recovery_timeout
+        self._half_open_success_threshold = half_open_success_threshold
+        self._failure_count = 0
+        self._last_failure_time: Optional[float] = None
+        self._half_open_successes = 0
+        self._state = "closed"
+        self._lock = threading.Lock()
+
+    def allow_request(self) -> bool:
+        """Return True if a request is allowed in the current state."""
+        with self._lock:
+            if self._state == "closed":
+                return True
+            if self._state == "open":
+                if self._last_failure_time is None:
+                    return False
+                if (time.time() - self._last_failure_time) >= self._recovery_timeout:
+                    self._state = "half_open"
+                    self._half_open_successes = 0
+                    return True
+                return False
+            return True
 
     def record_success(self) -> None:
         """Record a successful request."""
-        self.failure_count = 0
-        self.state = self.CLOSED
+        with self._lock:
+            if self._state == "half_open":
+                self._half_open_successes += 1
+                if self._half_open_successes >= self._half_open_success_threshold:
+                    self._state = "closed"
+                    self._failure_count = 0
+                    self._last_failure_time = None
+                    self._half_open_successes = 0
+            elif self._state == "closed":
+                self._failure_count = 0
+                self._last_failure_time = None
 
     def record_failure(self) -> None:
         """Record a failed request."""
-        self.failure_count += 1
-        self.last_failure_time = time.time()
+        with self._lock:
+            if self._state == "half_open":
+                self._state = "open"
+                self._failure_count = self._failure_threshold
+                self._last_failure_time = time.time()
+                self._half_open_successes = 0
+                return
 
-        if self.failure_count >= self.failure_threshold:
-            self.state = self.OPEN
-            logger.warning(f"[{self.name}] Circuit breaker OPEN after {self.failure_count} failures")
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+            if self._failure_count >= self._failure_threshold:
+                self._state = "open"
 
-    def allow_request(self) -> bool:
-        """Check if a request should be allowed."""
-        if self.state == self.CLOSED:
-            return True
 
-        if self.state == self.OPEN:
-            # Check if recovery timeout has passed
-            if self.last_failure_time and (time.time() - self.last_failure_time) > self.recovery_timeout:
-                self.state = self.HALF_OPEN
-                logger.info(f"[{self.name}] Circuit breaker HALF_OPEN, testing recovery")
-                return True
-            return False
+_circuit_breakers: dict[str, CircuitBreaker] = {}
+_circuit_lock = threading.Lock()
 
-        # HALF_OPEN: allow the test request
-        return True
 
-    def reset(self) -> None:
-        """Reset the circuit breaker."""
-        self.state = self.CLOSED
-        self.failure_count = 0
-        self.last_failure_time = None
+def get_circuit_breaker(provider_name: str) -> CircuitBreaker:
+    """Get or create a circuit breaker for a provider."""
+    with _circuit_lock:
+        breaker = _circuit_breakers.get(provider_name)
+        if breaker is None:
+            breaker = CircuitBreaker()
+            _circuit_breakers[provider_name] = breaker
+        return breaker
