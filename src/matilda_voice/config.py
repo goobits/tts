@@ -220,9 +220,9 @@ def get_config_path() -> Path:
     """Get the configuration file path, using XDG standard with fallback."""
     xdg_config = os.environ.get("XDG_CONFIG_HOME")
     if xdg_config:
-        config_dir = Path(xdg_config) / "tts"
+        config_dir = Path(xdg_config) / "voice"
     else:
-        config_dir = Path.home() / ".config" / "tts"
+        config_dir = Path.home() / ".config" / "voice"
 
     config_file = config_dir / "config.json"
 
