@@ -38,11 +38,11 @@ Homepage = "https://github.com/goobits/tts"
 packages = [ "matilda_voice", "matilda_voice.providers", "matilda_voice.document_processing", "matilda_voice.speech_synthesis", "matilda_voice.hooks",]
 
 [tool.black]
-line-length = 128
+line-length = 120
 target-version = [ "py38",]
 
 [tool.ruff]
-line-length = 128
+line-length = 120
 target-version = "py38"
 cache-dir = ".artifacts/cache/ruff"
 
