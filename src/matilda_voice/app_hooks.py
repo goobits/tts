@@ -45,6 +45,12 @@ from .hooks import (
     on_document,
 )
 
+def on_serve(host: str = "0.0.0.0", port: int = 8771, **kwargs):
+    """Start the Voice HTTP server."""
+    from .server import run_server
+    run_server(host=host, port=port)
+
+
 __all__ = [
     # Config (for backward compatibility)
     "load_config",
@@ -73,4 +79,6 @@ __all__ = [
     "on_config",
     # Document
     "on_document",
+    # Server
+    "on_serve",
 ]

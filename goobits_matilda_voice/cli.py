@@ -25,7 +25,7 @@ import click
 
 class ColoredFormatter(logging.Formatter):
     """Custom formatter with color support."""
-    
+
     COLORS = {
         'DEBUG': '\033[36m',    # Cyan
         'INFO': '\033[32m',     # Green
@@ -34,7 +34,7 @@ class ColoredFormatter(logging.Formatter):
         'CRITICAL': '\033[35m', # Magenta
     }
     RESET = '\033[0m'
-    
+
     def format(self, record):
         log_color = self.COLORS.get(record.levelname, self.RESET)
         record.levelname = f"{log_color}{record.levelname}{self.RESET}"
@@ -43,7 +43,7 @@ class ColoredFormatter(logging.Formatter):
 def setup_logging(level=logging.INFO, log_file=None):
     """Configure logging for the CLI."""
     handlers = []
-    
+
     # Console handler with colors
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(ColoredFormatter(
@@ -51,7 +51,7 @@ def setup_logging(level=logging.INFO, log_file=None):
         datefmt='%Y-%m-%d %H:%M:%S'
     ))
     handlers.append(console_handler)
-    
+
     # File handler if specified
     if log_file:
         file_handler = logging.FileHandler(log_file)
@@ -59,7 +59,7 @@ def setup_logging(level=logging.INFO, log_file=None):
             '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
         ))
         handlers.append(file_handler)
-    
+
     logging.basicConfig(
         level=level,
         handlers=handlers
@@ -73,17 +73,17 @@ logger = logging.getLogger(__name__)
 
 class ConfigManager:
     """Manage CLI configuration."""
-    
+
     def __init__(self, config_file: Optional[Path] = None):
         """Initialize configuration manager."""
         if config_file is None:
             config_dir = Path.home() / '.config' / 'voice'
             config_dir.mkdir(parents=True, exist_ok=True)
             config_file = config_dir / 'config.yaml'
-        
+
         self.config_file = Path(config_file)
         self.config = self._load_config()
-    
+
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from file."""
         if self.config_file.exists():
@@ -94,7 +94,7 @@ class ConfigManager:
                 logger.warning(f"Failed to load config: {e}")
                 return {}
         return {}
-    
+
     def save_config(self) -> bool:
         """Save configuration to file."""
         try:
@@ -104,7 +104,7 @@ class ConfigManager:
         except Exception as e:
             logger.error(f"Failed to save config: {e}")
             return False
-    
+
     def get(self, key: str, default: Any = None) -> Any:
         """Get configuration value."""
         keys = key.split('.')
@@ -117,7 +117,7 @@ class ConfigManager:
             else:
                 return default
         return value
-    
+
     def set(self, key: str, value: Any):
         """Set configuration value."""
         keys = key.split('.')
@@ -165,12 +165,12 @@ def handle_error(error: Exception, verbose: bool = False):
 
 class CLIContext:
     """Shared context for CLI commands."""
-    
+
     def __init__(self, config: ConfigManager, verbose: bool = False, debug: bool = False):
         self.config = config
         self.verbose = verbose
         self.debug = debug
-        
+
         # Setup logging based on verbosity
         if debug:
             setup_logging(logging.DEBUG)
@@ -216,9 +216,9 @@ def cli(ctx, verbose, debug, config):
 @click.argument('text', type=click.STRING)
 @click.argument('options', type=click.STRING)
 @click.option('--voice', '-v', default=None,              help='🎤 Voice selection (e.g., en-GB-SoniaNeural for edge_tts)')
-@click.option('--rate', '-None', default=None,              help='⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)')
-@click.option('--pitch', '-None', default=None,              help='🎵 Pitch adjustment (e.g., +5Hz, -10Hz)')
-@click.option('--debug', '-None', default=None,              help='🐞 Display debug information during processing')
+@click.option('--rate', '-', default=None,              help='⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)')
+@click.option('--pitch', '-', default=None,              help='🎵 Pitch adjustment (e.g., +5Hz, -10Hz)')
+@click.option('--debug', '-', default=None,              help='🐞 Display debug information during processing')
 @click.pass_obj
 def speak(ctx, text, options, voice, rate, pitch, debug):
     """Speak text aloud"""
@@ -237,10 +237,10 @@ def speak(ctx, text, options, voice, rate, pitch, debug):
 @click.option('--output', '-o', default=None,              help='💾 Output file path')
 @click.option('--format', '-f', default=None,              help='🔧 Audio output format')
 @click.option('--voice', '-v', default=None,              help='🎤 Voice selection (e.g., en-GB-SoniaNeural for edge_tts)')
-@click.option('--json', '-None', default=None,              help='🔧 Output results as JSON')
-@click.option('--debug', '-None', default=None,              help='🐞 Display debug information during processing')
-@click.option('--rate', '-None', default=None,              help='⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)')
-@click.option('--pitch', '-None', default=None,              help='🎵 Pitch adjustment (e.g., +5Hz, -10Hz)')
+@click.option('--json', '-', default=None,              help='🔧 Output results as JSON')
+@click.option('--debug', '-', default=None,              help='🐞 Display debug information during processing')
+@click.option('--rate', '-', default=None,              help='⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)')
+@click.option('--pitch', '-', default=None,              help='🎵 Pitch adjustment (e.g., +5Hz, -10Hz)')
 @click.pass_obj
 def save(ctx, text, options, output, format, voice, json, debug, rate, pitch):
     """Save text as an audio file"""
@@ -312,17 +312,17 @@ def info(ctx, provider):
 @cli.command('document')
 @click.argument('document_path', type=click.STRING)
 @click.argument('options', type=click.STRING)
-@click.option('--save', '-None', default=None,              help='💾 Save audio output to file')
+@click.option('--save', '-', default=None,              help='💾 Save audio output to file')
 @click.option('--output', '-o', default=None,              help='📁 Output file path')
 @click.option('--format', '-f', default=None,              help='🔧 Audio output format')
 @click.option('--voice', '-v', default=None,              help='🎤 Voice to use')
-@click.option('--json', '-None', default=None,              help='🔧 Output results as JSON')
-@click.option('--debug', '-None', default=None,              help='🐞 Display debug information during processing')
-@click.option('--doc-format', '-None', default='auto',              help='📄 Input document format')
-@click.option('--ssml-platform', '-None', default='generic',              help='🏧️ SSML format platform')
-@click.option('--emotion-profile', '-None', default='auto',              help='🎭 Speech emotion style')
-@click.option('--rate', '-None', default=None,              help='⚡ Speech rate adjustment')
-@click.option('--pitch', '-None', default=None,              help='🎵 Pitch adjustment')
+@click.option('--json', '-', default=None,              help='🔧 Output results as JSON')
+@click.option('--debug', '-', default=None,              help='🐞 Display debug information during processing')
+@click.option('--doc-format', '-', default='auto',              help='📄 Input document format')
+@click.option('--ssml-platform', '-', default='generic',              help='🏧️ SSML format platform')
+@click.option('--emotion-profile', '-', default='auto',              help='🎭 Speech emotion style')
+@click.option('--rate', '-', default=None,              help='⚡ Speech rate adjustment')
+@click.option('--pitch', '-', default=None,              help='🎵 Pitch adjustment')
 @click.pass_obj
 def document(ctx, document_path, options, save, output, format, voice, json, debug, doc_format, ssml_platform, emotion_profile, rate, pitch):
     """Convert documents to speech"""
@@ -357,7 +357,7 @@ def voice_load(ctx, voice_files):
 
 @voice_group.command('unload')
 @click.argument('voice_files', type=click.STRING)
-@click.option('', 'None', default=None,              help='🧹 Remove all voices from memory')
+@click.option('', '', default=None,              help='🧹 Remove all voices from memory')
 @click.pass_obj
 def voice_unload(ctx, voice_files, all):
     """Remove voices from memory"""
