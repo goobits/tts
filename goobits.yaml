@@ -24,12 +24,13 @@ installation:
   pypi_name: "goobits-matilda-voice"
   development_path: "."
   extras:
-    python: ["dev", "all"]  # Include dev tools and all TTS providers
+    python: ["dev", "cloud"]  # Include dev tools and cloud TTS providers (OpenAI, Google, ElevenLabs)
     apt: ["ffmpeg", "sox"]  # Audio processing libraries
 
 shell_integration:
   enabled: false
   alias: "voice"
+  aliases: ["tts"]  # Backward compatibility
 
 validation:
   check_api_keys: false
@@ -67,7 +68,7 @@ messages:
 
 # CLI fields for cli.py generation
 cli:
-  name: "GOOBITS MATILDA VOICE CLI"
+  name: "MATILDA VOICE CLI"
   version: "1.1.2"
   display_version: true
   tagline: "Multi-provider text-to-speech with voice cloning"

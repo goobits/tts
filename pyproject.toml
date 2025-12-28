@@ -28,7 +28,7 @@ dev = [ "pytest>=7.0", "pytest-asyncio", "pytest-cov", "pytest-xdist>=3.0.0", "p
 publish = [ "build", "twine",]
 
 [project.scripts]
-voice = "matilda_voice.cli:cli_entry"
+voice = "goobits_matilda_voice.cli:cli_entry"
 
 [project.urls]
 Homepage = "https://github.com/goobits/tts"
@@ -58,6 +58,7 @@ cache_dir = ".artifacts/cache/mypy"
 
 [tool.setuptools.package-data]
 matilda_voice = [ "setup.sh",]
+goobits_matilda_voice = [ "setup.sh",]
 
 [tool.ruff.lint]
 select = [ "E", "W", "F", "I", "B",]

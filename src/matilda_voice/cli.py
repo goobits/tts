@@ -971,7 +971,7 @@ class DefaultGroup(RichGroup):
 
 @click.group(cls=DefaultGroup, default='speak', context_settings={"help_option_names": ["-h", "--help"], "max_content_width": 120})
 
-@click.version_option(version=get_version(), prog_name="GOOBITS TTS CLI")
+@click.version_option(version=get_version(), prog_name="Matilda Voice")
 @click.pass_context
 
 @click.option('--help-json', is_flag=True, callback=show_help_json, is_eager=True, help='Output CLI structure as JSON.', hidden=True)

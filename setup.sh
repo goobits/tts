@@ -57,6 +57,13 @@ TOTAL_STEPS=5
 CURRENT_STEP=0
 START_TIME=$(date +%s)
 
+# Detect if running in a virtualenv (don't use --user in virtualenvs)
+if [[ -n "$VIRTUAL_ENV" ]] || python3 -c "import sys; sys.exit(0 if sys.prefix != sys.base_prefix else 1)" 2>/dev/null; then
+    PIP_USER_FLAG=""
+else
+    PIP_USER_FLAG="--user"
+fi
+
 # Check if terminal supports colors
 if [[ -t 1 ]] && [[ "$(tput colors 2>/dev/null)" -ge 8 ]]; then
     USE_COLOR=true
@@ -82,13 +89,6 @@ readonly SHELL_ALIAS="voice"
 # Dependencies
 readonly REQUIRED_DEPS=("git" "pipx")
 readonly OPTIONAL_DEPS=()
-
-# Detect if running in a virtualenv (don't use --user in virtualenvs)
-if [[ -n "$VIRTUAL_ENV" ]] || python3 -c "import sys; sys.exit(0 if sys.prefix != sys.base_prefix else 1)" 2>/dev/null; then
-    PIP_USER_FLAG=""
-else
-    PIP_USER_FLAG="--user"
-fi
 
 # Enhanced dependency data (JSON format for complex dependencies)
 # Note: Using installation.extras structure instead
@@ -675,7 +675,7 @@ install_with_pipx() {
         # Install system dependencies BEFORE Python packages
         install_system_dependencies
 
-        (cd "$PROJECT_DIR" && pipx install --editable "$DEVELOPMENT_PATH[dev,all]" --force) &
+        (cd "$PROJECT_DIR" && pipx install --editable "$DEVELOPMENT_PATH[dev,cloud]" --force) &
         local install_pid=$!
 
         tree_sub_node "progress" "Creating development environment..."
@@ -697,7 +697,7 @@ install_with_pipx() {
         # Install system dependencies BEFORE Python packages
         install_system_dependencies
 
-        pipx install "$PYPI_NAME[dev,all]" --force &
+        pipx install "$PYPI_NAME[dev,cloud]" --force &
         local install_pid=$!
 
         tree_sub_node "progress" "Downloading and installing package..."
@@ -725,7 +725,7 @@ install_with_pip() {
 
     if [[ "$install_dev" == "true" ]]; then
         tree_sub_node "progress" "Installing in development mode with pip..."
-        (cd "$PROJECT_DIR" && python3 -m pip install --editable "$DEVELOPMENT_PATH[dev,all]" $PIP_USER_FLAG) &
+        (cd "$PROJECT_DIR" && python3 -m pip install --editable "$DEVELOPMENT_PATH[dev,cloud]" $PIP_USER_FLAG) &
         show_spinner $!
         wait $!
         local exit_code=$?
@@ -739,7 +739,7 @@ install_with_pip() {
         fi
     else
         tree_sub_node "progress" "Installing from PyPI with pip..."
-        python3 -m pip install "$PYPI_NAME[dev,all]" $PIP_USER_FLAG &
+        python3 -m pip install "$PYPI_NAME[dev,cloud]" $PIP_USER_FLAG &
         show_spinner $!
         wait $!
         local exit_code=$?
@@ -781,7 +781,7 @@ upgrade_package() {
         tree_sub_node "progress" "Upgrading with pip..."
 
         # Capture pip output to prevent it from breaking tree structure
-        python3 -m pip install --upgrade "$PYPI_NAME[dev,all]" $PIP_USER_FLAG >/dev/null 2>&1 &
+        python3 -m pip install --upgrade "$PYPI_NAME[dev,cloud]" $PIP_USER_FLAG >/dev/null 2>&1 &
         show_spinner $!
         wait $!
         local exit_code=$?
@@ -1121,7 +1121,7 @@ main() {
     
     # Header
     if [[ "$TREE_MODE" == "true" ]]; then
-        # POSIX-compatible capitalization (macOS has Bash 3.2)
+        # POSIX-compatible capitalization (works on macOS Bash 3.2)
         capitalized_cmd="$(echo "$command" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
         tree_start "$capitalized_cmd Process"
     else

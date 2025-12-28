@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Voice CLI is a Python text-to-speech command-line tool that supports multiple Voice providers with smart auto-selection, voice cloning capabilities, and intelligent document processing. The project uses a pluggable provider architecture to support:
+Matilda Voice is a Python text-to-speech command-line tool that supports multiple Voice providers with smart auto-selection, voice cloning capabilities, and intelligent document processing. The project uses a pluggable provider architecture to support:
 
 - **Edge Voice** (Microsoft Azure): Free, high-quality neural voices  
 - **Chatterbox**: Local voice cloning with GPU/CPU support
@@ -156,9 +156,9 @@ voice document api.json --emotion-profile technical --save
 voice document README.md --ssml-platform azure
 
 # Pipeline examples (integration with Ears/Brain)
-echo "Hello world" | tts                     # Simple pipe
-ttt "Fix grammar" < essay.txt | tts          # Fix then speak
-stt recording.wav | tts @edge               # Transcribe and speak
+echo "Hello world" | voice                     # Simple pipe
+brain "Fix grammar" < essay.txt | voice          # Fix then speak
+ears recording.wav | voice @edge               # Transcribe and speak
 ```
 
 ## Code Style & Standards
