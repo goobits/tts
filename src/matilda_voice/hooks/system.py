@@ -5,6 +5,7 @@ import sys
 from typing import Any, Dict, Optional
 
 from matilda_voice.core import get_tts_engine
+from matilda_voice.i18n import t, t_common
 
 from .utils import PROVIDERS_REGISTRY, get_engine
 
@@ -20,7 +21,7 @@ def on_status(**kwargs) -> int:
         engine = get_engine()
         config = load_config()
 
-        print("🩺 TTS System Status")
+        print(f"{t_common('icons.info')} {t('status.title')}")
         print("==================")
 
         print("\n📋 Provider Status:")

@@ -215,10 +215,10 @@ def cli(ctx, verbose, debug, config):
 @cli.command('speak')
 @click.argument('text', type=click.STRING)
 @click.argument('options', type=click.STRING)
-@click.option('--voice', '-v', default=None,              help='🎤 Voice selection (e.g., en-GB-SoniaNeural for edge_tts)')
-@click.option('--rate', '-', default=None,              help='⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)')
-@click.option('--pitch', '-', default=None,              help='🎵 Pitch adjustment (e.g., +5Hz, -10Hz)')
-@click.option('--debug', '-', default=None,              help='🐞 Display debug information during processing')
+@click.option('--voice', '-v', default=None,              help="🎤 Voice selection (e.g., en-GB-SoniaNeural for edge_tts)")
+@click.option('--rate', default=None,              help="⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)")
+@click.option('--pitch', default=None,              help="🎵 Pitch adjustment (e.g., +5Hz, -10Hz)")
+@click.option('--debug', is_flag=True, default=None,              help="🐞 Display debug information during processing")
 @click.pass_obj
 def speak(ctx, text, options, voice, rate, pitch, debug):
     """Speak text aloud"""
@@ -234,13 +234,13 @@ def speak(ctx, text, options, voice, rate, pitch, debug):
 @cli.command('save')
 @click.argument('text', type=click.STRING)
 @click.argument('options', type=click.STRING)
-@click.option('--output', '-o', default=None,              help='💾 Output file path')
-@click.option('--format', '-f', default=None,              help='🔧 Audio output format')
-@click.option('--voice', '-v', default=None,              help='🎤 Voice selection (e.g., en-GB-SoniaNeural for edge_tts)')
-@click.option('--json', '-', default=None,              help='🔧 Output results as JSON')
-@click.option('--debug', '-', default=None,              help='🐞 Display debug information during processing')
-@click.option('--rate', '-', default=None,              help='⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)')
-@click.option('--pitch', '-', default=None,              help='🎵 Pitch adjustment (e.g., +5Hz, -10Hz)')
+@click.option('--output', '-o', default=None,              help="💾 Output file path")
+@click.option('--format', '-f', default=None,              help="🔧 Audio output format")
+@click.option('--voice', '-v', default=None,              help="🎤 Voice selection (e.g., en-GB-SoniaNeural for edge_tts)")
+@click.option('--json', is_flag=True, default=None,              help="🔧 Output results as JSON")
+@click.option('--debug', is_flag=True, default=None,              help="🐞 Display debug information during processing")
+@click.option('--rate', default=None,              help="⚡ Speech rate adjustment (e.g., +20%, -50%, 150%)")
+@click.option('--pitch', default=None,              help="🎵 Pitch adjustment (e.g., +5Hz, -10Hz)")
 @click.pass_obj
 def save(ctx, text, options, output, format, voice, json, debug, rate, pitch):
     """Save text as an audio file"""
@@ -312,17 +312,17 @@ def info(ctx, provider):
 @cli.command('document')
 @click.argument('document_path', type=click.STRING)
 @click.argument('options', type=click.STRING)
-@click.option('--save', '-', default=None,              help='💾 Save audio output to file')
-@click.option('--output', '-o', default=None,              help='📁 Output file path')
-@click.option('--format', '-f', default=None,              help='🔧 Audio output format')
-@click.option('--voice', '-v', default=None,              help='🎤 Voice to use')
-@click.option('--json', '-', default=None,              help='🔧 Output results as JSON')
-@click.option('--debug', '-', default=None,              help='🐞 Display debug information during processing')
-@click.option('--doc-format', '-', default='auto',              help='📄 Input document format')
-@click.option('--ssml-platform', '-', default='generic',              help='🏧️ SSML format platform')
-@click.option('--emotion-profile', '-', default='auto',              help='🎭 Speech emotion style')
-@click.option('--rate', '-', default=None,              help='⚡ Speech rate adjustment')
-@click.option('--pitch', '-', default=None,              help='🎵 Pitch adjustment')
+@click.option('--save', is_flag=True, default=None,              help="💾 Save audio output to file")
+@click.option('--output', '-o', default=None,              help="📁 Output file path")
+@click.option('--format', '-f', default=None,              help="🔧 Audio output format")
+@click.option('--voice', '-v', default=None,              help="🎤 Voice to use")
+@click.option('--json', is_flag=True, default=None,              help="🔧 Output results as JSON")
+@click.option('--debug', is_flag=True, default=None,              help="🐞 Display debug information during processing")
+@click.option('--doc-format', default='auto',              help="📄 Input document format")
+@click.option('--ssml-platform', default='generic',              help="🏧️ SSML format platform")
+@click.option('--emotion-profile', default='auto',              help="🎭 Speech emotion style")
+@click.option('--rate', default=None,              help="⚡ Speech rate adjustment")
+@click.option('--pitch', default=None,              help="🎵 Pitch adjustment")
 @click.pass_obj
 def document(ctx, document_path, options, save, output, format, voice, json, debug, doc_format, ssml_platform, emotion_profile, rate, pitch):
     """Convert documents to speech"""
@@ -357,7 +357,7 @@ def voice_load(ctx, voice_files):
 
 @voice_group.command('unload')
 @click.argument('voice_files', type=click.STRING)
-@click.option('', '', default=None,              help='🧹 Remove all voices from memory')
+@click.option('', is_flag=True, default=None,              help="🧹 Remove all voices from memory")
 @click.pass_obj
 def voice_unload(ctx, voice_files, all):
     """Remove voices from memory"""
