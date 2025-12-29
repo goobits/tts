@@ -14,11 +14,9 @@ Usage:
 import argparse
 import asyncio
 import base64
-import io
 import json
-import tempfile
 import os
-from typing import Any, Dict, Optional
+import tempfile
 
 from aiohttp import web
 from aiohttp.web import Request, Response
@@ -232,10 +230,10 @@ def run_server(host: str = "0.0.0.0", port: int = 8771):
     app = create_app()
 
     print(f"Starting Voice server on http://{host}:{port}")
-    print(f"  POST /speak      - Synthesize and play audio")
-    print(f"  POST /synthesize - Synthesize and return audio data")
-    print(f"  GET  /providers  - List available providers")
-    print(f"  GET  /health     - Health check")
+    print("  POST /speak      - Synthesize and play audio")
+    print("  POST /synthesize - Synthesize and return audio data")
+    print("  GET  /providers  - List available providers")
+    print("  GET  /health     - Health check")
     print()
 
     web.run_app(app, host=host, port=port, print=None)

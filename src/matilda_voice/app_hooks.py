@@ -19,31 +19,32 @@ from matilda_voice.config import load_config, save_config
 
 # Re-export all hook handlers for backward compatibility
 from .hooks import (
+    PROVIDER_SHORTCUTS,
     # Registries
     PROVIDERS_REGISTRY,
-    PROVIDER_SHORTCUTS,
-    # Utils
-    parse_provider_shortcuts,
-    handle_provider_shortcuts,
     get_engine,
-    # Core
-    on_speak,
-    on_save,
-    # Providers
-    on_voices,
-    on_providers,
-    on_install,
-    on_info,
-    # Voice
-    on_voice_load,
-    on_voice_unload,
-    on_voice_status,
-    # System
-    on_status,
+    handle_provider_shortcuts,
     on_config,
     # Document
     on_document,
+    on_info,
+    on_install,
+    on_providers,
+    on_save,
+    # Core
+    on_speak,
+    # System
+    on_status,
+    # Voice
+    on_voice_load,
+    on_voice_status,
+    on_voice_unload,
+    # Providers
+    on_voices,
+    # Utils
+    parse_provider_shortcuts,
 )
+
 
 def on_serve(host: str = "0.0.0.0", port: int = 8771, **kwargs):
     """Start the Voice HTTP server."""

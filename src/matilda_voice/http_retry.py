@@ -16,7 +16,7 @@ from typing import Any, Callable, Iterable, Optional, Set, Tuple, Type
 
 import httpx
 
-from .exceptions import NetworkError, ProviderError, QuotaError
+from .exceptions import NetworkError, ProviderError
 
 logger = logging.getLogger(__name__)
 
@@ -344,16 +344,16 @@ def call_with_retry(
                 logger.warning(
                     f"[{provider_name}] Non-idempotent call failed ({e}); retrying once."
                 )
-            if attempt < effective_retries:
+            if attempt < max_retries:
                 delay = calculate_backoff(attempt, base_delay, max_delay, backoff_factor)
                 logger.warning(
-                    f"[{provider_name}] Call failed: {e}. Attempt {attempt + 1}/{effective_retries + 1}. "
+                    f"[{provider_name}] Call failed: {e}. Attempt {attempt + 1}/{max_retries + 1}. "
                     f"Retrying in {delay:.1f}s..."
                 )
                 time.sleep(delay)
             else:
                 logger.error(
-                    f"[{provider_name}] Call failed: {e}. All {effective_retries + 1} attempts exhausted."
+                    f"[{provider_name}] Call failed: {e}. All {max_retries + 1} attempts exhausted."
                 )
         except Exception as e:
             last_exception = e
@@ -362,10 +362,10 @@ def call_with_retry(
 
     if last_exception:
         raise NetworkError(
-            f"{provider_name} call failed after {effective_retries + 1} attempts: {last_exception}"
+            f"{provider_name} call failed after {max_retries + 1} attempts: {last_exception}"
         ) from last_exception
 
-    raise NetworkError(f"{provider_name} call failed after {effective_retries + 1} attempts")
+    raise NetworkError(f"{provider_name} call failed after {max_retries + 1} attempts")
 
 class CircuitBreaker:
     """Basic circuit breaker to prevent cascading failures."""

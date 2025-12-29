@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """Hook handlers for TTS CLI."""
 
-import sys
-from typing import Any, Dict, Optional
+from typing import Optional
 
-from matilda_voice.core import get_tts_engine
 from matilda_voice.i18n import t, t_common
 
-from .utils import PROVIDERS_REGISTRY, get_engine
+from .utils import get_engine
 
 
 def _get_config_functions():

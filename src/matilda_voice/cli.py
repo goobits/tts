@@ -33,7 +33,17 @@ except ImportError:
     HAS_PROGRESS_HELPER = False
 
 try:
-    from .prompts_helper import confirm, float_input, get_prompts_helper, integer, multiselect, password, path, select, text
+    from .prompts_helper import (
+        confirm,
+        float_input,
+        get_prompts_helper,
+        integer,
+        multiselect,
+        password,
+        path,
+        select,
+        text,
+    )
     HAS_PROMPTS_HELPER = True
 except ImportError:
     HAS_PROMPTS_HELPER = False

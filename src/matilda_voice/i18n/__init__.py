@@ -35,10 +35,10 @@ try:
     from base_loader import I18nLoader, get_monorepo_locales_path
 except ImportError:
     # Fallback: define minimal loader inline if base not available
-    from typing import Callable, Dict, Optional
     import json
-    import threading
     import os
+    import threading
+    from typing import Callable, Dict, Optional
 
     def get_monorepo_locales_path() -> Path:
         for p in [Path("/workspace/i18n/locales"), Path(__file__).parent / "locales"]:

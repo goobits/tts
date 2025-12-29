@@ -11,18 +11,18 @@ This module provides all hook handlers for the CLI commands:
 - utils: helper functions and registries
 """
 
-from .utils import (
-    PROVIDERS_REGISTRY,
-    PROVIDER_SHORTCUTS,
-    parse_provider_shortcuts,
-    handle_provider_shortcuts,
-    get_engine,
-)
-from .core import on_speak, on_save
-from .providers import on_voices, on_providers, on_install, on_info
-from .voice import on_voice_load, on_voice_unload, on_voice_status
-from .system import on_status, on_config
+from .core import on_save, on_speak
 from .document import on_document
+from .providers import on_info, on_install, on_providers, on_voices
+from .system import on_config, on_status
+from .utils import (
+    PROVIDER_SHORTCUTS,
+    PROVIDERS_REGISTRY,
+    get_engine,
+    handle_provider_shortcuts,
+    parse_provider_shortcuts,
+)
+from .voice import on_voice_load, on_voice_status, on_voice_unload
 
 __all__ = [
     # Registries

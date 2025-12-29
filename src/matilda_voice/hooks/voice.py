@@ -1,13 +1,8 @@
 #!/usr/bin/env python3
 """Hook handlers for TTS CLI."""
 
-import sys
-from typing import Any, Dict, Optional
 
-from matilda_voice.config import load_config, save_config
-from matilda_voice.core import get_tts_engine
 
-from .utils import get_engine
 def on_voice_load(voice_files: tuple, **kwargs) -> int:
     """Handle the voice load command"""
     try:

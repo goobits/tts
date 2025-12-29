@@ -63,6 +63,20 @@ goobits_matilda_voice = [ "setup.sh",]
 
 [tool.ruff.lint]
 select = [ "E", "W", "F", "I", "B",]
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+    "B007",  # Loop variable not used (intentional patterns)
+    "F811",  # Redefinition (intentional in some cases)
+    "E702",  # Multiple statements on one line (rare)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Re-exports for public API
+"src/matilda_voice/helpers/__init__.py" = ["F401"]
+# i18n fallback imports
+"src/matilda_voice/i18n/__init__.py" = ["F401"]
+# Generated CLI has helper imports available for hooks
+"src/matilda_voice/cli.py" = ["F401"]
 
 [tool.coverage.run]
 data_file = ".artifacts/cache/.coverage"

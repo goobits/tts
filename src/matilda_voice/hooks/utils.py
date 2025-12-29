@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Hook handlers for TTS CLI."""
 
-import sys
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
-from matilda_voice.config import load_config, save_config
 from matilda_voice.core import get_tts_engine
 
 # Provider registry - this should match what was in the original CLI

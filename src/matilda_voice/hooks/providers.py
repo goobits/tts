@@ -2,21 +2,19 @@
 """Hook handlers for TTS CLI."""
 
 import sys
-from typing import Any, Dict, Optional
-
-from matilda_voice.config import load_config, save_config
-from matilda_voice.core import get_tts_engine
+from typing import Optional
 
 from .utils import (
-    PROVIDERS_REGISTRY,
     PROVIDER_SHORTCUTS,
-    handle_provider_shortcuts,
+    PROVIDERS_REGISTRY,
     get_engine,
+    handle_provider_shortcuts,
 )
+
+
 def on_voices(args: tuple, **kwargs) -> int:
     """Handle the voices command"""
     import os
-    import sys
 
     try:
         from matilda_voice.voice_browser import VoiceBrowser

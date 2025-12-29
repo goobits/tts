@@ -4,16 +4,13 @@
 import sys
 from typing import Any, Dict, Optional
 
-from matilda_voice.config import load_config, save_config
-from matilda_voice.core import get_tts_engine
-
 from .utils import (
-    PROVIDERS_REGISTRY,
     PROVIDER_SHORTCUTS,
-    parse_provider_shortcuts,
-    handle_provider_shortcuts,
     get_engine,
+    parse_provider_shortcuts,
 )
+
+
 def on_speak(
     text: Optional[str], options: tuple, voice: Optional[str], rate: Optional[str], pitch: Optional[str], debug: bool, **kwargs
 ) -> int:

@@ -14,7 +14,6 @@ from ..audio_utils import (
     create_ffplay_process,
     stream_via_tempfile,
 )
-from ..http_retry import request_with_retry, stream_with_retry
 from ..base import TTSProvider
 from ..config import get_api_key, get_config_value, is_ssml, strip_ssml_tags
 from ..exceptions import (
@@ -25,6 +24,7 @@ from ..exceptions import (
     VoiceNotFoundError,
     map_http_error,
 )
+from ..http_retry import request_with_retry, stream_with_retry
 from ..types import ProviderInfo
 
 

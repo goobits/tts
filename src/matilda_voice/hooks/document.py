@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """Hook handlers for TTS CLI."""
 
-import sys
 from typing import Any, Dict, Optional
 
-from matilda_voice.config import load_config, save_config
-from matilda_voice.core import get_tts_engine
+from .utils import get_engine
 
-from .utils import handle_provider_shortcuts, get_engine
+
 def on_document(
     document_path: str,
     options: tuple,
