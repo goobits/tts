@@ -1,21 +1,23 @@
 # 🔊 Matilda Voice
 
-One CLI for all TTS providers. Stream to speakers, save to files, or clone voices. Works with your text processing pipeline.
+Unified TTS CLI supporting multiple providers with streaming, file output, and voice cloning.
 
-**Supported Providers**: Edge TTS • OpenAI • ElevenLabs • Google Cloud • Chatterbox
+## ✨ Key Features
 
-## Quick Start
+- **🎯 Simple Streaming** - Direct audio output to speakers with `voice "Hello"`
+- **🔧 Multi-Provider** - Edge TTS, OpenAI, ElevenLabs, Google Cloud, Chatterbox
+- **🎙️ Voice Cloning** - Clone voices locally with Chatterbox
+- **🔄 Pipeline Ready** - Works with stdin/stdout for tool chaining
+- **📄 Document Processing** - Convert HTML, JSON, Markdown to speech
 
-1. **Install**: `./setup.sh install`
-2. **Test**: `voice "Hello world"`
-3. **Done**: You just synthesized speech
-
-## Basic Usage
+## 🚀 Quick Start
 
 ```bash
-# Stream audio to speakers
+# Install
+./setup.sh install
+
+# Stream to speakers
 voice "Hello world"
-echo "Hello world" | tts
 
 # Save to file
 voice save "Hello world" -o greeting.mp3
@@ -23,20 +25,37 @@ voice save "Hello world" -o greeting.mp3
 # Use specific provider
 voice @edge "Hello from Microsoft"
 voice @openai "Hello from OpenAI"
-voice @elevenlabs "Hello from ElevenLabs"
 ```
 
-## Provider Comparison
+## 🎙️ Providers
 
-| Provider | Cost | Quality | Speed | Voice Cloning | Best For |
-|----------|------|---------|-------|---------------|----------|
-| Edge TTS | Free | Good | Fast | No | Development, general use |
-| OpenAI | Paid | Excellent | Very Fast | No | Production, real-time |
-| ElevenLabs | Paid | Excellent | Fast | Yes | Premium quality, cloning |
-| Google Cloud | Paid | Excellent | Fast | No | Enterprise, multilingual |
-| Chatterbox | Free | Variable | Fast | Yes | Local processing, privacy |
+| Provider | Cost | Quality | Speed | Voice Cloning |
+|----------|------|---------|-------|---------------|
+| Edge TTS | Free | Good | Fast | No |
+| OpenAI | Paid | Excellent | Very Fast | No |
+| ElevenLabs | Paid | Excellent | Fast | Yes |
+| Google Cloud | Paid | Excellent | Fast | No |
+| Chatterbox | Free | Variable | Fast | Yes |
 
-## Configuration
+```bash
+# Provider shortcuts
+voice @edge "text"        # Microsoft Edge TTS (free)
+voice @openai "text"      # OpenAI TTS
+voice @elevenlabs "text"  # ElevenLabs
+voice @google "text"      # Google Cloud TTS
+voice @chatterbox "text"  # Local voice cloning
+```
+
+## 📚 Python Library
+
+```python
+from matilda_voice.core import TTSEngine
+
+engine = TTSEngine()
+engine.synthesize("Hello world", "output.mp3", provider="edge_tts")
+```
+
+## ⚙️ Configuration
 
 ```bash
 # Set API keys
@@ -51,7 +70,7 @@ voice config show
 voice config edit
 ```
 
-## Voice Selection
+### Voice Selection
 
 ```bash
 # Browse voices interactively
@@ -62,12 +81,10 @@ voice @edge "Hello" --voice en-US-AriaNeural
 voice @openai "Hello" --voice alloy
 ```
 
-## Pipeline Integration
-
-Works seamlessly with other Goobits tools:
+## 🔗 Pipeline Integration
 
 ```bash
-# Speech → Text → Speech
+# Speech-to-Text → Text-to-Speech
 stt recording.wav | tts @edge
 
 # Text transformation → Speech
@@ -77,51 +94,57 @@ echo "Hello" | ttt "translate to Spanish" | tts @google
 voice document report.html --emotion-profile technical
 ```
 
-## Documentation
+## 🛠️ Installation Options
+
+```bash
+# Recommended (all providers)
+./setup.sh install
+
+# Development (editable)
+./setup.sh install --dev
+
+# Alternative methods
+pipx install goobits-matilda-voice[all]
+pip install goobits-matilda-voice[openai]    # Single provider
+```
+
+**Requirements**: Python 3.8+, FFmpeg, audio output device
+
+## 📖 Documentation
 
 - **[Getting Started](docs/getting-started.md)** - Installation and first steps
 - **[User Guide](docs/user-guide.md)** - Complete reference
 - **[Provider Guide](docs/providers.md)** - Provider comparison and setup
 - **[Advanced Usage](docs/advanced.md)** - Pipelines and document processing
 
-## Installation Options
+## 🧪 Development
 
-**Recommended** (all providers):
 ```bash
-./setup.sh install
-```
-
-**Alternative methods**:
-```bash
-pipx install goobits-matilda-voice[all]      # Global install
-pip install goobits-matilda-voice[all]       # User install
-pip install goobits-matilda-voice[openai]    # Single provider
-```
-
-**Development**:
-```bash
+# Install dev dependencies
 ./setup.sh install --dev
+
+# Run tests
+./test.sh
+
+# Code quality
+ruff check . --fix
+black .
+mypy src/
 ```
 
-## System Requirements
-
-- Python 3.8+
-- FFmpeg (for audio processing)
-- Audio output device
-
-## Related Projects
+## 🔗 Related Projects
 
 Part of the Goobits AI toolkit:
 
 - **[Matilda](https://github.com/goobits/matilda)** - AI assistant
 - **[Matilda Ears](https://github.com/goobits/matilda-ears)** - Speech-to-Text
-- **[Matilda Voice](https://github.com/goobits/matilda-voice)** - Text-to-Speech (this project)
+- **[Matilda Voice](https://github.com/goobits/matilda-voice)** - Text-to-Speech
 - **[Matilda Brain](https://github.com/goobits/matilda-brain)** - Text-to-Text processing
 
-## License
+## 📝 License
 
-MIT License - See LICENSE file for details
+MIT License - See LICENSE file for details.
 
-## Contributing
+---
 
-Contributions welcome! See [CLAUDE.md](CLAUDE.md) for development setup and guidelines.
+Contributions welcome. See [CLAUDE.md](CLAUDE.md) for development guidelines.

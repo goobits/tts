@@ -187,7 +187,7 @@ tts @google "Text" --voice en-US-Neural2-A
 
 **Provider**: Local processing (chatterbox-tts)
 **Cost**: Free
-**Setup**: Automatic (installed with `goobits-tts[chatterbox]`)
+**Setup**: Automatic (installed with `goobits-matilda-voice[chatterbox]`)
 
 ### Usage
 
@@ -279,19 +279,19 @@ Install only the providers you need:
 
 ```bash
 # All providers
-pip install goobits-tts[all]
+pip install goobits-matilda-voice[all]
 
 # Cloud providers only
-pip install goobits-tts[cloud]
+pip install goobits-matilda-voice[cloud]
 
 # Local providers only
-pip install goobits-tts[local]
+pip install goobits-matilda-voice[local]
 
 # Individual providers
-pip install goobits-tts[openai]
-pip install goobits-tts[google]
-pip install goobits-tts[elevenlabs]
-pip install goobits-tts[chatterbox]
+pip install goobits-matilda-voice[openai]
+pip install goobits-matilda-voice[google]
+pip install goobits-matilda-voice[elevenlabs]
+pip install goobits-matilda-voice[chatterbox]
 ```
 
 ## Cost Comparison

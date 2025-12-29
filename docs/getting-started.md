@@ -25,12 +25,12 @@ If you hear audio, you're done! The default provider (Edge TTS) requires no API 
 
 **Global install with pipx**:
 ```bash
-pipx install goobits-tts[all]
+pipx install goobits-matilda-voice[all]
 ```
 
 **User install with pip**:
 ```bash
-pip install --user goobits-tts[all]
+pip install --user goobits-matilda-voice[all]
 ```
 
 **Development install** (for contributors):

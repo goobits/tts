@@ -1855,12 +1855,12 @@ def instructions(shell):
 
     click.echo("🏠 User installation (recommended):")
     click.echo(f"   mkdir -p {Path(instructions['user_script_path']).parent}")
-    click.echo(f"   goobits-tts-cli completion generate {shell} > completion.{shell}")
+    click.echo(f"   voice completion generate {shell} > completion.{shell}")
     click.echo(f"   cp completion.{shell} {instructions['user_script_path']}")
     click.echo()
 
     click.echo("🌐 System-wide installation:")
-    click.echo(f"   goobits-tts-cli completion generate {shell} > completion.{shell}")
+    click.echo(f"   voice completion generate {shell} > completion.{shell}")
     click.echo(f"   {instructions['install_cmd']}")
     click.echo()
 
