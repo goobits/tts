@@ -49,10 +49,17 @@ voice @chatterbox "text"  # Local voice cloning
 ## 📚 Python Library
 
 ```python
-from matilda_voice.core import TTSEngine
+from matilda_voice.core import TTSEngine, initialize_tts_engine
+from matilda_voice.app_hooks import PROVIDERS_REGISTRY
 
-engine = TTSEngine()
-engine.synthesize("Hello world", "output.mp3", provider="edge_tts")
+# Initialize engine with provider registry
+engine = initialize_tts_engine(PROVIDERS_REGISTRY)
+
+# Synthesize to file (returns output path)
+output = engine.synthesize_text("Hello world", output_path="output.mp3", stream=False)
+
+# Stream to speakers (returns None)
+engine.synthesize_text("Hello world", provider_name="edge_tts", stream=True)
 ```
 
 ## ⚙️ Configuration
@@ -84,11 +91,11 @@ voice @openai "Hello" --voice alloy
 ## 🔗 Pipeline Integration
 
 ```bash
-# Speech-to-Text → Text-to-Speech
-stt recording.wav | tts @edge
+# Pipe text to voice
+echo "Hello world" | voice
 
-# Text transformation → Speech
-echo "Hello" | ttt "translate to Spanish" | tts @google
+# Text transformation → Speech (requires ttt installed)
+echo "Hello" | ttt "translate to Spanish" | voice @google
 
 # Document processing
 voice document report.html --emotion-profile technical
@@ -112,10 +119,7 @@ pip install goobits-matilda-voice[openai]    # Single provider
 
 ## 📖 Documentation
 
-- **[Getting Started](docs/getting-started.md)** - Installation and first steps
-- **[User Guide](docs/user-guide.md)** - Complete reference
-- **[Provider Guide](docs/providers.md)** - Provider comparison and setup
-- **[Advanced Usage](docs/advanced.md)** - Pipelines and document processing
+See [CLAUDE.md](CLAUDE.md) for detailed development guidelines, architecture overview, and advanced usage patterns.
 
 ## 🧪 Development
 
