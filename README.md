@@ -55,11 +55,12 @@ from matilda_voice.app_hooks import PROVIDERS_REGISTRY
 # Initialize engine with provider registry
 engine = initialize_tts_engine(PROVIDERS_REGISTRY)
 
-# Synthesize to file (returns output path)
-output = engine.synthesize_text("Hello world", output_path="output.mp3", stream=False)
+# Synthesize to file
+output_path = engine.synthesize_text("Hello world", output_path="output.mp3", stream=False)
+print(f"Saved to: {output_path}")
 
-# Stream to speakers (returns None)
-engine.synthesize_text("Hello world", provider_name="edge_tts", stream=True)
+# Stream to speakers (default behavior)
+engine.synthesize_text("Hello world", provider_name="edge_tts")
 ```
 
 ## ⚙️ Configuration
