@@ -186,10 +186,10 @@ class CLIContext:
 def load_hooks():
     """Load user-defined hooks."""
     try:
-        import cli_hooks
-        return cli_hooks
+        from matilda_voice import app_hooks
+        return app_hooks
     except ImportError:
-        logger.warning("No cli_hooks.py found. Please create one with your command implementations.")
+        logger.warning("No app_hooks.py found. Please create one with your command implementations.")
         logger.warning("Example:")
         logger.warning("  def on_build(ctx, **kwargs):")
         logger.warning("      print('Build command implementation')")
@@ -357,7 +357,7 @@ def voice_load(ctx, voice_files):
 
 @voice_group.command('unload')
 @click.argument('voice_files', type=click.STRING)
-@click.option('', is_flag=True, default=None,              help="🧹 Remove all voices from memory")
+@click.option('--all', is_flag=True, default=None,              help="🧹 Remove all voices from memory")
 @click.pass_obj
 def voice_unload(ctx, voice_files, all):
     """Remove voices from memory"""

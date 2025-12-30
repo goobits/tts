@@ -45,15 +45,15 @@ Additionally, Voice CLI now includes advanced document-to-speech capabilities:
 
 ## CLI Generation
 The project uses Goobits CLI framework: run `goobits build` to generate CLI and setup scripts from goobits.yaml configuration.
-After generation, use `./setup.sh install --dev` for development installation with immediate code change reflection.
+After generation, use `./scripts/setup.sh install --dev` for development installation with immediate code change reflection.
 
 ## Common Development Commands
 
 **Testing:**
 ```bash
 # Use the virtual environment when running commands, not the global python
-./test.sh               # Main test runner with coverage
-python -m pytest tests/ -v    # Direct pytest execution
+./scripts/test.sh               # Main test runner with coverage
+python -m pytest tests/ -v      # Direct pytest execution
 
 # CLI-specific testing
 python -m pytest tests/integration/test_cli_integration.py -v  # Detailed CLI functionality tests

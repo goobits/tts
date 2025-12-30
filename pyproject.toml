@@ -28,7 +28,7 @@ dev = [ "pytest>=7.0", "pytest-asyncio", "pytest-cov", "pytest-xdist>=3.0.0", "p
 publish = [ "build", "twine",]
 
 [project.scripts]
-voice = "matilda_voice.cli:cli_entry"
+voice = "matilda_voice.cli:main"
 voice-server = "matilda_voice.server:main"
 
 [project.urls]
