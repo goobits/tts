@@ -28,7 +28,7 @@ dev = [ "pytest>=7.0", "pytest-asyncio", "pytest-cov", "pytest-xdist>=3.0.0", "p
 publish = [ "build", "twine",]
 
 [project.scripts]
-voice = "goobits_matilda_voice.cli:cli_entry"
+voice = "matilda_voice.cli:cli_entry"
 voice-server = "matilda_voice.server:main"
 
 [project.urls]
@@ -63,20 +63,7 @@ goobits_matilda_voice = [ "setup.sh",]
 
 [tool.ruff.lint]
 select = [ "E", "W", "F", "I", "B",]
-ignore = [
-    "E501",  # Line too long (handled by formatter)
-    "B007",  # Loop variable not used (intentional patterns)
-    "F811",  # Redefinition (intentional in some cases)
-    "E702",  # Multiple statements on one line (rare)
-]
-
-[tool.ruff.lint.per-file-ignores]
-# Re-exports for public API
-"src/matilda_voice/helpers/__init__.py" = ["F401"]
-# i18n fallback imports
-"src/matilda_voice/i18n/__init__.py" = ["F401"]
-# Generated CLI has helper imports available for hooks
-"src/matilda_voice/cli.py" = ["F401"]
+ignore = [ "E501", "B007", "F811", "E702",]
 
 [tool.coverage.run]
 data_file = ".artifacts/cache/.coverage"
@@ -98,3 +85,8 @@ python_functions = [ "test_*",]
 addopts = [ "-v", "--tb=short", "--strict-markers", "--strict-config", "--durations=10",]
 markers = [ "slow: marks tests as slow (deselect with '-m \"not slow\"')", "integration: marks tests as integration tests", "unit: marks tests as unit tests", "e2e: marks tests as end-to-end tests", "config: marks tests related to configuration", "audio: marks tests related to audio processing", "provider: marks tests related to TTS providers", "workflow: marks tests as workflow tests", "benchmark: marks tests as benchmark tests", "pipeline: marks tests as pipeline integration tests", "realuser: marks tests as real user scenario tests", "stress: marks tests as stress tests", "performance: marks tests as performance tests", "regression: marks tests as regression tests", "requires_providers: mark test to require actual TTS providers",]
 filterwarnings = [ "ignore::DeprecationWarning", "ignore::PendingDeprecationWarning",]
+
+[tool.ruff.lint.per-file-ignores]
+"src/matilda_voice/helpers/__init__.py" = [ "F401",]
+"src/matilda_voice/i18n/__init__.py" = [ "F401",]
+"src/matilda_voice/cli.py" = [ "F401",]

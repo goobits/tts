@@ -39,10 +39,10 @@ clean: ## Clean up build artifacts and cache
 	@find . -type f -name "*.pyc" -delete
 
 install: ## Install package with pipx
-	@./setup.sh install
+	@./scripts/setup.sh install
 
 dev: ## Install in development mode
-	@./setup.sh install --dev
+	@./scripts/setup.sh install --dev
 
 # Test shortcuts
 unit: ## Run unit tests only
