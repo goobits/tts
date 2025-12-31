@@ -9,9 +9,9 @@ from .utils import get_engine
 
 
 def _get_config_functions():
-    """Late-bind config functions to allow patching at tts.app_hooks level."""
-    import matilda_voice.app_hooks as app_hooks
-    return app_hooks.load_config, app_hooks.save_config
+    """Late-bind config functions to allow patching."""
+    from matilda_voice.config import load_config, save_config
+    return load_config, save_config
 def on_status(**kwargs) -> int:
     """Handle the status command"""
     try:

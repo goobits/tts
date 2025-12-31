@@ -8,7 +8,7 @@ including document format options, emotion profiles, and SSML platform validatio
 import pytest
 from click.testing import CliRunner
 
-from matilda_voice.cli import main as cli
+from matilda_voice.cli import cli as cli
 
 
 class TestDocumentFormatOptions:

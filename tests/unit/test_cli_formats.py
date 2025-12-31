@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
-from matilda_voice.cli import main
+from matilda_voice.cli import cli
 
 
 class TestFormatValidation:
@@ -23,7 +23,7 @@ class TestFormatValidation:
         runner = CliRunner()
         valid_formats = ["mp3", "wav", "ogg", "flac"]
 
-        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.hooks.utils.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -33,7 +33,7 @@ class TestFormatValidation:
                 # Create the expected output file
                 output_file.write_bytes(b"mock audio data")
 
-                result = runner.invoke(main, ["save", "Test text", "--format", format_name, "--output", str(output_file)])
+                result = runner.invoke(cli, ["save", "Test text", "@edge", "--format", format_name, "--output", str(output_file)])
                 assert result.exit_code == 0, f"Format {format_name} should be valid, got: {result.output}"
 
                 # Verify the format was passed to the engine
@@ -48,7 +48,7 @@ class TestFormatValidation:
 
         for format_name in invalid_formats:
             output_file = tmp_path / f"test_output.{format_name}"
-            result = runner.invoke(main, ["save", "Test text", "--format", format_name, "--output", str(output_file)])
+            result = runner.invoke(cli, ["save", "Test text", "@edge", "--format", format_name, "--output", str(output_file)])
             assert result.exit_code != 0, f"Format {format_name} should be rejected"
             assert "Invalid value" in result.output or "not one of" in result.output
 
@@ -61,14 +61,14 @@ class TestFormatValidation:
 
         for format_name in uppercase_formats:
             output_file = tmp_path / f"test_output.{format_name.lower()}"
-            result = runner.invoke(main, ["save", "Test text", "--format", format_name, "--output", str(output_file)])
+            result = runner.invoke(cli, ["save", "Test text", "@edge", "--format", format_name, "--output", str(output_file)])
             assert result.exit_code != 0, f"Uppercase format {format_name} should be rejected"
 
     def test_format_shorthand_options(self, full_cli_env, tmp_path):
         """Test format option short forms (-f) work correctly."""
         runner = CliRunner()
 
-        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.hooks.utils.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -77,7 +77,7 @@ class TestFormatValidation:
                 output_file = tmp_path / f"test_output.{format_name}"
                 output_file.write_bytes(b"mock audio data")
 
-                result = runner.invoke(main, ["save", "Test text", "-f", format_name, "-o", str(output_file)])
+                result = runner.invoke(cli, ["save", "Test text", "@edge", "-f", format_name, "-o", str(output_file)])
                 assert result.exit_code == 0, f"Short form -f should work for {format_name}"
 
 
@@ -88,7 +88,7 @@ class TestSaveCommandFormats:
         """Test save command with explicit format specification."""
         runner = CliRunner()
 
-        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.hooks.utils.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -99,7 +99,7 @@ class TestSaveCommandFormats:
                 output_file = tmp_path / filename
                 output_file.write_bytes(b"mock audio data")
 
-                result = runner.invoke(main, ["save", "Hello world", "--format", format_name, "--output", str(output_file)])
+                result = runner.invoke(cli, ["save", "Hello world", "@edge", "--format", format_name, "--output", str(output_file)])
                 assert result.exit_code == 0
                 assert output_file.exists(), f"Output file should exist for {format_name}"
 
@@ -107,7 +107,7 @@ class TestSaveCommandFormats:
         """Test format handling works with provider shortcuts."""
         runner = CliRunner()
 
-        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.hooks.utils.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -120,7 +120,7 @@ class TestSaveCommandFormats:
                     output_file.write_bytes(b"mock audio data")
 
                     result = runner.invoke(
-                        main, ["save", provider, "Hello world", "--format", format_name, "--output", str(output_file)]
+                        cli, ["save", "Hello world", provider, "--format", format_name, "--output", str(output_file)]
                     )
                     assert result.exit_code == 0
                     assert output_file.exists()
@@ -129,7 +129,7 @@ class TestSaveCommandFormats:
         """Test save command default format behavior when no format specified."""
         runner = CliRunner()
 
-        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.hooks.utils.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -137,7 +137,7 @@ class TestSaveCommandFormats:
             output_file = tmp_path / "output.mp3"
             output_file.write_bytes(b"mock audio data")
 
-            result = runner.invoke(main, ["save", "Hello world", "--output", str(output_file)])
+            result = runner.invoke(cli, ["save", "Hello world", "@edge", "--output", str(output_file)])
             assert result.exit_code == 0
             assert output_file.exists()
 
@@ -153,7 +153,7 @@ class TestDocumentCommandFormats:
         test_doc = tmp_path / "test.md"
         test_doc.write_text("# Test Document\n\nThis is a test document for TTS processing.")
 
-        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.hooks.utils.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -176,12 +176,12 @@ class TestDocumentCommandFormats:
         test_doc = tmp_path / "test.md"
         test_doc.write_text("# Test Document\n\nThis is a test document.")
 
-        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.hooks.utils.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
 
-            result = runner.invoke(main, ["document", str(test_doc), "--format", "wav"])
+            result = runner.invoke(cli, ["document", str(test_doc), "--format", "wav"])
             assert result.exit_code == 0
 
 
@@ -193,7 +193,7 @@ class TestFormatErrorHandling:
         runner = CliRunner()
 
         output_file = tmp_path / "output.mp3"
-        result = runner.invoke(main, ["save", "Test text", "--format", "", "--output", str(output_file)])
+        result = runner.invoke(cli, ["save", "Test text", "@edge", "--format", "", "--output", str(output_file)])
         # Empty format should be rejected by Click validation
         assert result.exit_code != 0
 
@@ -210,7 +210,7 @@ class TestFormatErrorHandling:
 
         for format_case in edge_cases:
             output_file = tmp_path / f"test_{format_case.strip()}.mp3"
-            result = runner.invoke(main, ["save", "Test text", "--format", format_case, "--output", str(output_file)])
+            result = runner.invoke(cli, ["save", "Test text", "@edge", "--format", format_case, "--output", str(output_file)])
             # These should be rejected due to whitespace
             assert result.exit_code != 0
 
@@ -218,7 +218,7 @@ class TestFormatErrorHandling:
         """Test behavior when format parameter is missing but output file specified."""
         runner = CliRunner()
 
-        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.hooks.utils.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -227,7 +227,7 @@ class TestFormatErrorHandling:
             output_file.write_bytes(b"mock audio data")
 
             # Should work fine without explicit format
-            result = runner.invoke(main, ["save", "Test text", "--output", str(output_file)])
+            result = runner.invoke(cli, ["save", "Test text", "@edge", "--output", str(output_file)])
             assert result.exit_code == 0
 
 
@@ -238,7 +238,7 @@ class TestFormatExtensionLogic:
         """Test behavior when file extension conflicts with format."""
         runner = CliRunner()
 
-        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.hooks.utils.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -254,7 +254,7 @@ class TestFormatExtensionLogic:
                 output_file = tmp_path / filename
                 output_file.write_bytes(b"mock audio data")
 
-                result = runner.invoke(main, ["save", "Test text", "--format", format_name, "--output", str(output_file)])
+                result = runner.invoke(cli, ["save", "Test text", "@edge", "--format", format_name, "--output", str(output_file)])
                 # Should succeed - the format parameter takes precedence
                 assert result.exit_code == 0
                 assert output_file.exists()
@@ -267,7 +267,7 @@ class TestFormatExtensionLogic:
         """Test that temporary files are handled correctly with different formats."""
         runner = CliRunner()
 
-        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.hooks.utils.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -278,7 +278,7 @@ class TestFormatExtensionLogic:
                     output_file.write_bytes(b"mock audio data")
 
                     result = runner.invoke(
-                        main, ["save", "Temporary test", "--format", format_name, "--output", str(output_file)]
+                        cli, ["save", "Temporary test", "@edge", "--format", format_name, "--output", str(output_file)]
                     )
                     assert result.exit_code == 0
                     assert output_file.exists()
@@ -291,7 +291,7 @@ class TestFormatIntegrationScenarios:
         """Test format handling with complex file paths."""
         runner = CliRunner()
 
-        with patch("matilda_voice.app_hooks.get_engine") as mock_get_engine:
+        with patch("matilda_voice.hooks.utils.get_engine") as mock_get_engine:
             mock_engine = MagicMock()
             mock_engine.synthesize_text.return_value = True
             mock_get_engine.return_value = mock_engine
@@ -312,7 +312,7 @@ class TestFormatIntegrationScenarios:
                 output_path.write_bytes(b"mock audio data")
 
                 result = runner.invoke(
-                    main, ["save", f"Complex path test {i}", "--format", format_name, "--output", str(output_path)]
+                    cli, ["save", f"Complex path test {i}", "@edge", "--format", format_name, "--output", str(output_path)]
                 )
                 assert result.exit_code == 0
                 assert output_path.exists()

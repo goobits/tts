@@ -7,7 +7,7 @@ import tempfile
 import pytest
 from click.testing import CliRunner
 
-from matilda_voice.cli import main
+from matilda_voice.cli import cli
 
 
 @pytest.fixture
@@ -19,12 +19,16 @@ def runner():
 class TestCLISynthesis:
     """Test CLI synthesis commands."""
 
+    @pytest.mark.skipif(
+        os.environ.get("CI") == "true",
+        reason="Network-dependent test skipped in CI"
+    )
     def test_save_with_edge_provider(self, runner):
         """Test saving audio with Edge TTS provider."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_file = os.path.join(tmpdir, "test.mp3")
             result = runner.invoke(
-                main, ["save", "@edge", "test synthesis", "-o", output_file]
+                cli, ["save", "@edge", "test synthesis", "-o", output_file]
             )
 
             # Check command executed (may fail without network, that's OK in unit tests)
@@ -35,12 +39,12 @@ class TestCLISynthesis:
 
     def test_help_command(self, runner):
         """Test that help command works."""
-        result = runner.invoke(main, ["--help"])
+        result = runner.invoke(cli, ["--help"])
         assert result.exit_code == 0
         assert "voice" in result.output.lower() or "Usage" in result.output
 
-    def test_version_command(self, runner):
-        """Test that version command works."""
-        result = runner.invoke(main, ["--version"])
-        # Version command should succeed
+    def test_status_command(self, runner):
+        """Test that status command works."""
+        result = runner.invoke(cli, ["status"])
+        # Status command should succeed
         assert result.exit_code == 0

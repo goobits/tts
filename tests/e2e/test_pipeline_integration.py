@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from matilda_voice.cli import main as cli
+from matilda_voice.cli import cli as cli
 from tests.utils.test_helpers import (
     CLITestHelper,
     validate_audio_file_comprehensive,

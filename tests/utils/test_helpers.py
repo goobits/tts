@@ -928,7 +928,7 @@ class CLITestHelper:
         Returns:
             Tuple of (result, output_path)
         """
-        from matilda_voice.cli import main
+        from matilda_voice.cli import cli
 
         # Build command
         cmd = ["save"]
@@ -956,7 +956,7 @@ class CLITestHelper:
         if extra_args:
             cmd.extend(extra_args)
 
-        result = self.runner.invoke(main, cmd)
+        result = self.runner.invoke(cli, cmd)
         return result, Path(output_path)
 
     def invoke_speak(
@@ -967,7 +967,7 @@ class CLITestHelper:
         extra_args: Optional[List[str]] = None
     ) -> Any:
         """Invoke the speak command with common parameters."""
-        from matilda_voice.cli import main
+        from matilda_voice.cli import cli
 
         # Build command
         cmd = []
@@ -984,7 +984,7 @@ class CLITestHelper:
         if extra_args:
             cmd.extend(extra_args)
 
-        return self.runner.invoke(main, cmd)
+        return self.runner.invoke(cli, cmd)
 
     def assert_success(self, result: Any, expected_output: Optional[str] = None) -> None:
         """Assert that a CLI command succeeded."""
