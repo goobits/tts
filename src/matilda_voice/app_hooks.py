@@ -11,9 +11,9 @@ Example:
 """
 
 # Import any modules you need here
-import sys
-import json
 from typing import Any, Dict, Optional
+
+
 def on_speak(    voice: Optional[str] = None,    rate: Optional[str] = None,    pitch: Optional[str] = None,    debug: bool = False,    **kwargs
 ) -> Dict[str, Any]:
     """
@@ -22,7 +22,7 @@ def on_speak(    voice: Optional[str] = None,    rate: Optional[str] = None,    
         Dictionary with status and optional results
     """
     # Add your business logic here
-    print(f"Executing speak command")
+    print("Executing speak command")
     return {
         "status": "success",
         "message": "speak completed successfully"
@@ -35,7 +35,7 @@ def on_save(    output: Optional[str] = None,    format: Optional[str] = None,  
         Dictionary with status and optional results
     """
     # Add your business logic here
-    print(f"Executing save command")
+    print("Executing save command")
     return {
         "status": "success",
         "message": "save completed successfully"
@@ -48,7 +48,7 @@ def on_voices(    **kwargs
         Dictionary with status and optional results
     """
     # Add your business logic here
-    print(f"Executing voices command")
+    print("Executing voices command")
     return {
         "status": "success",
         "message": "voices completed successfully"
@@ -61,7 +61,7 @@ def on_providers(    **kwargs
         Dictionary with status and optional results
     """
     # Add your business logic here
-    print(f"Executing providers command")
+    print("Executing providers command")
     return {
         "status": "success",
         "message": "providers completed successfully"
@@ -74,7 +74,7 @@ def on_install(    **kwargs
         Dictionary with status and optional results
     """
     # Add your business logic here
-    print(f"Executing install command")
+    print("Executing install command")
     return {
         "status": "success",
         "message": "install completed successfully"
@@ -87,7 +87,7 @@ def on_info(    **kwargs
         Dictionary with status and optional results
     """
     # Add your business logic here
-    print(f"Executing info command")
+    print("Executing info command")
     return {
         "status": "success",
         "message": "info completed successfully"
@@ -100,7 +100,7 @@ def on_document(    save: bool = False,    output: Optional[str] = None,    form
         Dictionary with status and optional results
     """
     # Add your business logic here
-    print(f"Executing document command")
+    print("Executing document command")
     return {
         "status": "success",
         "message": "document completed successfully"
@@ -113,7 +113,7 @@ def on_voice(    **kwargs
         Dictionary with status and optional results
     """
     # Add your business logic here
-    print(f"Executing voice command")
+    print("Executing voice command")
     return {
         "status": "success",
         "message": "voice completed successfully"
@@ -126,7 +126,7 @@ def on_status(    **kwargs
         Dictionary with status and optional results
     """
     # Add your business logic here
-    print(f"Executing status command")
+    print("Executing status command")
     return {
         "status": "success",
         "message": "status completed successfully"
@@ -139,7 +139,7 @@ def on_config(    **kwargs
         Dictionary with status and optional results
     """
     # Add your business logic here
-    print(f"Executing config command")
+    print("Executing config command")
     return {
         "status": "success",
         "message": "config completed successfully"

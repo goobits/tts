@@ -12,12 +12,12 @@ import time
 import pytest
 from click.testing import CliRunner
 
+from matilda_voice.cli import main as cli
 from tests.utils.test_helpers import (
     CLITestHelper,
     estimate_audio_duration_from_text,
     validate_audio_file_comprehensive,
 )
-from matilda_voice.cli import main as cli
 
 
 class WorkflowTestBase:
@@ -663,7 +663,7 @@ class TestComplexWorkflowScenarios(WorkflowTestBase):
         # Assertions - Allow for CI/test environment limitations
         if successful_steps == 0:
             pytest.skip("Multi-step workflow failed completely - likely due to provider availability in test environment")
-        
+
         assert successful_steps >= len(all_results) * 0.33, \
             f"Multi-step workflow success rate too low: {self.workflow_metrics['success_rate']:.2f}"
 

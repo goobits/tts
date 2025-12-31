@@ -185,7 +185,7 @@ class AudioPlaybackManager:
 
                 self.logger.debug("Terminated current audio playback process")
                 return True
-        except Exception as e:
+        except Exception:
             self.logger.exception("Error terminating audio process")
         finally:
             self._current_process = None
@@ -253,7 +253,7 @@ def cleanup_file(file_path: str, logger: Optional[logging.Logger] = None) -> Non
     except OSError as e:
         # Log but don't fail if we can't clean up temp file
         logger.debug(f"Could not clean up temporary file {file_path}: {e}")
-    except Exception as e:
+    except Exception:
         # Unexpected error during cleanup
         logger.exception(f"Unexpected error cleaning up temporary file {file_path}")
 

@@ -166,7 +166,7 @@ def load_toml_config() -> Dict[str, Any]:
                         config[section] = values
 
             logger.debug(f"Loaded TOML config from {config_file}")
-        except Exception as e:
+        except Exception:
             logger.exception(f"Failed to load TOML config from {config_file}")
 
     # Environment variable overrides (highest precedence)

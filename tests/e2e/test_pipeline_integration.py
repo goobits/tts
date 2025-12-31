@@ -12,11 +12,11 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+from matilda_voice.cli import main as cli
 from tests.utils.test_helpers import (
     CLITestHelper,
     validate_audio_file_comprehensive,
 )
-from matilda_voice.cli import main as cli
 
 
 class PipelineTestBase:
@@ -266,7 +266,7 @@ class TestMultiProviderComparison(PipelineTestBase):
         max_success_rate = max(provider_success_rates.values()) if provider_success_rates else 0
         if max_success_rate == 0:
             pytest.skip("All providers have low voice success rates - likely due to provider availability in test environment")
-        
+
         assert max_success_rate >= 0.25, f"All providers have low voice success rates: {provider_success_rates}"
 
         # Compare voice quality across providers

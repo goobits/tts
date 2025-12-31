@@ -67,7 +67,7 @@ class SimpleTTSEngine:
                 return self._speak_festival(text, emotion)
             elif engine == "say":
                 return self._speak_say(text, emotion)
-        except Exception as e:
+        except Exception:
             logger.exception(f"Error with TTS engine {engine}")
             logger.info(f"Fallback - would speak: {text}")
             return False
@@ -152,7 +152,7 @@ class SimpleTTSEngine:
                 time.sleep(timing)
 
             return success
-        except Exception as e:
+        except Exception:
             logger.exception(f"Error with TTS engine {engine}")
             logger.info(f"Fallback - would speak with {emotion}: {text}")
             if timing > 0:

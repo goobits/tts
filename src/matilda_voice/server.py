@@ -29,9 +29,9 @@ from aiohttp.web import Request, Response
 API_TOKEN = os.getenv("MATILDA_API_TOKEN")
 if not API_TOKEN:
     API_TOKEN = secrets.token_hex(32)
-    print(f"⚠️  SECURITY WARNING: MATILDA_API_TOKEN not set.")
+    print("⚠️  SECURITY WARNING: MATILDA_API_TOKEN not set.")
     print(f"⚠️  Generated temporary secure token: {API_TOKEN}")
-    print(f"⚠️  Please set MATILDA_API_TOKEN in your environment for persistence.")
+    print("⚠️  Please set MATILDA_API_TOKEN in your environment for persistence.")
 
 @web.middleware
 async def auth_middleware(request: Request, handler):
@@ -39,7 +39,7 @@ async def auth_middleware(request: Request, handler):
     # Allow public endpoints
     if request.path in ["/", "/health", "/providers"]:
         return await handler(request)
-        
+
     # Allow CORS preflight options
     if request.method == "OPTIONS":
         return await handler(request)
@@ -48,14 +48,14 @@ async def auth_middleware(request: Request, handler):
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         return add_cors_headers(web.json_response(
-            {"error": "Unauthorized: Missing or invalid Authorization header"}, 
+            {"error": "Unauthorized: Missing or invalid Authorization header"},
             status=401
         ), request)
-    
+
     token = auth_header.split(" ")[1]
     if not secrets.compare_digest(token, API_TOKEN):
         return add_cors_headers(web.json_response(
-            {"error": "Forbidden: Invalid token"}, 
+            {"error": "Forbidden: Invalid token"},
             status=403
         ), request)
 

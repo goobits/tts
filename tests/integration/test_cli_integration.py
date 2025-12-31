@@ -1,13 +1,13 @@
 from click.testing import CliRunner
 
+from matilda_voice.app_hooks import PROVIDER_SHORTCUTS
+from matilda_voice.cli import main as cli
 from tests.utils.test_helpers import (
     CLITestHelper,
     create_realistic_audio_file,
     estimate_audio_duration_from_text,
     validate_audio_file_comprehensive,
 )
-from matilda_voice.app_hooks import PROVIDER_SHORTCUTS
-from matilda_voice.cli import main as cli
 
 
 def test_cli_unknown_model(integration_test_env):

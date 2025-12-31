@@ -30,22 +30,22 @@ def provider_available() -> bool:
     """Check if any real TTS provider is available for testing."""
     if os.getenv("CI") or os.getenv("GITHUB_ACTIONS"):
         return False
-    
+
     # Quick check for Edge TTS (most reliable free provider)
     try:
         import edge_tts
         return True
     except ImportError:
         pass
-    
+
     # Check for other providers via environment variables
     api_keys = [
         "OPENAI_API_KEY",
-        "ELEVENLABS_API_KEY", 
+        "ELEVENLABS_API_KEY",
         "GOOGLE_API_KEY",
         "GOOGLE_APPLICATION_CREDENTIALS"
     ]
-    
+
     return any(os.getenv(key) for key in api_keys)
 
 

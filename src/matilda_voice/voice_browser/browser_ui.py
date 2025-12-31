@@ -1,112 +1,22 @@
-"""Interactive voice browser UI module for TTS CLI.
+"""Interactive voice browser UI module.
 
-This module provides a comprehensive curses-based user interface for browsing,
-filtering, and previewing TTS voices across multiple providers. It features:
-
-- Three-panel layout with filters, voice list, and preview
-- Real-time voice preview with background audio playback
-- Advanced filtering by provider, language, gender, quality
-- Mouse and keyboard navigation support
-- Voice quality analysis and metadata extraction
-- Interactive voice selection and configuration
-
-The voice browser is launched via the 'tts voices' command and provides
-an intuitive way to explore and test available TTS voices before use.
+This module provides the VoiceBrowser class which implements a comprehensive
+curses-based user interface for browsing, filtering, and previewing TTS voices.
 """
 
 import curses
 import logging
-import re
-import sys
 import tempfile
 import threading
 import time
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
-import click  # type: ignore
+import click
 
-from .audio_utils import AudioPlaybackManager, cleanup_file
-from .config import set_setting
-from .exceptions import AuthenticationError, DependencyError, ProviderLoadError, ProviderNotFoundError
-
-
-def analyze_voice(provider: str, voice: str) -> Tuple[int, str, str]:
-    """Analyze a voice name to extract quality, region, and gender information."""
-    voice_lower = voice.lower()
-
-    # Quality heuristics
-    quality = 2  # Default medium
-    if "neural" in voice_lower or "premium" in voice_lower or "standard" in voice_lower:
-        quality = 3  # High quality
-    elif "basic" in voice_lower or "low" in voice_lower:
-        quality = 1  # Low quality
-
-    # Region detection
-    region = "General"
-    if any(marker in voice for marker in ["en-IE", "Irish"]):
-        region = "Irish"
-    elif any(marker in voice for marker in ["en-GB", "en-UK", "British"]):
-        region = "British"
-    elif any(marker in voice for marker in ["en-US", "American"]):
-        region = "American"
-    elif any(marker in voice for marker in ["en-AU", "Australian"]):
-        region = "Australian"
-    elif any(marker in voice for marker in ["en-CA", "Canadian"]):
-        region = "Canadian"
-    elif any(marker in voice for marker in ["en-IN", "Indian"]):
-        region = "Indian"
-    elif provider == "chatterbox":
-        region = "Chatterbox"
-
-    # Gender detection
-    gender = "U"  # Unknown
-    female_indicators = [
-        "emily",
-        "jenny",
-        "aria",
-        "davis",
-        "jane",
-        "sarah",
-        "amy",
-        "emma",
-        "female",
-        "woman",
-        "libby",
-        "clara",
-        "natasha",
-    ]
-    male_indicators = ["guy", "tony", "brandon", "christopher", "eric", "male", "man", "boy"]
-
-    # Check for gender indicators with smart boundary detection
-    # Use word boundaries for problematic short words, partial matches for names
-    problematic_words = ["man", "eric"]  # Words that commonly appear in other words
-
-    for indicator in female_indicators:
-        if indicator in problematic_words:
-            # Use word boundaries for problematic words
-            if re.search(r"\b" + re.escape(indicator) + r"\b", voice_lower):
-                gender = "F"
-                break
-        else:
-            # Allow partial matches for names (e.g., "jenny" in "jennyneural")
-            if indicator in voice_lower:
-                gender = "F"
-                break
-
-    if gender == "U":  # Only check male if not already female
-        for indicator in male_indicators:
-            if indicator in problematic_words:
-                # Use word boundaries for problematic words
-                if re.search(r"\b" + re.escape(indicator) + r"\b", voice_lower):
-                    gender = "M"
-                    break
-            else:
-                # Allow partial matches for names
-                if indicator in voice_lower:
-                    gender = "M"
-                    break
-
-    return quality, region, gender
+from ..audio_utils import AudioPlaybackManager, cleanup_file
+from ..config import set_setting
+from ..exceptions import AuthenticationError, DependencyError, ProviderLoadError, ProviderNotFoundError
+from .voice_analyzer import analyze_voice
 
 
 class VoiceBrowser:
@@ -234,11 +144,11 @@ class VoiceBrowser:
 
         # Header line
         title = "TTS VOICE BROWSER v2.5"
-        search_display = f"Search: [{self.search_text:<15}] 🔍"
+        search_display = f"Search: [{self.search_text:<15}]"
         filtered_voices = self.filter_voices()
         status = f"Showing: {len(filtered_voices)}/{len(self.all_voices)}"
         if self.is_playing and self.playing_voice:
-            playing_status = f"Playing: ♪ {self.playing_voice}"
+            playing_status = f"Playing: {self.playing_voice}"
         else:
             playing_status = ""
 
@@ -246,7 +156,7 @@ class VoiceBrowser:
         stdscr.addstr(0, 0, header[: width - 1], curses.color_pair(2) | curses.A_BOLD)
 
         # Draw borders
-        border_line = "├" + "─" * (filter_width - 1) + "┬" + "─" * (voice_width - 1) + "┬" + "─" * (preview_width - 1) + "┤"
+        border_line = "+" + "-" * (filter_width - 1) + "+" + "-" * (voice_width - 1) + "+" + "-" * (preview_width - 1) + "+"
         stdscr.addstr(1, 0, border_line)
 
         # Panel headers
@@ -257,11 +167,11 @@ class VoiceBrowser:
         # Draw vertical borders for panels
         for row in range(2, height - 1):
             if row < height - 1:
-                stdscr.addstr(row, filter_width, "│")
-                stdscr.addstr(row, filter_width + voice_width, "│")
+                stdscr.addstr(row, filter_width, "|")
+                stdscr.addstr(row, filter_width + voice_width, "|")
 
         # Bottom border
-        bottom_border = "└" + "─" * (filter_width - 1) + "┴" + "─" * (voice_width - 1) + "┴" + "─" * (preview_width - 1) + "┘"
+        bottom_border = "+" + "-" * (filter_width - 1) + "+" + "-" * (voice_width - 1) + "+" + "-" * (preview_width - 1) + "+"
         stdscr.addstr(height - 1, 0, bottom_border)
 
         # Draw panels
@@ -283,7 +193,7 @@ class VoiceBrowser:
         for provider in ["edge_tts", "google", "openai", "elevenlabs", "chatterbox"]:
             if row >= start_row + height:
                 break
-            check = "☑" if self.filters["providers"].get(provider, False) else "☐"
+            check = "[x]" if self.filters["providers"].get(provider, False) else "[ ]"
             enabled = self.filters["providers"].get(provider, False)
             color = curses.color_pair(5) if enabled else curses.color_pair(6)
             display_name = provider.replace("_", " ").title()
@@ -296,11 +206,11 @@ class VoiceBrowser:
             stdscr.addstr(row, start_col + 1, "Quality:", curses.color_pair(7) | curses.A_BOLD)
             row += 1
 
-            quality_labels = {3: "High (★★★)", 2: "Medium (★★☆)", 1: "Low (★☆☆)"}
+            quality_labels = {3: "High (***)", 2: "Medium (**)", 1: "Low (*)"}
             for quality, label in quality_labels.items():
                 if row >= start_row + height:
                     break
-                check = "☑" if self.filters["quality"].get(quality, False) else "☐"
+                check = "[x]" if self.filters["quality"].get(quality, False) else "[ ]"
                 enabled = self.filters["quality"].get(quality, False)
                 color = curses.color_pair(5) if enabled else curses.color_pair(6)
                 stdscr.addstr(row, start_col + 1, f"{check} {label}"[: width - 1], color)
@@ -317,7 +227,7 @@ class VoiceBrowser:
             for region in common_regions:
                 if row >= start_row + height:
                     break
-                check = "☑" if self.filters["regions"].get(region, False) else "☐"
+                check = "[x]" if self.filters["regions"].get(region, False) else "[ ]"
                 color = curses.color_pair(5) if self.filters["regions"].get(region, False) else curses.color_pair(6)
                 stdscr.addstr(row, start_col + 1, f"{check} {region}"[: width - 1], color)
                 row += 1
@@ -332,10 +242,10 @@ class VoiceBrowser:
         """Draw just the header line."""
         height, width = stdscr.getmaxyx()
         title = "TTS VOICE BROWSER v2.5"
-        search_display = f"Search: [{self.search_text:<15}] 🔍"
+        search_display = f"Search: [{self.search_text:<15}]"
         status = f"Showing: {len(filtered_voices)}/{len(self.all_voices)}"
         if self.is_playing and self.playing_voice:
-            playing_status = f"Playing: ♪ {self.playing_voice}"
+            playing_status = f"Playing: {self.playing_voice}"
         else:
             playing_status = ""
 
@@ -371,8 +281,8 @@ class VoiceBrowser:
             provider, voice, quality, region, gender = filtered_voices[voice_idx]
 
             # Format voice entry
-            quality_stars = "★" * quality + "☆" * (3 - quality)
-            voice_display = f"{voice_idx == self.current_pos and '▶ ' or '  '}{voice}"[:25]
+            quality_stars = "*" * quality + "-" * (3 - quality)
+            voice_display = f"{voice_idx == self.current_pos and '> ' or '  '}{voice}"[:25]
 
             # Truncate voice name if too long
             if len(voice_display) > width - 15:
@@ -391,7 +301,7 @@ class VoiceBrowser:
 
         # Navigation help at bottom
         if height > 5:
-            nav_help = "↑↓ Navigate  Space/Dbl-Click Play  Enter Set Voice  Q Quit"[: width - 1]
+            nav_help = "Up/Down Navigate  Space Play  Enter Set  Q Quit"[: width - 1]
             # Clear the line first to avoid artifacts
             stdscr.move(start_row + height - 1, start_col + 1)
             stdscr.addstr(" " * (width - 2))
@@ -417,10 +327,10 @@ class VoiceBrowser:
 
             # Voice details
             details = [
-                f"• {region} English" if region != "General" else f"• {provider.title()}",
-                f"• {gender == 'F' and 'Female' or gender == 'M' and 'Male' or 'Unknown'}",
-                f"• {'High' if quality == 3 else 'Medium' if quality == 2 else 'Low'} Quality",
-                f"• {provider.replace('_', ' ').title()}",
+                f"* {region} English" if region != "General" else f"* {provider.title()}",
+                f"* {gender == 'F' and 'Female' or gender == 'M' and 'Male' or 'Unknown'}",
+                f"* {'High' if quality == 3 else 'Medium' if quality == 2 else 'Low'} Quality",
+                f"* {provider.replace('_', ' ').title()}",
             ]
 
             for detail in details:
@@ -742,7 +652,7 @@ class VoiceBrowser:
                                 stdscr.move(0, 0)
                                 stdscr.clrtoeol()
                                 stdscr.addstr(
-                                    0, 0, f"✅ Set default voice to {voice}"[: width - 1], curses.color_pair(5) | curses.A_BOLD
+                                    0, 0, f"Set default voice to {voice}"[: width - 1], curses.color_pair(5) | curses.A_BOLD
                                 )
                                 stdscr.refresh()
                                 curses.napms(1500)
@@ -784,278 +694,4 @@ class VoiceBrowser:
             raise
 
 
-def interactive_voice_browser(providers_registry: Dict[str, Any], load_provider_func: Callable) -> None:
-    """Launch the interactive voice browser with curses-based UI.
-
-    Creates and runs a VoiceBrowser instance that provides a comprehensive
-    interface for exploring TTS voices across multiple providers. The browser
-    features real-time filtering, voice previews, and interactive selection.
-
-    Args:
-        providers_registry: Dictionary mapping provider names to module paths
-        load_provider_func: Function to dynamically load provider classes
-
-    Returns:
-        None - Function runs until user exits the browser
-
-    Raises:
-        Exception: If curses initialization fails or terminal is incompatible
-    """
-    browser = VoiceBrowser(providers_registry, load_provider_func)
-    browser.run()
-
-
-def show_browser_snapshot(providers_registry: Dict[str, str], load_provider_func: Callable) -> None:
-    """Show a snapshot of what the browser would display"""
-    click.echo("=== TTS VOICE BROWSER SNAPSHOT ===\n")
-
-    # Load all voices exactly like the browser does
-    all_voices = []
-    voice_cache = {}
-
-    click.echo("Loading voices from providers...")
-    for provider_name in providers_registry.keys():
-        try:
-            provider_class = load_provider_func(provider_name)
-            provider = provider_class()
-            info = provider.get_info()
-            if info:
-                voices = info.get("all_voices") or info.get("sample_voices", [])
-                click.echo(f"  {provider_name}: {len(voices)} voices")
-                for voice in voices:
-                    quality, region, gender = analyze_voice(provider_name, voice)
-                    all_voices.append((provider_name, voice, quality, region, gender))
-                    voice_cache[f"{provider_name}:{voice}"] = (quality, region, gender)
-        except (ProviderNotFoundError, ProviderLoadError, DependencyError, AuthenticationError) as e:
-            click.echo(f"  {provider_name}: SKIPPED ({e})")
-            continue
-        except (ImportError, AttributeError, RuntimeError) as e:
-            click.echo(f"  {provider_name}: ERROR ({e})")
-            continue
-
-    click.echo(f"\nTotal voices loaded: {len(all_voices)}")
-
-    # Default filters from browser
-    filters: Dict[str, Dict[Any, bool]] = {
-        "providers": {"edge_tts": True, "google": True, "openai": True, "elevenlabs": True, "chatterbox": True},
-        "quality": {3: True, 2: True, 1: False},
-        "regions": {
-            "Irish": True,
-            "British": True,
-            "American": True,
-            "Australian": True,
-            "Canadian": True,
-            "Indian": False,
-            "S.African": False,
-            "N.Zealand": False,
-            "Singapore": False,
-            "Hong Kong": False,
-            "Philippine": False,
-            "Nigerian": False,
-            "Kenyan": False,
-            "Tanzanian": False,
-            "General": True,
-            "Chatterbox": True,
-        },
-    }
-
-    # Apply filters
-    filtered_voices = []
-    for provider, voice, quality, region, gender in all_voices:
-        if not filters["providers"].get(provider, False):
-            continue
-        if not filters["quality"].get(quality, False):
-            continue
-        if not filters["regions"].get(region, False):
-            continue
-        filtered_voices.append((provider, voice, quality, region, gender))
-
-    click.echo(f"After default filters: {len(filtered_voices)} voices\n")
-
-    # Show active filters
-    click.echo("ACTIVE FILTERS:")
-    enabled_providers = [p for p, enabled in filters["providers"].items() if enabled]
-    click.echo("  Providers: " + ", ".join(enabled_providers))
-    quality_stars = [
-        f"★{'★' if q >= 2 else '☆'}{'★' if q >= 3 else '☆'}" for q, enabled in filters["quality"].items() if enabled
-    ]
-    click.echo("  Quality: " + ", ".join(quality_stars))
-    enabled_regions = [r for r, enabled in filters["regions"].items() if enabled]
-    click.echo("  Regions: " + ", ".join(enabled_regions))
-    click.echo()
-
-    # Group by provider
-    by_provider: Dict[str, list] = {}
-    for provider, voice, quality, region, gender in filtered_voices:
-        if provider not in by_provider:
-            by_provider[provider] = []
-        by_provider[provider].append((voice, quality, region, gender))
-
-    # Display voices by provider
-    click.echo("VOICES THAT WOULD BE VISIBLE IN BROWSER:")
-    for provider_name in providers_registry.keys():
-        if provider_name in by_provider:
-            voices = by_provider[provider_name]
-            click.echo(f"\n🔹 {provider_name.upper()} ({len(voices)} voices):")
-            for voice, quality, region, gender in voices:
-                stars = "★" * quality + "☆" * (3 - quality)
-                gender_str = {"F": "Female", "M": "Male", "U": "Unknown"}[gender]
-                click.echo(f"  {voice}")
-                click.echo(f"    {stars} {gender_str} {region}")
-        else:
-            click.echo(f"\n🔹 {provider_name.upper()}: No voices (filtered out)")
-
-    click.echo(f"\nTOTAL VISIBLE: {len(filtered_voices)} voices")
-    install_msg = "If you don't see these in the browser, try: "
-    install_msg += "pipx uninstall tts-cli && pipx install -e ."
-    click.echo(install_msg)
-
-
-def handle_voices_command(args: tuple, providers_registry: Dict[str, str], load_provider_func: Callable) -> None:
-    """Handle voices subcommand"""
-    # Check for snapshot option
-    if len(args) > 0 and args[0] == "--snapshot":
-        show_browser_snapshot(providers_registry, load_provider_func)
-        return
-
-    # Parse language filter argument
-    language_filter = None
-    if len(args) > 0:
-        language_filter = args[0].lower()
-
-    if len(args) == 0:
-        # tts voices - launch interactive browser
-        if sys.stdout.isatty():
-            # Terminal environment - use interactive browser
-            interactive_voice_browser(providers_registry, load_provider_func)
-        else:
-            # Non-terminal (pipe/script) - use simple list
-            click.echo("Available voices from all providers:")
-            click.echo()
-
-            for provider_name in providers_registry.keys():
-                try:
-                    provider_class = load_provider_func(provider_name)
-                    provider = provider_class()
-                    info = provider.get_info()
-
-                    # Use all_voices if available, fallback to sample_voices
-                    voices = info.get("all_voices") or info.get("sample_voices", [])
-
-                    if voices:
-                        click.echo(f"🔹 {provider_name.upper()}:")
-                        for voice in voices:
-                            click.echo(f"  - {voice}")
-
-                except (ProviderNotFoundError, ProviderLoadError, DependencyError, AuthenticationError):
-                    # Skip providers that can't be loaded (missing dependencies, etc.)
-                    continue
-                except (ImportError, AttributeError, RuntimeError) as e:
-                    # Log unexpected errors but continue with other providers
-                    logger = logging.getLogger(__name__)
-                    logger.warning(f"Unexpected error loading provider {provider_name}: {e}")
-                    continue
-    else:
-        # Language filtering mode: tts voices en, tts voices english, etc.
-        click.echo(f"Voices for language: {language_filter}")
-        click.echo("=" * 40)
-
-        # English language patterns
-
-        if language_filter in ["en", "english", "eng"]:
-            # Show only English voices
-            for provider_name in providers_registry.keys():
-                try:
-                    provider_class = load_provider_func(provider_name)
-                    provider = provider_class()
-                    info = provider.get_info()
-
-                    voices = info.get("all_voices") or info.get("sample_voices", [])
-                    english_voices = []
-
-                    if provider_name == "openai" or provider_name == "elevenlabs":
-                        # OpenAI and ElevenLabs voices are English by default
-                        english_voices = voices
-                    else:
-                        # Filter for English voices (en-*)
-                        english_voices = [v for v in voices if v.startswith("en-")]
-
-                    if english_voices:
-                        click.echo(f"\n🔹 {provider_name.upper()} (English):")
-
-                        # Group by region for better organization
-                        regions: Dict[str, list] = {}
-                        for voice in english_voices:
-                            if provider_name in ["openai", "elevenlabs"]:
-                                region = "General"
-                            else:
-                                # Extract region from voice name (e.g., en-US-*, en-GB-*)
-                                parts = voice.split("-")
-                                if len(parts) >= 2:
-                                    region_code = f"{parts[0]}-{parts[1]}"
-                                    region_map = {
-                                        "en-US": "🇺🇸 US English",
-                                        "en-GB": "🇬🇧 British English",
-                                        "en-IE": "🇮🇪 Irish English",
-                                        "en-AU": "🇦🇺 Australian English",
-                                        "en-CA": "🇨🇦 Canadian English",
-                                        "en-IN": "🇮🇳 Indian English",
-                                        "en-ZA": "🇿🇦 South African English",
-                                        "en-NZ": "🇳🇿 New Zealand English",
-                                        "en-SG": "🇸🇬 Singapore English",
-                                        "en-HK": "🇭🇰 Hong Kong English",
-                                        "en-PH": "🇵🇭 Philippine English",
-                                        "en-KE": "🇰🇪 Kenyan English",
-                                        "en-NG": "🇳🇬 Nigerian English",
-                                        "en-TZ": "🇹🇿 Tanzanian English",
-                                    }
-                                    region = region_map.get(region_code, region_code)
-                                else:
-                                    region = "Other"
-
-                            if region not in regions:
-                                regions[region] = []
-                            regions[region].append(voice)
-
-                        # Display grouped by region
-                        for region, region_voices in regions.items():
-                            if len(regions) > 1:
-                                click.echo(f"   {region}:")
-                                for voice in sorted(region_voices):
-                                    click.echo(f"     - {voice}")
-                            else:
-                                for voice in sorted(region_voices):
-                                    click.echo(f"   - {voice}")
-
-                except (ProviderNotFoundError, ProviderLoadError, DependencyError, AuthenticationError):
-                    # Skip providers that can't be loaded (missing dependencies, etc.)
-                    continue
-                except (ImportError, AttributeError, RuntimeError) as e:
-                    # Log unexpected errors but continue with other providers
-                    logger = logging.getLogger(__name__)
-                    logger.warning(f"Unexpected error loading provider {provider_name}: {e}")
-                    continue
-        else:
-            # Generic language filtering
-            for provider_name in providers_registry.keys():
-                try:
-                    provider_class = load_provider_func(provider_name)
-                    provider = provider_class()
-                    info = provider.get_info()
-
-                    voices = info.get("all_voices") or info.get("sample_voices", [])
-                    filtered_voices = [v for v in voices if language_filter in v.lower()]
-
-                    if filtered_voices:
-                        click.echo(f"\n🔹 {provider_name.upper()}:")
-                        for voice in filtered_voices:
-                            click.echo(f"  - {voice}")
-
-                except (ProviderNotFoundError, ProviderLoadError, DependencyError, AuthenticationError):
-                    # Skip providers that can't be loaded (missing dependencies, etc.)
-                    continue
-                except (ImportError, AttributeError, RuntimeError) as e:
-                    # Log unexpected errors but continue with other providers
-                    logger = logging.getLogger(__name__)
-                    logger.warning(f"Unexpected error loading provider {provider_name}: {e}")
-                    continue
+__all__ = ["VoiceBrowser"]

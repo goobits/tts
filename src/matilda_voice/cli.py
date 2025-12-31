@@ -8,17 +8,19 @@ This is a consolidated Python CLI file with all utilities embedded.
 Generated from: goobits.yaml
 """
 
-import sys
-import os
 import json
-import yaml
 import logging
+import os
+import sys
 import traceback
-from pathlib import Path
-from typing import Any, Dict, Optional, List, Union
-from datetime import datetime
 from contextlib import contextmanager
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+
 import click
+import yaml
+
 # ============================================================================
 # EMBEDDED LOGGER
 # ============================================================================
@@ -227,7 +229,7 @@ def speak(ctx, text, options, voice, rate, pitch, debug):
             kwargs = {                'text': text,                'options': options,                'voice': voice,                'rate': rate,                'pitch': pitch,                'debug': debug,            }
             hooks.on_speak(ctx=ctx, **kwargs)
         else:
-            logger.error(f"Hook 'on_speak' not implemented in cli_hooks.py")
+            logger.error("Hook 'on_speak' not implemented in cli_hooks.py")
             sys.exit(1)
     except Exception as e:
         handle_error(e, ctx.verbose)
@@ -249,7 +251,7 @@ def save(ctx, text, options, output, format, voice, json, debug, rate, pitch):
             kwargs = {                'text': text,                'options': options,                'output': output,                'format': format,                'voice': voice,                'json': json,                'debug': debug,                'rate': rate,                'pitch': pitch,            }
             hooks.on_save(ctx=ctx, **kwargs)
         else:
-            logger.error(f"Hook 'on_save' not implemented in cli_hooks.py")
+            logger.error("Hook 'on_save' not implemented in cli_hooks.py")
             sys.exit(1)
     except Exception as e:
         handle_error(e, ctx.verbose)
@@ -263,7 +265,7 @@ def voices(ctx, args):
             kwargs = {                'args': args,            }
             hooks.on_voices(ctx=ctx, **kwargs)
         else:
-            logger.error(f"Hook 'on_voices' not implemented in cli_hooks.py")
+            logger.error("Hook 'on_voices' not implemented in cli_hooks.py")
             sys.exit(1)
     except Exception as e:
         handle_error(e, ctx.verbose)
@@ -277,7 +279,7 @@ def providers(ctx, provider_name):
             kwargs = {                'provider_name': provider_name,            }
             hooks.on_providers(ctx=ctx, **kwargs)
         else:
-            logger.error(f"Hook 'on_providers' not implemented in cli_hooks.py")
+            logger.error("Hook 'on_providers' not implemented in cli_hooks.py")
             sys.exit(1)
     except Exception as e:
         handle_error(e, ctx.verbose)
@@ -291,7 +293,7 @@ def install(ctx, args):
             kwargs = {                'args': args,            }
             hooks.on_install(ctx=ctx, **kwargs)
         else:
-            logger.error(f"Hook 'on_install' not implemented in cli_hooks.py")
+            logger.error("Hook 'on_install' not implemented in cli_hooks.py")
             sys.exit(1)
     except Exception as e:
         handle_error(e, ctx.verbose)
@@ -305,7 +307,7 @@ def info(ctx, provider):
             kwargs = {                'provider': provider,            }
             hooks.on_info(ctx=ctx, **kwargs)
         else:
-            logger.error(f"Hook 'on_info' not implemented in cli_hooks.py")
+            logger.error("Hook 'on_info' not implemented in cli_hooks.py")
             sys.exit(1)
     except Exception as e:
         handle_error(e, ctx.verbose)
@@ -331,7 +333,7 @@ def document(ctx, document_path, options, save, output, format, voice, json, deb
             kwargs = {                'document_path': document_path,                'options': options,                'save': save,                'output': output,                'format': format,                'voice': voice,                'json': json,                'debug': debug,                'doc_format': doc_format,                'ssml_platform': ssml_platform,                'emotion_profile': emotion_profile,                'rate': rate,                'pitch': pitch,            }
             hooks.on_document(ctx=ctx, **kwargs)
         else:
-            logger.error(f"Hook 'on_document' not implemented in cli_hooks.py")
+            logger.error("Hook 'on_document' not implemented in cli_hooks.py")
             sys.exit(1)
     except Exception as e:
         handle_error(e, ctx.verbose)
@@ -350,7 +352,7 @@ def voice_load(ctx, voice_files):
             kwargs = {                'voice_files': voice_files,            }
             hooks.on_load(ctx=ctx, **kwargs)
         else:
-            logger.error(f"Hook 'on_load' not implemented in cli_hooks.py")
+            logger.error("Hook 'on_load' not implemented in cli_hooks.py")
             sys.exit(1)
     except Exception as e:
         handle_error(e, ctx.verbose)
@@ -366,7 +368,7 @@ def voice_unload(ctx, voice_files, all):
             kwargs = {                'voice_files': voice_files,                'all': all,            }
             hooks.on_unload(ctx=ctx, **kwargs)
         else:
-            logger.error(f"Hook 'on_unload' not implemented in cli_hooks.py")
+            logger.error("Hook 'on_unload' not implemented in cli_hooks.py")
             sys.exit(1)
     except Exception as e:
         handle_error(e, ctx.verbose)
@@ -380,7 +382,7 @@ def voice_status(ctx):
             kwargs = {            }
             hooks.on_status(ctx=ctx, **kwargs)
         else:
-            logger.error(f"Hook 'on_status' not implemented in cli_hooks.py")
+            logger.error("Hook 'on_status' not implemented in cli_hooks.py")
             sys.exit(1)
     except Exception as e:
         handle_error(e, ctx.verbose)
@@ -393,7 +395,7 @@ def status(ctx):
             kwargs = {            }
             hooks.on_status(ctx=ctx, **kwargs)
         else:
-            logger.error(f"Hook 'on_status' not implemented in cli_hooks.py")
+            logger.error("Hook 'on_status' not implemented in cli_hooks.py")
             sys.exit(1)
     except Exception as e:
         handle_error(e, ctx.verbose)
@@ -409,7 +411,7 @@ def config(ctx, action, key, value):
             kwargs = {                'action': action,                'key': key,                'value': value,            }
             hooks.on_config(ctx=ctx, **kwargs)
         else:
-            logger.error(f"Hook 'on_config' not implemented in cli_hooks.py")
+            logger.error("Hook 'on_config' not implemented in cli_hooks.py")
             sys.exit(1)
     except Exception as e:
         handle_error(e, ctx.verbose)
