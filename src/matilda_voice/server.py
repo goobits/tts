@@ -15,10 +15,13 @@ import argparse
 import asyncio
 import base64
 import json
+import logging
 import os
 import tempfile
 
 from aiohttp import web
+
+logger = logging.getLogger(__name__)
 from aiohttp.web import Request, Response
 
 # CORS headers for browser/cross-origin access
@@ -99,6 +102,7 @@ async def handle_speak(request: Request) -> Response:
         return add_cors_headers(web.json_response(result))
 
     except Exception as e:
+        logger.exception("Failed to handle speak request")
         return add_cors_headers(web.json_response(
             {"error": str(e)}, status=500
         ))
@@ -182,6 +186,7 @@ async def handle_synthesize(request: Request) -> Response:
                 os.unlink(tmp_path)
 
     except Exception as e:
+        logger.exception("Failed to handle synthesize request")
         return add_cors_headers(web.json_response(
             {"error": str(e)}, status=500
         ))
@@ -205,6 +210,7 @@ async def handle_providers(request: Request) -> Response:
         return add_cors_headers(web.json_response({"providers": providers}))
 
     except Exception as e:
+        logger.exception("Failed to list providers")
         return add_cors_headers(web.json_response(
             {"error": str(e)}, status=500
         ))

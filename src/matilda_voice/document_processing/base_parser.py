@@ -1,38 +1,13 @@
 """Base parser interface and semantic data structures."""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
+# Import shared types from package root for use by this module and re-export
+from matilda_voice.types import SemanticElement, SemanticType
 
-class SemanticType(Enum):
-    """Types of semantic elements that can be extracted from documents."""
-
-    TEXT = "text"
-    HEADING = "heading"
-    BOLD = "bold"
-    ITALIC = "italic"
-    CODE = "code"
-    CODE_BLOCK = "code_block"
-    LIST_ITEM = "list_item"
-    LINK = "link"
-    QUOTE = "quote"
-    PARAGRAPH = "paragraph"
-
-
-@dataclass
-class SemanticElement:
-    """Represents a semantic element extracted from a document."""
-
-    type: SemanticType
-    content: str
-    level: Optional[int] = None  # For headings (1-6), list nesting, etc.
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-    def __str__(self) -> str:
-        level_str = f" (level {self.level})" if self.level is not None else ""
-        return f"{self.type.value}{level_str}: {self.content[:50]}..."
+# Re-export for backward compatibility
+__all__ = ["BaseDocumentParser", "SemanticElement", "SemanticType"]
 
 
 class BaseDocumentParser(ABC):

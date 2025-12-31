@@ -356,6 +356,7 @@ def call_with_retry(
                     f"[{provider_name}] Call failed: {e}. All {max_retries + 1} attempts exhausted."
                 )
         except Exception as e:
+            logger.exception(f"[{provider_name}] Unexpected error during call")
             last_exception = e
             breaker.record_failure()
             raise

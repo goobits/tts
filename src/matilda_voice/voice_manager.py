@@ -46,6 +46,7 @@ class VoiceManager:
             raise TTSError("Server failed to start within timeout")
 
         except Exception as e:
+            self.logger.exception("Failed to start chatterbox server")
             raise TTSError(f"Failed to start chatterbox server: {e}") from e
 
     def _is_server_running(self) -> bool:
@@ -91,6 +92,7 @@ class VoiceManager:
         except json.JSONDecodeError as e:
             raise TTSError(f"Invalid server response: {e}") from e
         except Exception as e:
+            self.logger.exception("Server communication error")
             raise TTSError(f"Server communication error: {e}") from e
 
     def load_voice(self, voice_path: str) -> bool:

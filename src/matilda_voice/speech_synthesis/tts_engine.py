@@ -1,10 +1,13 @@
 """Basic TTS engine for Phase 1 - uses system TTS or generates marked text."""
 
+import logging
 import subprocess
 import time
 from typing import List
 
-from matilda_voice.document_processing.base_parser import SemanticElement, SemanticType
+from matilda_voice.types import SemanticElement, SemanticType
+
+logger = logging.getLogger(__name__)
 
 
 class SimpleTTSEngine:
@@ -65,8 +68,8 @@ class SimpleTTSEngine:
             elif engine == "say":
                 return self._speak_say(text, emotion)
         except Exception as e:
-            print(f"[TTS] Error with {engine}: {e}")
-            print(f"[TTS] Fallback - would speak: {text}")
+            logger.exception(f"Error with TTS engine {engine}")
+            logger.info(f"Fallback - would speak: {text}")
             return False
 
         return False
@@ -150,10 +153,10 @@ class SimpleTTSEngine:
 
             return success
         except Exception as e:
-            print(f"[TTS] Error with {engine}: {e}")
-            print(f"[TTS] Fallback - would speak with {emotion}: {text}")
+            logger.exception(f"Error with TTS engine {engine}")
+            logger.info(f"Fallback - would speak with {emotion}: {text}")
             if timing > 0:
-                print(f"[TTS] Would pause for {timing}s")
+                logger.info(f"Would pause for {timing}s")
             return False
 
     def speak_elements(self, elements: List[SemanticElement]) -> bool:

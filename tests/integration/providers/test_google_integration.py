@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from src.tts.exceptions import AuthenticationError, NetworkError, ProviderError, QuotaError
-from src.tts.providers.google_tts import GoogleTTSProvider
+from matilda_voice.exceptions import AuthenticationError, NetworkError, ProviderError, QuotaError
+from matilda_voice.providers.google_tts import GoogleTTSProvider
 
 from .base_provider_test import BaseProviderIntegrationTest
 
@@ -212,7 +212,7 @@ class TestGoogleTTSIntegration(BaseProviderIntegrationTest):
     def test_network_error_handling(self, provider, temp_audio_file):
         """Test network error handling."""
         # Mock requests to simulate network error
-        with patch('src.tts.providers.google_tts.requests.post') as mock_post:
+        with patch('matilda_voice.providers.google_tts.requests.post') as mock_post:
             mock_post.side_effect = NetworkError("Connection failed")
 
             with pytest.raises(NetworkError):
@@ -226,7 +226,7 @@ class TestGoogleTTSIntegration(BaseProviderIntegrationTest):
         """Test quota exceeded error handling."""
         # This would require actually hitting quota limits
         # For now, just test that the provider can handle quota errors
-        with patch('src.tts.providers.google_tts.requests.post') as mock_post:
+        with patch('matilda_voice.providers.google_tts.requests.post') as mock_post:
             mock_response = mock_post.return_value
             mock_response.status_code = 429
             mock_response.json.return_value = {"error": {"message": "Quota exceeded"}}

@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from src.tts.exceptions import AuthenticationError, NetworkError, ProviderError, VoiceNotFoundError
-from src.tts.providers.elevenlabs import ElevenLabsProvider
+from matilda_voice.exceptions import AuthenticationError, NetworkError, ProviderError, VoiceNotFoundError
+from matilda_voice.providers.elevenlabs import ElevenLabsProvider
 
 from .base_provider_test import BaseProviderIntegrationTest
 
@@ -104,7 +104,7 @@ class TestElevenLabsIntegration(BaseProviderIntegrationTest):
 
     def test_streaming_mode(self, provider):
         """Test streaming functionality."""
-        with patch('src.tts.providers.elevenlabs.stream_via_tempfile') as mock_stream:
+        with patch('matilda_voice.providers.elevenlabs.stream_via_tempfile') as mock_stream:
             provider.synthesize(
                 text="Testing streaming mode.",
                 output_path=None,
@@ -185,7 +185,7 @@ class TestElevenLabsIntegration(BaseProviderIntegrationTest):
         """Test quota/usage tracking."""
         # ElevenLabs provides usage info in headers
         # This test just verifies the provider can handle quota responses
-        with patch('src.tts.providers.elevenlabs.requests.post') as mock_post:
+        with patch('matilda_voice.providers.elevenlabs.requests.post') as mock_post:
             mock_response = mock_post.return_value
             mock_response.status_code = 429
             mock_response.json.return_value = {"detail": {"message": "Quota exceeded"}}
@@ -199,7 +199,7 @@ class TestElevenLabsIntegration(BaseProviderIntegrationTest):
 
     def test_network_error_handling(self, provider, temp_audio_file):
         """Test network error handling."""
-        with patch('src.tts.providers.elevenlabs.requests.post') as mock_post:
+        with patch('matilda_voice.providers.elevenlabs.requests.post') as mock_post:
             mock_post.side_effect = NetworkError("Connection failed")
 
             with pytest.raises(NetworkError):

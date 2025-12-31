@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from matilda_voice.config import get_config_value
-from matilda_voice.document_processing.base_parser import SemanticElement, SemanticType
+from matilda_voice.types import SemanticElement, SemanticType
 from matilda_voice.document_processing.parser_factory import DocumentParserFactory
 
 logger = logging.getLogger(__name__)

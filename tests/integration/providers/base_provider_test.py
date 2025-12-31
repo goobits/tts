@@ -7,8 +7,8 @@ from typing import Any, Dict, Optional
 
 import pytest
 
-from src.tts.base import TTSProvider
-from src.tts.exceptions import (
+from matilda_voice.base import TTSProvider
+from matilda_voice.exceptions import (
     ProviderError,
     VoiceNotFoundError,
 )

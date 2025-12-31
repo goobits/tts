@@ -294,6 +294,7 @@ class TTSEngine:
                     provider_class()
                     status["available"] = True
                 except Exception as e:
+                    self.logger.exception(f"Provider instantiation failed for {provider_name}")
                     status["error"] = f"Provider instantiation failed: {str(e)}"
 
         except ProviderNotFoundError:
@@ -303,6 +304,7 @@ class TTSEngine:
         except ImportError as e:
             status["error"] = f"Missing dependencies: {str(e)}"
         except Exception as e:
+            self.logger.exception(f"Unexpected error getting provider status for {provider_name}")
             status["error"] = f"Unexpected error: {str(e)}"
 
         return status
@@ -343,6 +345,7 @@ class TTSEngine:
         except (ProviderNotFoundError, ProviderLoadError):
             info["status"] = "not_installed"
         except Exception as e:
+            self.logger.exception(f"Error getting provider info for {provider_name}")
             info["status"] = "error"
             info["error"] = str(e)
             # Still return static info even on error

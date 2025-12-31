@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from src.tts.exceptions import DependencyError, ProviderError
-from src.tts.providers.chatterbox import ChatterboxProvider
+from matilda_voice.exceptions import DependencyError, ProviderError
+from matilda_voice.providers.chatterbox import ChatterboxProvider
 
 from .base_provider_test import BaseProviderIntegrationTest
 
@@ -124,7 +124,7 @@ class TestChatterboxIntegration(BaseProviderIntegrationTest):
 
     def test_voice_manager_integration(self, provider, sample_voice_file):
         """Test integration with voice manager for preloading."""
-        from src.tts.voice_manager import VoiceManager
+        from matilda_voice.voice_manager import VoiceManager
 
         voice_manager = VoiceManager()
 
@@ -214,7 +214,7 @@ class TestChatterboxIntegration(BaseProviderIntegrationTest):
 
     def test_dependency_error(self):
         """Test error when chatterbox is not installed."""
-        with patch('src.tts.providers.chatterbox.ChatterboxTTS') as mock_tts:
+        with patch('matilda_voice.providers.chatterbox.ChatterboxTTS') as mock_tts:
             mock_tts.side_effect = ImportError("No module named 'chatterbox'")
 
             provider = ChatterboxProvider()
@@ -223,7 +223,7 @@ class TestChatterboxIntegration(BaseProviderIntegrationTest):
 
     def test_model_loading_error(self):
         """Test error handling during model loading."""
-        with patch('src.tts.providers.chatterbox.ChatterboxTTS.from_pretrained') as mock_pretrained:
+        with patch('matilda_voice.providers.chatterbox.ChatterboxTTS.from_pretrained') as mock_pretrained:
             mock_pretrained.side_effect = RuntimeError("Model loading failed")
 
             provider = ChatterboxProvider()
@@ -234,7 +234,7 @@ class TestChatterboxIntegration(BaseProviderIntegrationTest):
         """Test streaming functionality (if supported)."""
         # Chatterbox might not support streaming, test graceful handling
         try:
-            with patch('src.tts.providers.chatterbox.stream_audio_file') as mock_stream:
+            with patch('matilda_voice.providers.chatterbox.stream_audio_file') as mock_stream:
                 provider.synthesize(
                     text="Testing streaming mode.",
                     output_path=None,

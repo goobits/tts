@@ -83,7 +83,7 @@ class AudioPlaybackManager:
             self.logger.warning(f"FFplay not available, audio saved to: {audio_path}")
             raise DependencyError(f"Audio generated but cannot play automatically. File saved to: {audio_path}") from e
         except Exception as e:
-            self.logger.warning(f"Failed to start audio playback: {e}")
+            self.logger.exception(f"Failed to start audio playback for {audio_path}")
             raise AudioPlaybackError(f"Audio playback failed to start: {e}") from e
 
     def play_and_forget(self, audio_path: str, timeout: Optional[int] = None, cleanup: bool = False) -> None:
@@ -186,7 +186,7 @@ class AudioPlaybackManager:
                 self.logger.debug("Terminated current audio playback process")
                 return True
         except Exception as e:
-            self.logger.warning(f"Error terminating audio process: {e}")
+            self.logger.exception("Error terminating audio process")
         finally:
             self._current_process = None
 
@@ -255,7 +255,7 @@ def cleanup_file(file_path: str, logger: Optional[logging.Logger] = None) -> Non
         logger.debug(f"Could not clean up temporary file {file_path}: {e}")
     except Exception as e:
         # Unexpected error during cleanup
-        logger.warning(f"Unexpected error cleaning up temporary file {file_path}: {e}")
+        logger.exception(f"Unexpected error cleaning up temporary file {file_path}")
 
 
 def stream_via_tempfile(

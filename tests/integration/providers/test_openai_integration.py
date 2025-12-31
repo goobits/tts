@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from src.tts.exceptions import AuthenticationError, NetworkError, ProviderError
-from src.tts.providers.openai_tts import OpenAITTSProvider
+from matilda_voice.exceptions import AuthenticationError, NetworkError, ProviderError
+from matilda_voice.providers.openai_tts import OpenAITTSProvider
 
 from .base_provider_test import BaseProviderIntegrationTest
 
@@ -121,7 +121,7 @@ class TestOpenAIIntegration(BaseProviderIntegrationTest):
         """Test streaming functionality (if supported)."""
         # OpenAI supports streaming - we'll test by not providing output_path
         # and using stream=True
-        with patch('src.tts.providers.openai_tts.stream_via_tempfile') as mock_stream:
+        with patch('matilda_voice.providers.openai_tts.stream_via_tempfile') as mock_stream:
             provider.synthesize(
                 text="Testing streaming mode.",
                 output_path=None,
