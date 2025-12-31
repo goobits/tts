@@ -17,6 +17,7 @@ import base64
 import json
 import logging
 import os
+import secrets
 import tempfile
 
 from aiohttp import web
@@ -24,29 +25,69 @@ from aiohttp import web
 logger = logging.getLogger(__name__)
 from aiohttp.web import Request, Response
 
+# Security: API Token Management
+API_TOKEN = os.getenv("MATILDA_API_TOKEN")
+if not API_TOKEN:
+    API_TOKEN = secrets.token_hex(32)
+    print(f"⚠️  SECURITY WARNING: MATILDA_API_TOKEN not set.")
+    print(f"⚠️  Generated temporary secure token: {API_TOKEN}")
+    print(f"⚠️  Please set MATILDA_API_TOKEN in your environment for persistence.")
+
+@web.middleware
+async def auth_middleware(request: Request, handler):
+    """Middleware to enforce token authentication."""
+    # Allow public endpoints
+    if request.path in ["/", "/health", "/providers"]:
+        return await handler(request)
+        
+    # Allow CORS preflight options
+    if request.method == "OPTIONS":
+        return await handler(request)
+
+    # Check Authorization header
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return add_cors_headers(web.json_response(
+            {"error": "Unauthorized: Missing or invalid Authorization header"}, 
+            status=401
+        ), request)
+    
+    token = auth_header.split(" ")[1]
+    if not secrets.compare_digest(token, API_TOKEN):
+        return add_cors_headers(web.json_response(
+            {"error": "Forbidden: Invalid token"}, 
+            status=403
+        ), request)
+
+    return await handler(request)
+
 # CORS headers for browser/cross-origin access
-CORS_HEADERS = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-}
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
 
-
-def add_cors_headers(response: Response) -> Response:
+def add_cors_headers(response: Response, request: Request = None) -> Response:
     """Add CORS headers to response."""
-    for key, value in CORS_HEADERS.items():
-        response.headers[key] = value
+    origin = "*"
+    if request:
+        req_origin = request.headers.get("Origin")
+        if req_origin in ALLOWED_ORIGINS:
+            origin = req_origin
+        else:
+            origin = ALLOWED_ORIGINS[0]
+
+    response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     return response
 
 
 async def handle_options(request: Request) -> Response:
     """Handle CORS preflight requests."""
-    return add_cors_headers(Response(status=200))
+    return add_cors_headers(Response(status=200), request)
 
 
 async def handle_health(request: Request) -> Response:
     """Health check endpoint."""
-    return add_cors_headers(web.json_response({"status": "ok", "service": "voice"}))
+    return add_cors_headers(web.json_response({"status": "ok", "service": "voice"}), request)
 
 
 async def handle_speak(request: Request) -> Response:
@@ -72,13 +113,13 @@ async def handle_speak(request: Request) -> Response:
     except json.JSONDecodeError:
         return add_cors_headers(web.json_response(
             {"error": "Invalid JSON"}, status=400
-        ))
+        ), request)
 
     text = data.get("text")
     if not text:
         return add_cors_headers(web.json_response(
             {"error": "Missing 'text' field"}, status=400
-        ))
+        ), request)
 
     voice = data.get("voice")
     provider = data.get("provider")
@@ -99,13 +140,13 @@ async def handle_speak(request: Request) -> Response:
             "text": text,
             "voice": voice,
         }
-        return add_cors_headers(web.json_response(result))
+        return add_cors_headers(web.json_response(result), request)
 
     except Exception as e:
         logger.exception("Failed to handle speak request")
         return add_cors_headers(web.json_response(
             {"error": str(e)}, status=500
-        ))
+        ), request)
 
 
 async def handle_synthesize(request: Request) -> Response:
@@ -133,13 +174,13 @@ async def handle_synthesize(request: Request) -> Response:
     except json.JSONDecodeError:
         return add_cors_headers(web.json_response(
             {"error": "Invalid JSON"}, status=400
-        ))
+        ), request)
 
     text = data.get("text")
     if not text:
         return add_cors_headers(web.json_response(
             {"error": "Missing 'text' field"}, status=400
-        ))
+        ), request)
 
     voice = data.get("voice")
     provider = data.get("provider")
@@ -178,7 +219,7 @@ async def handle_synthesize(request: Request) -> Response:
                 "text": text,
                 "size_bytes": len(audio_data),
             }
-            return add_cors_headers(web.json_response(result))
+            return add_cors_headers(web.json_response(result), request)
 
         finally:
             # Clean up temp file
@@ -189,7 +230,7 @@ async def handle_synthesize(request: Request) -> Response:
         logger.exception("Failed to handle synthesize request")
         return add_cors_headers(web.json_response(
             {"error": str(e)}, status=500
-        ))
+        ), request)
 
 
 async def handle_providers(request: Request) -> Response:
@@ -207,18 +248,18 @@ async def handle_providers(request: Request) -> Response:
         from .app_hooks import PROVIDERS_REGISTRY
 
         providers = list(PROVIDERS_REGISTRY.keys())
-        return add_cors_headers(web.json_response({"providers": providers}))
+        return add_cors_headers(web.json_response({"providers": providers}), request)
 
     except Exception as e:
         logger.exception("Failed to list providers")
         return add_cors_headers(web.json_response(
             {"error": str(e)}, status=500
-        ))
+        ), request)
 
 
 def create_app() -> web.Application:
     """Create the aiohttp application."""
-    app = web.Application()
+    app = web.Application(middlewares=[auth_middleware])
 
     # Routes
     app.router.add_route("OPTIONS", "/{path:.*}", handle_options)
