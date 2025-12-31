@@ -155,3 +155,44 @@ def map_http_error(status_code: int, response_text: str = "", provider: str = ""
         max_len = get_config_value("error_message_max_length")
         error_detail = f": {response_text[:max_len]}" if response_text else ""
         return ProviderError(f"{provider_prefix}API error {status_code}{error_detail}")
+
+
+def classify_and_raise(error: Exception, provider: str) -> None:
+    """Classify an error by its message and raise the appropriate exception type.
+
+    This utility consolidates the common pattern of checking error message strings
+    to determine the appropriate exception type to raise.
+
+    Args:
+        error: The original exception
+        provider: Name of the provider for error context
+
+    Raises:
+        AuthenticationError: For authentication/API key issues
+        NetworkError: For connection/network issues
+        RateLimitError: For rate limiting issues
+        ProviderError: For all other errors
+    """
+    error_str = str(error).lower()
+
+    # Check for authentication errors
+    auth_keywords = ("authentication", "api_key", "api key", "unauthorized", "401", "forbidden", "403")
+    if any(kw in error_str for kw in auth_keywords):
+        raise AuthenticationError(f"{provider} authentication failed: {error}") from error
+
+    # Check for network errors
+    network_keywords = ("network", "connection", "timeout", "dns", "unreachable", "refused")
+    if any(kw in error_str for kw in network_keywords):
+        raise NetworkError(f"{provider} network error: {error}") from error
+
+    # Check for rate limiting
+    if "rate" in error_str and "limit" in error_str:
+        raise RateLimitError(f"{provider} rate limit exceeded: {error}") from error
+
+    # Check for quota/billing issues
+    quota_keywords = ("quota", "billing", "credits", "insufficient", "payment")
+    if any(kw in error_str for kw in quota_keywords):
+        raise QuotaError(f"{provider} quota/billing issue: {error}") from error
+
+    # Default to generic provider error
+    raise ProviderError(f"{provider} error: {error}") from error

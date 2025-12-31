@@ -5,13 +5,254 @@ import os
 import subprocess
 import tempfile
 import threading
-from typing import Any, Callable, Dict, List, Optional
+import time
+from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Optional, Union
 
 from .config import get_config_value
 from .exceptions import AudioPlaybackError, DependencyError
 
 # Module logger
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Helper utilities for parameter parsing
+# =============================================================================
+
+
+def parse_bool_param(value: Any, default: bool = False) -> bool:
+    """Parse a boolean parameter that may be bool or string.
+
+    This utility handles the common case where a parameter can be passed
+    as either a Python bool or a string representation.
+
+    Args:
+        value: The value to parse (bool, str, or None)
+        default: Default value if value is None
+
+    Returns:
+        The parsed boolean value
+
+    Examples:
+        >>> parse_bool_param(True)
+        True
+        >>> parse_bool_param("true")
+        True
+        >>> parse_bool_param("1")
+        True
+        >>> parse_bool_param("yes")
+        True
+        >>> parse_bool_param(None, default=False)
+        False
+    """
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    return str(value).lower() in ("true", "1", "yes")
+
+
+# =============================================================================
+# StreamingPlayer - Unified audio chunk streaming
+# =============================================================================
+
+
+class StreamingPlayer:
+    """Handles real-time audio streaming with progress tracking.
+
+    This class provides a unified interface for streaming audio chunks to
+    ffplay, consolidating the duplicate streaming logic from multiple providers.
+
+    Features:
+    - Chunk counting and byte tracking
+    - First-chunk latency measurement
+    - Progress logging at configurable intervals
+    - Broken pipe handling
+    - Proper process cleanup
+
+    Usage:
+        player = StreamingPlayer("OpenAI")
+
+        # Synchronous streaming
+        response = client.audio.speech.create(...)
+        player.play_chunks(response.iter_bytes())
+
+        # Asynchronous streaming
+        async for chunk in async_response:
+            await player.play_chunks_async(async_iter)
+    """
+
+    def __init__(
+        self,
+        provider_name: str,
+        format_args: Optional[List[str]] = None,
+        progress_interval: Optional[int] = None,
+    ):
+        """Initialize the streaming player.
+
+        Args:
+            provider_name: Name of the provider (for logging)
+            format_args: FFplay format arguments (e.g., ["-f", "mp3"])
+            progress_interval: Log progress every N chunks (default from config)
+        """
+        self.provider_name = provider_name
+        self.format_args = format_args
+        self.logger = logging.getLogger(__name__)
+        self.chunk_count = 0
+        self.bytes_written = 0
+        self.first_chunk_time: Optional[float] = None
+        self.start_time: Optional[float] = None
+        self.progress_interval = progress_interval or get_config_value(
+            "streaming_progress_interval", 100
+        )
+
+    def play_chunks(self, chunks: Iterator[bytes]) -> None:
+        """Stream audio chunks to ffplay synchronously.
+
+        Args:
+            chunks: Iterator of audio byte chunks
+
+        Raises:
+            DependencyError: If ffplay is not available
+            AudioPlaybackError: If streaming fails
+        """
+        self.start_time = time.time()
+        ffplay_process = create_ffplay_process(
+            logger=self.logger, format_args=self.format_args
+        )
+
+        try:
+            for chunk in chunks:
+                if not self._process_chunk(chunk, ffplay_process):
+                    break
+        except BrokenPipeError:
+            self._handle_broken_pipe(ffplay_process)
+        finally:
+            self._cleanup(ffplay_process)
+
+    async def play_chunks_async(self, chunks: AsyncIterator[bytes]) -> None:
+        """Stream audio chunks to ffplay asynchronously.
+
+        Args:
+            chunks: Async iterator of audio byte chunks
+
+        Raises:
+            DependencyError: If ffplay is not available
+            AudioPlaybackError: If streaming fails
+        """
+        self.start_time = time.time()
+        ffplay_process = create_ffplay_process(
+            logger=self.logger, format_args=self.format_args
+        )
+
+        try:
+            async for chunk in chunks:
+                if not self._process_chunk(chunk, ffplay_process):
+                    break
+        except BrokenPipeError:
+            self._handle_broken_pipe(ffplay_process)
+        finally:
+            self._cleanup(ffplay_process)
+
+    def _process_chunk(self, chunk: bytes, process: subprocess.Popen) -> bool:
+        """Process a single audio chunk.
+
+        Args:
+            chunk: Audio data bytes
+            process: FFplay subprocess
+
+        Returns:
+            True to continue, False to stop
+        """
+        self.chunk_count += 1
+
+        # Track first chunk latency
+        if self.chunk_count == 1:
+            self.first_chunk_time = time.time()
+            self.logger.debug(
+                f"[{self.provider_name}] First audio chunk received - starting playback"
+            )
+
+        try:
+            if process.stdin is not None:
+                process.stdin.write(chunk)
+                process.stdin.flush()
+                self.bytes_written += len(chunk)
+
+            # Log progress periodically
+            if self.chunk_count % self.progress_interval == 0:
+                self.logger.debug(
+                    f"[{self.provider_name}] Streamed {self.chunk_count} chunks, "
+                    f"{self.bytes_written} bytes"
+                )
+
+            return True
+
+        except BrokenPipeError:
+            # Check if ffplay ended early
+            if process.poll() is not None:
+                self._handle_broken_pipe(process)
+                return False
+            raise
+
+    def _handle_broken_pipe(self, process: subprocess.Popen) -> None:
+        """Handle broken pipe error from ffplay.
+
+        Args:
+            process: FFplay subprocess
+        """
+        if process.poll() is not None:
+            stderr = ""
+            if process.stderr:
+                try:
+                    stderr = process.stderr.read().decode("utf-8", errors="ignore")
+                except Exception:
+                    pass
+            self.logger.warning(
+                f"[{self.provider_name}] FFplay ended early "
+                f"(exit code: {process.returncode}): {stderr}"
+            )
+
+    def _cleanup(self, process: subprocess.Popen) -> None:
+        """Clean up ffplay process and log metrics.
+
+        Args:
+            process: FFplay subprocess
+        """
+        # Close stdin
+        if process.stdin:
+            try:
+                process.stdin.close()
+            except Exception:
+                pass
+
+        # Wait for process with timeout
+        try:
+            exit_code = process.wait(timeout=get_config_value("ffplay_timeout", 30))
+        except subprocess.TimeoutExpired:
+            self.logger.warning(f"[{self.provider_name}] FFplay timeout, terminating")
+            process.terminate()
+            try:
+                process.wait(timeout=get_config_value("ffplay_termination_timeout", 5))
+            except subprocess.TimeoutExpired:
+                process.kill()
+            exit_code = -1
+
+        # Log timing metrics
+        if self.first_chunk_time and self.start_time:
+            latency = self.first_chunk_time - self.start_time
+            total_time = time.time() - self.start_time
+            self.logger.info(
+                f"[{self.provider_name}] Streaming complete: "
+                f"first chunk in {latency:.2f}s, total {total_time:.2f}s, "
+                f"{self.chunk_count} chunks, {self.bytes_written} bytes"
+            )
+        else:
+            self.logger.debug(
+                f"[{self.provider_name}] Streaming ended: "
+                f"{self.chunk_count} chunks, {self.bytes_written} bytes, "
+                f"exit code: {exit_code}"
+            )
 
 
 class AudioPlaybackManager:
