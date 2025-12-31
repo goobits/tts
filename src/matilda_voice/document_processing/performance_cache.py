@@ -2,15 +2,38 @@
 
 import atexit
 import hashlib
-import pickle
+import json
+import logging
 import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from matilda_voice.config import get_config_value
-from matilda_voice.document_processing.base_parser import SemanticElement
+from matilda_voice.document_processing.base_parser import SemanticElement, SemanticType
 from matilda_voice.document_processing.parser_factory import DocumentParserFactory
+
+logger = logging.getLogger(__name__)
+
+
+def _serialize_element(element: SemanticElement) -> Dict[str, Any]:
+    """Serialize a SemanticElement to a JSON-compatible dict."""
+    return {
+        "type": element.type.value,
+        "content": element.content,
+        "level": element.level,
+        "metadata": element.metadata,
+    }
+
+
+def _deserialize_element(data: Dict[str, Any]) -> SemanticElement:
+    """Deserialize a dict back to a SemanticElement."""
+    return SemanticElement(
+        type=SemanticType(data["type"]),
+        content=data["content"],
+        level=data.get("level"),
+        metadata=data.get("metadata", {}),
+    )
 
 
 class DocumentCache:
@@ -41,9 +64,9 @@ class DocumentCache:
         """Generate cache key from content hash and format hint."""
         content_hash = hashlib.sha256(content.encode()).hexdigest()[:16]
         if format_hint:
-            return f"{format_hint}_{content_hash}.pkl"
+            return f"{format_hint}_{content_hash}.json"
         else:
-            return f"auto_{content_hash}.pkl"
+            return f"auto_{content_hash}.json"
 
     def get_cached_elements(self, content: str, format_hint: str = "") -> Optional[List[SemanticElement]]:
         """Retrieve cached parsed elements if available and valid."""
@@ -63,16 +86,19 @@ class DocumentCache:
                 return None
 
             # Load cached elements
-            with open(cache_file, "rb") as f:
-                cached_data = pickle.load(f)
+            with open(cache_file, "r", encoding="utf-8") as f:
+                cached_data = json.load(f)
 
             # Update access time in metadata
             self._update_access_time(cache_key)
 
-            elements: List[SemanticElement] = cached_data["elements"]
+            # Deserialize elements from JSON
+            elements: List[SemanticElement] = [
+                _deserialize_element(elem_data) for elem_data in cached_data["elements"]
+            ]
             return elements
 
-        except (pickle.PickleError, KeyError, FileNotFoundError):
+        except (json.JSONDecodeError, KeyError, FileNotFoundError, ValueError):
             # Remove corrupted cache file
             if cache_file.exists():
                 cache_file.unlink()
@@ -87,18 +113,18 @@ class DocumentCache:
         cache_file = self.cache_dir / cache_key
 
         try:
-            # Prepare cache data
+            # Prepare cache data with serialized elements
             cache_data = {
-                "elements": elements,
+                "elements": [_serialize_element(elem) for elem in elements],
                 "content_length": len(content),
                 "format_hint": format_hint,
                 "processing_time": processing_time,
                 "cached_at": time.time(),
             }
 
-            # Write to cache file
-            with open(cache_file, "wb") as f:
-                pickle.dump(cache_data, f)
+            # Write to cache file as JSON
+            with open(cache_file, "w", encoding="utf-8") as f:
+                json.dump(cache_data, f)
 
             # Update metadata
             self._add_to_metadata(cache_key, cache_data)
@@ -106,8 +132,9 @@ class DocumentCache:
             # Clean up cache if too large
             self._cleanup_cache_if_needed()
 
-        except Exception:
-            # If caching fails, continue without caching
+        except (OSError, IOError, TypeError, ValueError) as e:
+            # If caching fails, continue without caching (cache is non-critical)
+            logger.debug("Cache write failed for %s: %s", cache_key, e)
             if cache_file.exists():
                 cache_file.unlink()
 
@@ -115,24 +142,20 @@ class DocumentCache:
         """Load cache metadata from file."""
         if self.metadata_file.exists():
             try:
-                import json
-
                 with open(self.metadata_file, "r") as f:
                     metadata: Dict[str, Any] = json.load(f)
                     return metadata
-            except Exception:
-                pass
+            except (OSError, IOError, json.JSONDecodeError, KeyError) as e:
+                logger.debug("Failed to load cache metadata: %s", e)
         return {"files": {}, "total_size": 0, "last_cleanup": time.time()}
 
     def _save_metadata(self) -> None:
         """Save cache metadata to file."""
         try:
-            import json
-
             with open(self.metadata_file, "w") as f:
                 json.dump(self.metadata, f, indent=2)
-        except Exception:
-            pass
+        except (OSError, IOError, TypeError, ValueError) as e:
+            logger.debug("Failed to save cache metadata: %s", e)
 
     def _mark_dirty(self) -> None:
         """Mark metadata as needing save, schedule debounced write."""
@@ -236,6 +259,10 @@ class DocumentCache:
 
     def clear_cache(self) -> None:
         """Clear all cached files."""
+        # Clear both .json (new format) and .pkl (legacy format) files
+        for cache_file in self.cache_dir.glob("*.json"):
+            if cache_file.name != "cache_metadata.json":  # Preserve metadata file
+                cache_file.unlink()
         for cache_file in self.cache_dir.glob("*.pkl"):
             cache_file.unlink()
 
