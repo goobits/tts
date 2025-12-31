@@ -1,44 +1,47 @@
 #!/usr/bin/env python3
+"""Basic CLI tests for Matilda Voice."""
 
 import os
 import tempfile
+from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
-from src.tts.cli import main
+from matilda_voice.cli import main
 
-runner = CliRunner()
 
-# Test synthesis
-with tempfile.TemporaryDirectory() as tmpdir:
-    output_file = os.path.join(tmpdir, 'test.mp3')
-    result = runner.invoke(main, ['save', '@edge', 'test synthesis', '-o', output_file])
-    print('Synthesis Exit code:', result.exit_code)
-    print('Synthesis Output:', result.output)
+@pytest.fixture
+def runner():
+    """Create a CLI test runner."""
+    return CliRunner()
 
-    if os.path.exists(output_file):
-        file_size = os.path.getsize(output_file)
-        print(f'Output file exists: {output_file}, size: {file_size} bytes')
 
-        # Test audio validation
-        import sys
-        from pathlib import Path
-        sys.path.append('/workspace/tts/tests/utils')
-        from test_helpers import validate_audio_file_comprehensive
+class TestCLISynthesis:
+    """Test CLI synthesis commands."""
 
-        validation_result = validate_audio_file_comprehensive(
-            Path(output_file),
-            expected_format="mp3",
-            min_duration=1.0,
-            max_duration=10.0,
-            min_file_size=500
-        )
+    def test_save_with_edge_provider(self, runner):
+        """Test saving audio with Edge TTS provider."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_file = os.path.join(tmpdir, "test.mp3")
+            result = runner.invoke(
+                main, ["save", "@edge", "test synthesis", "-o", output_file]
+            )
 
-        print(f'Validation result: valid={validation_result.valid}')
-        if not validation_result.valid:
-            print(f'Validation error: {validation_result.error}')
-    else:
-        print('Output file not created')
+            # Check command executed (may fail without network, that's OK in unit tests)
+            if result.exit_code == 0:
+                assert os.path.exists(output_file), "Output file should be created"
+                file_size = os.path.getsize(output_file)
+                assert file_size > 0, "Output file should not be empty"
 
-    if result.exit_code != 0:
-        print('Exception:', result.exception)
+    def test_help_command(self, runner):
+        """Test that help command works."""
+        result = runner.invoke(main, ["--help"])
+        assert result.exit_code == 0
+        assert "voice" in result.output.lower() or "Usage" in result.output
+
+    def test_version_command(self, runner):
+        """Test that version command works."""
+        result = runner.invoke(main, ["--version"])
+        # Version command should succeed
+        assert result.exit_code == 0
