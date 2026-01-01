@@ -116,9 +116,11 @@ class TestDocumentProcessing:
         # Verify that transcription and document processing produce different results
         assert trans_result != doc_result, "Transcription and document processing should handle content differently"
 
-    def test_cache_functionality(self):
+    def test_cache_functionality(self, tmp_path):
         """Test document caching functionality"""
-        optimizer = PerformanceOptimizer(enable_caching=True)
+        # Use a temp directory for the cache to ensure isolation
+        cache_dir = tmp_path / "cache"
+        optimizer = PerformanceOptimizer(cache_dir=str(cache_dir), enable_caching=True)
 
         # First processing - should cache
         content = "# Test Document\n\nThis is test content."

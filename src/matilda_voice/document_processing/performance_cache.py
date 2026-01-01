@@ -16,14 +16,51 @@ from matilda_voice.types import SemanticElement, SemanticType
 logger = logging.getLogger(__name__)
 
 
+def _serialize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+    """Recursively serialize metadata, handling nested SemanticElements."""
+    result = {}
+    for key, value in metadata.items():
+        if isinstance(value, SemanticElement):
+            result[key] = _serialize_element(value)
+        elif isinstance(value, list):
+            result[key] = [
+                _serialize_element(item) if isinstance(item, SemanticElement) else item
+                for item in value
+            ]
+        elif isinstance(value, dict):
+            result[key] = _serialize_metadata(value)
+        else:
+            result[key] = value
+    return result
+
+
 def _serialize_element(element: SemanticElement) -> Dict[str, Any]:
     """Serialize a SemanticElement to a JSON-compatible dict."""
     return {
         "type": element.type.value,
         "content": element.content,
         "level": element.level,
-        "metadata": element.metadata,
+        "metadata": _serialize_metadata(element.metadata),
     }
+
+
+def _deserialize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+    """Recursively deserialize metadata, reconstructing nested SemanticElements."""
+    result = {}
+    for key, value in metadata.items():
+        if isinstance(value, dict) and "type" in value and "content" in value:
+            # This looks like a serialized SemanticElement
+            result[key] = _deserialize_element(value)
+        elif isinstance(value, list):
+            result[key] = [
+                _deserialize_element(item) if isinstance(item, dict) and "type" in item and "content" in item else item
+                for item in value
+            ]
+        elif isinstance(value, dict):
+            result[key] = _deserialize_metadata(value)
+        else:
+            result[key] = value
+    return result
 
 
 def _deserialize_element(data: Dict[str, Any]) -> SemanticElement:
@@ -32,7 +69,7 @@ def _deserialize_element(data: Dict[str, Any]) -> SemanticElement:
         type=SemanticType(data["type"]),
         content=data["content"],
         level=data.get("level"),
-        metadata=data.get("metadata", {}),
+        metadata=_deserialize_metadata(data.get("metadata", {})),
     )
 
 

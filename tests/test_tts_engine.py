@@ -287,20 +287,23 @@ class TestSpeakMethod:
 
             assert result is False
 
-    def test_speak_handles_exception(self, capsys):
+    def test_speak_handles_exception(self, caplog):
         """Test speak handles exceptions during TTS execution."""
+        import logging
         engine = SimpleTTSEngine()
         engine.available_engines = ['espeak']
 
         with patch('subprocess.run') as mock_run:
             mock_run.side_effect = Exception("Subprocess failed")
 
-            result = engine.speak("Error speech", "normal")
+            with caplog.at_level(logging.DEBUG):
+                result = engine.speak("Error speech", "normal")
 
             assert result is False
-            captured = capsys.readouterr()
-            assert "[TTS] Error with espeak: Subprocess failed" in captured.out
-            assert "[TTS] Fallback - would speak: Error speech" in captured.out
+            # Check log messages instead of stdout (code uses logger, not print)
+            log_text = caplog.text
+            assert "Error with TTS engine espeak" in log_text
+            assert "Fallback - would speak: Error speech" in log_text
 
     def test_speak_uses_first_available_engine(self):
         """Test that speak uses the first available engine in the list."""
@@ -381,21 +384,24 @@ class TestSpeakWithEmotionMethod:
             assert result is False
             mock_sleep.assert_not_called()  # No pause on failure
 
-    def test_speak_with_emotion_exception_handling(self, capsys):
+    def test_speak_with_emotion_exception_handling(self, caplog):
         """Test speak_with_emotion exception handling with timing info."""
+        import logging
         engine = SimpleTTSEngine()
         engine.available_engines = ['say']
 
         with patch('subprocess.run') as mock_run:
             mock_run.side_effect = RuntimeError("TTS crashed")
 
-            result = engine.speak_with_emotion("Crash test", "soft", 3.0)
+            with caplog.at_level(logging.DEBUG):
+                result = engine.speak_with_emotion("Crash test", "soft", 3.0)
 
             assert result is False
-            captured = capsys.readouterr()
-            assert "[TTS] Error with say: TTS crashed" in captured.out
-            assert "[TTS] Fallback - would speak with soft: Crash test" in captured.out
-            assert "[TTS] Would pause for 3.0s" in captured.out
+            # Check log messages instead of stdout (code uses logger, not print)
+            log_text = caplog.text
+            assert "Error with TTS engine say" in log_text
+            assert "Fallback - would speak with soft: Crash test" in log_text
+            assert "Would pause for 3.0s" in log_text
 
     def test_speak_with_emotion_different_engines(self):
         """Test speak_with_emotion delegates to correct engine methods."""
