@@ -120,7 +120,7 @@ tts status              # System health check
 - Check provider-specific setup: `tts providers @openai`
 
 **Installation issues?**
-- Ensure Python 3.8+ is installed: `python3 --version`
+- Ensure Python 3.11+ is installed: `python3 --version`
 - Try the setup script: `./setup.sh install`
 - For development setup: `./setup.sh install --dev`
 

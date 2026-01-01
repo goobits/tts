@@ -116,7 +116,7 @@ pipx install goobits-matilda-voice[all]
 pip install goobits-matilda-voice[openai]    # Single provider
 ```
 
-**Requirements**: Python 3.8+, FFmpeg, audio output device
+**Requirements**: Python 3.11+, FFmpeg, audio output device
 
 ## 📖 Documentation
 

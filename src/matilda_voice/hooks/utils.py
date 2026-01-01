@@ -12,6 +12,7 @@ PROVIDERS_REGISTRY = {
     "elevenlabs": "matilda_voice.providers.elevenlabs",
     "google_tts": "matilda_voice.providers.google_tts",
     "chatterbox": "matilda_voice.providers.chatterbox",
+    "coqui": "matilda_voice.providers.coqui",
 }
 
 # Provider shortcuts mapping for @provider syntax
@@ -21,6 +22,7 @@ PROVIDER_SHORTCUTS = {
     "elevenlabs": "elevenlabs",
     "google": "google_tts",
     "chatterbox": "chatterbox",
+    "coqui": "coqui",
 }
 
 def parse_provider_shortcuts(args: list) -> tuple[Optional[str], list]:

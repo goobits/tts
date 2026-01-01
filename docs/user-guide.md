@@ -483,7 +483,7 @@ done
 
 ### Installation Issues
 
-1. Verify Python version: `python3 --version` (3.8+ required)
+1. Verify Python version: `python3 --version` (3.11+ required)
 2. Try setup script: `./setup.sh install`
 3. Install specific provider: `pip install goobits-matilda-voice[openai]`
 4. Check dependencies: `pip list | grep tts`

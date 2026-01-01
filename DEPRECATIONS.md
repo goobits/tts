@@ -10,6 +10,8 @@ This document tracks deprecated features and their removal timeline for Matilda 
 
 - [ ] **Legacy format cache (`.pkl` files)** - Pickle-based document cache files in the document processing cache directory. The cache system now uses JSON format (`.json` files). Legacy `.pkl` files are automatically cleaned up during `clear_cache()` operations but will not be read.
 
+- [ ] **`chatterbox` provider and `[chatterbox]` extra** - The Chatterbox TTS provider is deprecated in favor of Coqui TTS. The `[chatterbox]` optional dependency extra has been renamed to `[chatterbox-legacy]`. Use `[coqui]` extra and `@coqui` provider instead for local TTS with voice cloning. Coqui TTS offers better Python 3.11+ compatibility and a more mature, community-maintained ecosystem.
+
 ## Already Removed
 
 *No features have been fully removed yet.*
@@ -64,3 +66,45 @@ If you have important cached documents:
 - Security: Pickle files can execute arbitrary code when loaded
 - Interoperability: JSON is human-readable and works across languages
 - Debugging: Easy to inspect cache contents
+
+### Migrating from Chatterbox to Coqui TTS
+
+Coqui TTS is now the recommended local TTS provider with voice cloning capabilities.
+
+**Installation change:**
+```bash
+# Old (deprecated)
+pip install goobits-matilda-voice[chatterbox]
+
+# New (recommended)
+pip install goobits-matilda-voice[coqui]
+```
+
+**CLI usage change:**
+```bash
+# Old (deprecated)
+voice @chatterbox "Hello world"
+voice @chatterbox --voice /path/to/voice.wav "Hello world"
+
+# New (recommended)
+voice @coqui "Hello world"
+voice @coqui --voice /path/to/voice.wav "Hello world"
+```
+
+**Python API change:**
+```python
+# Old (deprecated)
+from matilda_voice.providers.chatterbox import ChatterboxProvider
+provider = ChatterboxProvider()
+
+# New (recommended)
+from matilda_voice.providers.coqui import CoquiProvider
+provider = CoquiProvider()
+```
+
+**Why Coqui TTS?**
+- Better Python 3.11+ compatibility
+- More mature ecosystem with ongoing community maintenance
+- Multiple model options (XTTS v2 for voice cloning, VITS, Tacotron2)
+- Multi-language support out of the box
+- Active development and bug fixes
