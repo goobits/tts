@@ -13,6 +13,7 @@ from .base_provider_test import BaseProviderIntegrationTest
 
 
 @pytest.mark.integration
+@pytest.mark.requires_chatterbox
 class TestChatterboxIntegration(BaseProviderIntegrationTest):
     """Integration tests for Chatterbox (local voice cloning) provider."""
 

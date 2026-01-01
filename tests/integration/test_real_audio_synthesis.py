@@ -20,6 +20,7 @@ from tests.utils.test_helpers import (
 
 @pytest.mark.integration
 @pytest.mark.audio
+@pytest.mark.requires_providers
 class TestRealAudioSynthesis:
     """Tests for real audio synthesis with validation."""
 
@@ -365,6 +366,7 @@ class TestRealAudioSynthesis:
 
 @pytest.mark.integration
 @pytest.mark.audio
+@pytest.mark.requires_providers
 class TestSynthesisPerformanceValidation:
     """Tests for synthesis performance characteristics."""
 
@@ -491,6 +493,7 @@ class TestSynthesisPerformanceValidation:
 
 @pytest.mark.integration
 @pytest.mark.audio
+@pytest.mark.requires_providers
 class TestRealWorldSynthesisScenarios:
     """Tests for real-world synthesis scenarios."""
 

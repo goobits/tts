@@ -110,6 +110,8 @@ class PipelineTestBase:
 
 @pytest.mark.e2e
 @pytest.mark.pipeline
+@pytest.mark.requires_network
+@pytest.mark.requires_providers
 class TestMultiProviderComparison(PipelineTestBase):
     """Test cross-provider comparison and consistency."""
 
@@ -295,6 +297,8 @@ class TestMultiProviderComparison(PipelineTestBase):
 
 @pytest.mark.e2e
 @pytest.mark.pipeline
+@pytest.mark.requires_network
+@pytest.mark.requires_providers
 class TestProviderFallbackMechanisms(PipelineTestBase):
     """Test provider fallback and error recovery mechanisms."""
 
@@ -479,6 +483,8 @@ class TestProviderFallbackMechanisms(PipelineTestBase):
 @pytest.mark.e2e
 @pytest.mark.pipeline
 @pytest.mark.slow
+@pytest.mark.requires_network
+@pytest.mark.requires_providers
 class TestProviderPipelinePerformance(PipelineTestBase):
     """Test performance characteristics of multi-provider pipelines."""
 

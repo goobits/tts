@@ -222,6 +222,82 @@ def pytest_configure(config):
     )
 
 
+def pytest_collection_modifyitems(config, items):
+    """Deselect tests based on environment conditions.
+
+    This hook checks for marker-based requirements and deselects tests
+    that cannot run in the current environment. This provides cleaner
+    output than runtime skips - tests show as "deselected" rather than "skipped".
+    """
+    # Check environment conditions once
+    is_ci = os.getenv("CI") or os.getenv("GITHUB_ACTIONS")
+    has_elevenlabs = bool(os.getenv("ELEVENLABS_API_KEY"))
+    has_openai = bool(os.getenv("OPENAI_API_KEY"))
+    has_google = bool(os.getenv("GOOGLE_CLOUD_API_KEY") or os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+
+    # Check for chatterbox library
+    try:
+        import chatterbox  # noqa: F401
+        has_chatterbox = True
+    except ImportError:
+        has_chatterbox = False
+
+    # Check for network access (simplified check)
+    has_network = not is_ci  # Assume CI doesn't have network access to real providers
+
+    # Check for any real provider availability
+    has_any_provider = False
+    if not is_ci:
+        try:
+            import edge_tts  # noqa: F401
+            has_any_provider = True
+        except ImportError:
+            pass
+        if not has_any_provider:
+            has_any_provider = has_elevenlabs or has_openai or has_google
+
+    # Collect items to deselect
+    deselected = []
+    selected = []
+
+    for item in items:
+        # Check each marker condition
+        should_deselect = False
+        deselect_reason = None
+
+        if item.get_closest_marker("requires_ci_skip") and is_ci:
+            should_deselect = True
+            deselect_reason = "CI environment"
+        elif item.get_closest_marker("requires_chatterbox") and not has_chatterbox:
+            should_deselect = True
+            deselect_reason = "chatterbox-tts not installed"
+        elif item.get_closest_marker("requires_elevenlabs") and not has_elevenlabs:
+            should_deselect = True
+            deselect_reason = "ELEVENLABS_API_KEY not set"
+        elif item.get_closest_marker("requires_openai") and not has_openai:
+            should_deselect = True
+            deselect_reason = "OPENAI_API_KEY not set"
+        elif item.get_closest_marker("requires_google") and not has_google:
+            should_deselect = True
+            deselect_reason = "Google credentials not set"
+        elif item.get_closest_marker("requires_network") and not has_network:
+            should_deselect = True
+            deselect_reason = "network access not available"
+        elif item.get_closest_marker("requires_providers") and not has_any_provider:
+            should_deselect = True
+            deselect_reason = "no TTS providers available"
+
+        if should_deselect:
+            deselected.append(item)
+        else:
+            selected.append(item)
+
+    # Update the items list and report deselections
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+        items[:] = selected
+
+
 @pytest.fixture
 def isolated_config_dir(tmp_path, monkeypatch, test_config_factory):
     """Create an isolated configuration directory for testing with full config."""

@@ -13,6 +13,8 @@ from .base_provider_test import BaseProviderIntegrationTest
 
 
 @pytest.mark.integration
+@pytest.mark.requires_openai
+@pytest.mark.requires_network
 class TestOpenAIIntegration(BaseProviderIntegrationTest):
     """Integration tests for OpenAI TTS provider."""
 

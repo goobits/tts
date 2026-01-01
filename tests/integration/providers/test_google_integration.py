@@ -13,6 +13,8 @@ from .base_provider_test import BaseProviderIntegrationTest
 
 
 @pytest.mark.integration
+@pytest.mark.requires_google
+@pytest.mark.requires_network
 class TestGoogleTTSIntegration(BaseProviderIntegrationTest):
     """Integration tests for Google Cloud TTS provider."""
 

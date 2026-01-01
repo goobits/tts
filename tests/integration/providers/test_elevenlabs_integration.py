@@ -13,6 +13,8 @@ from .base_provider_test import BaseProviderIntegrationTest
 
 
 @pytest.mark.integration
+@pytest.mark.requires_elevenlabs
+@pytest.mark.requires_network
 class TestElevenLabsIntegration(BaseProviderIntegrationTest):
     """Integration tests for ElevenLabs TTS provider."""
 
