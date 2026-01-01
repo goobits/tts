@@ -30,7 +30,7 @@ class TestConfigOperations:
         assert "Set openai_api_key = test_key_12345" in result.output
 
         # Test getting the same configuration value
-        result = runner.invoke(cli, ["config", "get", "openai_api_key"])
+        result = runner.invoke(cli, ["config", "get", "openai_api_key", ""])
         assert result.exit_code == 0
         assert "test_key_12345" in result.output
 
@@ -44,7 +44,7 @@ class TestConfigOperations:
         assert "Set voice = edge_tts:en-US-AriaNeural" in result.output
 
         # Test getting the voice
-        result = runner.invoke(cli, ["config", "get", "voice"])
+        result = runner.invoke(cli, ["config", "get", "voice", ""])
         assert result.exit_code == 0
         assert "edge_tts:en-US-AriaNeural" in result.output
 
@@ -72,12 +72,12 @@ class TestConfigOperations:
 
         # Verify all keys were set correctly
         for key, expected_value in keys_values:
-            result = runner.invoke(cli, ["config", "get", key])
+            result = runner.invoke(cli, ["config", "get", key, ""])
             assert result.exit_code == 0
             assert expected_value in result.output
 
         # Verify pitch value was set correctly
-        result = runner.invoke(cli, ["config", "get", "pitch"])
+        result = runner.invoke(cli, ["config", "get", "pitch", ""])
         assert result.exit_code == 0
         assert "-5Hz" in result.output
 
@@ -85,7 +85,7 @@ class TestConfigOperations:
         """Test getting a key that doesn't exist."""
         runner = CliRunner()
 
-        result = runner.invoke(cli, ["config", "get", "nonexistent_key"])
+        result = runner.invoke(cli, ["config", "get", "nonexistent_key", ""])
         assert result.exit_code == 0
         assert "Not set" in result.output
 
@@ -103,7 +103,7 @@ class TestConfigOperations:
         assert "Set rate = +15%" in result.output
 
         # Verify new value
-        result = runner.invoke(cli, ["config", "get", "rate"])
+        result = runner.invoke(cli, ["config", "get", "rate", ""])
         assert result.exit_code == 0
         assert "+15%" in result.output
         assert "+5%" not in result.output
@@ -121,7 +121,7 @@ class TestConfigShow:
         runner.invoke(cli, ["config", "set", "voice", "edge_tts:en-US-JennyNeural"])
 
         # Test config show
-        result = runner.invoke(cli, ["config", "show"])
+        result = runner.invoke(cli, ["config", "show", "", ""])
         assert result.exit_code == 0
         assert "🔧 TTS Configuration" in result.output
         assert "===================" in result.output
@@ -131,14 +131,17 @@ class TestConfigShow:
         assert "edge_tts:en-US-JennyNeural" in result.output
 
     def test_config_show_without_action_argument(self, unit_test_config):
-        """Test that config command without action defaults to show."""
+        """Test that config show action works.
+
+        Note: The new CLI requires ACTION KEY VALUE arguments.
+        """
         runner = CliRunner()
 
         # Set a test value
         runner.invoke(cli, ["config", "set", "rate", "+20%"])
 
-        # Test config without arguments (should default to show)
-        result = runner.invoke(cli, ["config"])
+        # Test config show with empty key and value
+        result = runner.invoke(cli, ["config", "show", "", ""])
         assert result.exit_code == 0
         assert "🔧 TTS Configuration" in result.output
         assert "+20%" in result.output
@@ -147,7 +150,7 @@ class TestConfigShow:
         """Test config show with minimal/default configuration."""
         runner = CliRunner()
 
-        result = runner.invoke(cli, ["config", "show"])
+        result = runner.invoke(cli, ["config", "show", "", ""])
         assert result.exit_code == 0
         assert "🔧 TTS Configuration" in result.output
         # Should show default values from the test config
@@ -155,14 +158,19 @@ class TestConfigShow:
 
 
 class TestConfigValidation:
-    """Test configuration validation and error handling."""
+    """Test configuration validation and error handling.
+
+    Note: The new CLI architecture uses positional arguments (ACTION KEY VALUE),
+    so missing arguments result in Click's standard exit code 2.
+    """
 
     def test_config_set_missing_key(self, unit_test_config):
         """Test config set with missing key argument."""
         runner = CliRunner()
 
         result = runner.invoke(cli, ["config", "set"])
-        assert result.exit_code == 0
+        # Click returns exit code 2 for missing arguments
+        assert result.exit_code == 2
         # Should show usage information
         assert "Usage" in result.output
 
@@ -171,7 +179,8 @@ class TestConfigValidation:
         runner = CliRunner()
 
         result = runner.invoke(cli, ["config", "set", "openai_api_key"])
-        assert result.exit_code == 0
+        # Click returns exit code 2 for missing arguments
+        assert result.exit_code == 2
         # Should show usage information
         assert "Usage" in result.output
 
@@ -180,7 +189,8 @@ class TestConfigValidation:
         runner = CliRunner()
 
         result = runner.invoke(cli, ["config", "get"])
-        assert result.exit_code == 0
+        # Click returns exit code 2 for missing arguments
+        assert result.exit_code == 2
         # Should show usage information
         assert "Usage" in result.output
 
@@ -226,7 +236,7 @@ class TestConfigFilePersistence:
         assert result.exit_code == 0
 
         # Get the value in second invocation (simulates separate CLI run)
-        result = runner.invoke(cli, ["config", "get", "persistent_key"])
+        result = runner.invoke(cli, ["config", "get", "persistent_key", ""])
         assert result.exit_code == 0
         assert "persistent_value" in result.output
 
@@ -243,7 +253,7 @@ class TestConfigFilePersistence:
 
         # Verify all values are still present
         for key, expected_value in [("key1", "value1"), ("key2", "value2"), ("key3", "value3")]:
-            result = runner.invoke(cli, ["config", "get", key])
+            result = runner.invoke(cli, ["config", "get", key, ""])
             assert result.exit_code == 0
             assert expected_value in result.output
 
@@ -266,7 +276,7 @@ class TestConfigSpecialKeys:
             result = runner.invoke(cli, ["config", "set", "output_dir", path])
             assert result.exit_code == 0
 
-            result = runner.invoke(cli, ["config", "get", "output_dir"])
+            result = runner.invoke(cli, ["config", "get", "output_dir", ""])
             assert result.exit_code == 0
             assert path in result.output
 
@@ -285,7 +295,7 @@ class TestConfigSpecialKeys:
             result = runner.invoke(cli, ["config", "set", "special_test", value])
             assert result.exit_code == 0
 
-            result = runner.invoke(cli, ["config", "get", "special_test"])
+            result = runner.invoke(cli, ["config", "get", "special_test", ""])
             assert result.exit_code == 0
             assert value in result.output
 
@@ -305,7 +315,7 @@ class TestConfigSpecialKeys:
             result = runner.invoke(cli, ["config", "set", "voice", voice])
             assert result.exit_code == 0
 
-            result = runner.invoke(cli, ["config", "get", "voice"])
+            result = runner.invoke(cli, ["config", "get", "voice", ""])
             assert result.exit_code == 0
             assert voice in result.output
 
@@ -339,7 +349,7 @@ class TestConfigErrorHandling:
         runner = CliRunner()
 
         # Config operations should still work (fall back to defaults)
-        result = runner.invoke(cli, ["config", "show"])
+        result = runner.invoke(cli, ["config", "show", "", ""])
         assert result.exit_code == 0
         # Should show default values despite corrupted file
 
@@ -351,7 +361,7 @@ class TestConfigErrorHandling:
             # Simulate an I/O error
             mock_load.side_effect = IOError("Disk error")
 
-            result = runner.invoke(cli, ["config", "show"])
+            result = runner.invoke(cli, ["config", "show", "", ""])
             assert result.exit_code == 0  # Error is handled but exit code is 0
             assert "Error in config command" in result.output
             assert "Disk error" in result.output
@@ -365,7 +375,7 @@ class TestConfigIntegration:
         runner = CliRunner()
 
         # Start with show
-        result = runner.invoke(cli, ["config", "show"])
+        result = runner.invoke(cli, ["config", "show", "", ""])
         assert result.exit_code == 0
 
         # Set multiple values
@@ -390,12 +400,12 @@ class TestConfigIntegration:
 
         # Get all values
         for key, expected_value in test_config.items():
-            result = runner.invoke(cli, ["config", "get", key])
+            result = runner.invoke(cli, ["config", "get", key, ""])
             assert result.exit_code == 0
             assert expected_value in result.output
 
         # Final show to verify everything
-        result = runner.invoke(cli, ["config", "show"])
+        result = runner.invoke(cli, ["config", "show", "", ""])
         assert result.exit_code == 0
         for value in test_config.values():
             assert value in result.output

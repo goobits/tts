@@ -12,6 +12,7 @@ from ..audio_utils import (
     check_audio_environment,
     convert_audio,
     create_ffplay_process,
+    parse_bool_param,
     stream_via_tempfile,
 )
 from ..base import TTSProvider
@@ -22,6 +23,7 @@ from ..exceptions import (
     NetworkError,
     ProviderError,
     VoiceNotFoundError,
+    classify_and_raise,
     map_http_error,
 )
 from ..http_retry import request_with_retry, stream_with_retry
@@ -154,7 +156,7 @@ class ElevenLabsProvider(TTSProvider):
         """Synthesize speech using ElevenLabs API."""
         # Extract options
         voice = kwargs.get("voice", "rachel")  # Default voice
-        stream = kwargs.get("stream", "false").lower() in ("true", "1", "yes")
+        stream = parse_bool_param(kwargs.get("stream"), False)
         output_format = kwargs.get("output_format", "wav")
         stability = float(kwargs.get("stability", str(get_config_value("elevenlabs_default_stability"))))
         similarity_boost = float(kwargs.get("similarity_boost", str(get_config_value("elevenlabs_default_similarity_boost"))))
@@ -375,15 +377,8 @@ class ElevenLabsProvider(TTSProvider):
                 raise ProviderError(f"Audio streaming failed: {e}") from e
 
         except (httpx.RequestError, ConnectionError, ValueError, RuntimeError) as e:
-            if "authentication" in str(e).lower() or "api_key" in str(e).lower():
-                self.logger.error(f"Authentication error during ElevenLabs streaming: {e}")
-                raise ProviderError(f"ElevenLabs API authentication failed: {e}") from e
-            elif "network" in str(e).lower() or "connection" in str(e).lower():
-                self.logger.error(f"Network error during ElevenLabs streaming: {e}")
-                raise NetworkError("ElevenLabs TTS requires internet connection. Check your network and try again.") from e
-            else:
-                self.logger.error(f"ElevenLabs TTS streaming failed: {e}")
-                raise ProviderError(f"ElevenLabs TTS streaming failed: {e}") from e
+            self.logger.error(f"ElevenLabs TTS streaming failed: {e}")
+            classify_and_raise(e, "ElevenLabs")
 
     def _stream_via_tempfile(
         self, text: str, voice_id: str, voice_name: str, stability: float, similarity_boost: float, style: float

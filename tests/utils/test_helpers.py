@@ -925,19 +925,25 @@ class CLITestHelper:
         """
         Invoke the save command with common parameters.
 
+        New CLI architecture: save TEXT OPTIONS [--options]
+
         Returns:
             Tuple of (result, output_path)
         """
         from matilda_voice.cli import cli
 
-        # Build command
+        # Build command: save TEXT OPTIONS [--options]
         cmd = ["save"]
 
-        # Add provider shortcut if specified
-        if provider and provider.startswith("@"):
-            cmd.insert(1, provider)
-
+        # Add text first
         cmd.append(text)
+
+        # Add provider shortcut as OPTIONS (required positional argument)
+        # Default to @edge if not specified
+        if provider and provider.startswith("@"):
+            cmd.append(provider)
+        else:
+            cmd.append("@edge")
 
         # Add output path
         if output_path:
@@ -966,17 +972,24 @@ class CLITestHelper:
         voice: Optional[str] = None,
         extra_args: Optional[List[str]] = None
     ) -> Any:
-        """Invoke the speak command with common parameters."""
+        """Invoke the speak command with common parameters.
+
+        New CLI architecture: speak TEXT OPTIONS [--options]
+        """
         from matilda_voice.cli import cli
 
-        # Build command
-        cmd = []
+        # Build command: speak TEXT OPTIONS [--options]
+        cmd = ["speak"]
 
-        # Add provider shortcut if specified
+        # Add text first
+        cmd.append(text)
+
+        # Add provider shortcut as OPTIONS (required positional argument)
+        # Default to @edge if not specified
         if provider and provider.startswith("@"):
             cmd.append(provider)
-
-        cmd.append(text)
+        else:
+            cmd.append("@edge")
 
         # Add options
         if voice:

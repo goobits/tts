@@ -2,7 +2,7 @@ import logging
 import tempfile
 from typing import Any, Optional
 
-from ..audio_utils import convert_with_cleanup
+from ..audio_utils import convert_with_cleanup, parse_bool_param
 from ..base import TTSProvider
 from ..exceptions import AudioPlaybackError, DependencyError, ProviderError
 from ..types import ProviderInfo
@@ -49,12 +49,7 @@ class ChatterboxProvider(TTSProvider):
 
     def synthesize(self, text: str, output_path: Optional[str], **kwargs: Any) -> None:
         # Extract options
-        # Handle stream parameter as boolean or string
-        stream_param = kwargs.get("stream", False)
-        if isinstance(stream_param, bool):
-            stream = stream_param
-        else:
-            stream = str(stream_param).lower() in ("true", "1", "yes")
+        stream = parse_bool_param(kwargs.get("stream"), False)
         audio_prompt_path = kwargs.get("voice")  # Optional voice cloning
         exaggeration = float(kwargs.get("exaggeration", "0.5"))
         cfg_weight = float(kwargs.get("cfg_weight", "0.5"))

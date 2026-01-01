@@ -10,6 +10,7 @@ from ..audio_utils import (
     check_audio_environment,
     convert_audio,
     create_ffplay_process,
+    parse_bool_param,
     stream_via_tempfile,
 )
 from ..base import TTSProvider
@@ -20,6 +21,7 @@ from ..exceptions import (
     DependencyError,
     NetworkError,
     ProviderError,
+    classify_and_raise,
 )
 from ..http_retry import call_with_retry
 from ..types import ProviderInfo
@@ -73,12 +75,7 @@ class OpenAITTSProvider(TTSProvider):
         """Synthesize speech using OpenAI TTS API."""
         # Extract options
         voice = kwargs.get("voice", "nova")  # Default to nova voice
-        # Handle stream parameter as boolean or string
-        stream_param = kwargs.get("stream", False)
-        if isinstance(stream_param, bool):
-            stream = stream_param
-        else:
-            stream = str(stream_param).lower() in ("true", "1", "yes")
+        stream = parse_bool_param(kwargs.get("stream"), False)
         output_format = kwargs.get("output_format", "wav")
 
         # Handle SSML (OpenAI doesn't support SSML, so strip tags)
@@ -139,13 +136,7 @@ class OpenAITTSProvider(TTSProvider):
         except ImportError:
             raise DependencyError("OpenAI library not installed. Install with: pip install tts-cli[openai]") from None
         except (ValueError, RuntimeError, AttributeError, TypeError) as e:
-            error_str = str(e).lower()
-            if "authentication" in error_str or "api_key" in error_str:
-                raise AuthenticationError(f"OpenAI API authentication failed: {e}") from e
-            elif "network" in error_str or "connection" in error_str:
-                raise NetworkError(f"OpenAI API network error: {e}") from e
-            else:
-                raise ProviderError(f"OpenAI TTS synthesis failed: {e}") from e
+            classify_and_raise(e, "OpenAI")
 
     def _stream_realtime(self, text: str, voice: str) -> None:
         """Stream TTS audio in real-time with minimal latency."""
@@ -256,16 +247,8 @@ class OpenAITTSProvider(TTSProvider):
                 raise ProviderError(f"Audio streaming failed: {e}") from e
 
         except (ConnectionError, ValueError, RuntimeError, AttributeError) as e:
-            error_str = str(e).lower()
-            if "authentication" in error_str or "api_key" in error_str:
-                self.logger.error(f"Authentication error during OpenAI streaming: {e}")
-                raise AuthenticationError(f"OpenAI API authentication failed: {e}") from e
-            elif "network" in error_str or "connection" in error_str:
-                self.logger.error(f"Network error during OpenAI streaming: {e}")
-                raise NetworkError("OpenAI TTS requires internet connection. Check your network and try again.") from e
-            else:
-                self.logger.error(f"OpenAI TTS streaming failed: {e}")
-                raise ProviderError(f"OpenAI TTS streaming failed: {e}") from e
+            self.logger.error(f"OpenAI TTS streaming failed: {e}")
+            classify_and_raise(e, "OpenAI")
 
     def _stream_via_tempfile(self, text: str, voice: str) -> None:
         """Fallback streaming method using temporary file when direct streaming fails."""

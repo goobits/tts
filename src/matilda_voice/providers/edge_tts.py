@@ -7,11 +7,12 @@ from typing import Any, Optional
 from ..audio_utils import (
     check_audio_environment,
     convert_with_cleanup,
+    parse_bool_param,
     stream_via_tempfile,
 )
 from ..base import TTSProvider
 from ..config import get_config_value
-from ..exceptions import DependencyError, NetworkError, ProviderError
+from ..exceptions import DependencyError, NetworkError, ProviderError, classify_and_raise
 from ..types import ProviderInfo
 
 
@@ -296,11 +297,7 @@ class EdgeTTSProvider(TTSProvider):
         voice = kwargs.get("voice", "en-US-JennyNeural")
         rate = kwargs.get("rate", "+0%")
         pitch = kwargs.get("pitch", "+0Hz")
-        stream_param = kwargs.get("stream", False)
-        if isinstance(stream_param, bool):
-            stream = stream_param
-        else:
-            stream = str(stream_param).lower() in ("true", "1", "yes")
+        stream = parse_bool_param(kwargs.get("stream"), False)
         output_format = kwargs.get("output_format", "mp3")
 
         # Format rate and pitch
