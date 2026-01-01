@@ -25,13 +25,10 @@ from aiohttp import web
 logger = logging.getLogger(__name__)
 from aiohttp.web import Request, Response
 
+from .token_storage import get_or_create_token
+
 # Security: API Token Management
-API_TOKEN = os.getenv("MATILDA_API_TOKEN")
-if not API_TOKEN:
-    API_TOKEN = secrets.token_hex(32)
-    print("⚠️  SECURITY WARNING: MATILDA_API_TOKEN not set.")
-    print(f"⚠️  Generated temporary secure token: {API_TOKEN}")
-    print("⚠️  Please set MATILDA_API_TOKEN in your environment for persistence.")
+API_TOKEN = get_or_create_token()
 
 @web.middleware
 async def auth_middleware(request: Request, handler):
@@ -62,21 +59,31 @@ async def auth_middleware(request: Request, handler):
     return await handler(request)
 
 # CORS headers for browser/cross-origin access
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
+from .security import get_allowed_origins
+
+ALLOWED_ORIGINS = get_allowed_origins()
+
 
 def add_cors_headers(response: Response, request: Request = None) -> Response:
-    """Add CORS headers to response."""
-    origin = "*"
-    if request:
-        req_origin = request.headers.get("Origin")
-        if req_origin in ALLOWED_ORIGINS:
-            origin = req_origin
-        else:
-            origin = ALLOWED_ORIGINS[0]
+    """Add CORS headers to response.
 
-    response.headers["Access-Control-Allow-Origin"] = origin
+    Only sets Access-Control-Allow-Origin when:
+    1. A request with Origin header is present, AND
+    2. That origin is in the allowed list
+
+    If no origins are configured or the origin is not allowed,
+    the CORS header is not set (browser will block the request).
+    """
+    # Always set these headers for CORS support
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+
+    # Only set Allow-Origin if request has Origin and it's in allowed list
+    if request:
+        req_origin = request.headers.get("Origin")
+        if req_origin and ALLOWED_ORIGINS and req_origin in ALLOWED_ORIGINS:
+            response.headers["Access-Control-Allow-Origin"] = req_origin
+
     return response
 
 
