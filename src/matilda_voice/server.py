@@ -257,6 +257,27 @@ async def handle_providers(request: Request) -> Response:
         ), request)
 
 
+async def handle_reload(request: Request) -> Response:
+    """
+    Reload configuration from disk.
+
+    POST /reload
+
+    Response:
+    {"status": "ok", "message": "Configuration reloaded"}
+    """
+    try:
+        from .config import reload_config
+        # Clear configuration cache
+        reload_config()
+        
+        logger.info("Configuration reloaded via API")
+        return add_cors_headers(web.json_response({"status": "ok", "message": "Configuration reloaded"}), request)
+    except Exception as e:
+        logger.exception("Error reloading configuration")
+        return add_cors_headers(web.json_response({"error": str(e)}, status=500), request)
+
+
 def create_app() -> web.Application:
     """Create the aiohttp application."""
     app = web.Application(middlewares=[auth_middleware])
@@ -267,7 +288,7 @@ def create_app() -> web.Application:
     app.router.add_get("/", handle_health)
     app.router.add_post("/speak", handle_speak)
     app.router.add_post("/synthesize", handle_synthesize)
-    app.router.add_get("/providers", handle_providers)
+    app.router.add_post("/reload", handle_reload)
 
     return app
 

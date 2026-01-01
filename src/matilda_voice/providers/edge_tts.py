@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
 
 from ..audio_utils import (
-    StreamingPlayer,
+    StreamPlayer,
     check_audio_environment,
     convert_with_cleanup,
     parse_bool_param,
@@ -113,12 +113,18 @@ class EdgeTTSProvider(TTSProvider):
         try:
             communicate = self.edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
 
-            # Use StreamingPlayer for unified streaming logic
-            player = StreamingPlayer(
+            # Use StreamPlayer for unified streaming logic
+            player = StreamPlayer(
                 provider_name="Edge TTS",
                 pulse_available=audio_env.get("pulse_available", False),
             )
-            await player.play_edge_tts_stream(communicate.stream())
+            
+            # Use transform to extract data from EdgeTTS chunk dicts
+            # Chunk format: {'type': 'audio', 'data': bytes}
+            await player.play_async(
+                communicate.stream(),
+                transform=lambda chunk: chunk["data"] if chunk.get("type") == "audio" else None
+            )
 
         except KeyboardInterrupt:
             raise

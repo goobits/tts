@@ -136,10 +136,9 @@ class ChatterboxProvider(TTSProvider):
     def _stream_to_speakers(self, wav_tensor: Any) -> None:
         """Stream audio tensor directly to speakers using ffplay"""
         import io
-        import subprocess
         import wave
-
         import numpy as np  # type: ignore
+        from ..audio_utils import StreamPlayer
 
         try:
             self.logger.debug("Converting audio tensor for streaming")
@@ -157,68 +156,31 @@ class ChatterboxProvider(TTSProvider):
                 audio_16bit = (audio_normalized * 32767 * 0.95).astype(np.int16)
                 wav_file.writeframes(audio_16bit.tobytes())
 
-            # Stream to ffplay
+            # Stream to ffplay using StreamPlayer
             buffer.seek(0)
-            try:
-                ffplay_process = subprocess.Popen(
-                    ["ffplay", "-nodisp", "-autoexit", "-i", "pipe:0"], stdin=subprocess.PIPE, stderr=subprocess.DEVNULL
-                )
-            except FileNotFoundError:
-                self.logger.error("FFplay not found for audio streaming")
-                raise DependencyError("ffplay not found. Please install ffmpeg to use audio streaming.") from None
-
-            self.logger.debug("Streaming audio to ffplay")
-            if ffplay_process.stdin is not None:
-                ffplay_process.stdin.write(buffer.getvalue())
-                ffplay_process.stdin.close()
-            ffplay_process.wait()
+            player = StreamPlayer(provider_name="Chatterbox")
+            # Create a generator that yields the buffer content as a single chunk
+            player.play(iter([buffer.getvalue()]))
+            
             self.logger.debug("Audio streaming completed")
 
-        except FileNotFoundError as e:
-            self.logger.error(f"FFplay not found for audio streaming: {e}")
-            raise DependencyError("ffplay not found. Please install ffmpeg to use audio streaming.") from e
-        except subprocess.SubprocessError as e:
-            self.logger.error(f"Audio streaming subprocess error: {e}")
-            raise AudioPlaybackError(f"Audio streaming process failed: {e}") from e
-        except OSError as e:
-            self.logger.error(f"System error during audio streaming: {e}")
-            raise AudioPlaybackError(f"Audio streaming system error: {e}") from e
         except (ValueError, RuntimeError, MemoryError) as e:
             self.logger.error(f"Unexpected audio streaming error: {type(e).__name__}: {e}")
             raise AudioPlaybackError(f"Audio streaming failed unexpectedly: {type(e).__name__}: {e}") from e
 
     def _stream_audio_data(self, audio_data: bytes) -> None:
         """Stream raw audio data to speakers using ffplay"""
-        import subprocess
-
+        from ..audio_utils import StreamPlayer
+        
         try:
             self.logger.debug("Streaming server audio data")
-
-            # Stream to ffplay
-            try:
-                ffplay_process = subprocess.Popen(
-                    ["ffplay", "-nodisp", "-autoexit", "-i", "pipe:0"], stdin=subprocess.PIPE, stderr=subprocess.DEVNULL
-                )
-            except FileNotFoundError:
-                self.logger.error("FFplay not found for audio streaming")
-                raise DependencyError("ffplay not found. Please install ffmpeg to use audio streaming.") from None
-
-            self.logger.debug("Streaming audio to ffplay")
-            if ffplay_process.stdin is not None:
-                ffplay_process.stdin.write(audio_data)
-                ffplay_process.stdin.close()
-            ffplay_process.wait()
+            
+            # Stream using StreamPlayer
+            player = StreamPlayer(provider_name="Chatterbox")
+            player.play(iter([audio_data]))
+            
             self.logger.debug("Audio streaming completed")
 
-        except FileNotFoundError as e:
-            self.logger.error(f"FFplay not found for audio streaming: {e}")
-            raise DependencyError("ffplay not found. Please install ffmpeg to use audio streaming.") from e
-        except subprocess.SubprocessError as e:
-            self.logger.error(f"Audio streaming subprocess error: {e}")
-            raise AudioPlaybackError(f"Audio streaming process failed: {e}") from e
-        except OSError as e:
-            self.logger.error(f"System error during audio streaming: {e}")
-            raise AudioPlaybackError(f"Audio streaming system error: {e}") from e
         except (ValueError, RuntimeError, MemoryError) as e:
             self.logger.error(f"Unexpected audio streaming error: {type(e).__name__}: {e}")
             raise AudioPlaybackError(f"Audio streaming failed unexpectedly: {type(e).__name__}: {e}") from e

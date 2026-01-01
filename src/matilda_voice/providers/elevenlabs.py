@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, cast
 import httpx
 
 from ..audio_utils import (
-    StreamingPlayer,
+    StreamPlayer,
     check_audio_environment,
     convert_audio,
     parse_bool_param,
@@ -280,12 +280,12 @@ class ElevenLabsProvider(TTSProvider):
                         error_msg += f": {response.text[:200]}"
                     raise ProviderError(error_msg)
 
-                # Use StreamingPlayer for unified streaming logic
-                player = StreamingPlayer(
+                # Use StreamPlayer for unified streaming logic
+                player = StreamPlayer(
                     provider_name="ElevenLabs",
                     format_args=["-f", "mp3"],
                 )
-                player.play_chunks(response.iter_bytes(chunk_size=get_config_value("http_streaming_chunk_size")))
+                player.play(response.iter_bytes(chunk_size=get_config_value("http_streaming_chunk_size")))
 
         except (httpx.RequestError, ConnectionError, ValueError, RuntimeError) as e:
             self.logger.error(f"ElevenLabs TTS streaming failed: {e}")
