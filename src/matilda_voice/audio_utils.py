@@ -69,6 +69,7 @@ class StreamingPlayer:
     - Progress logging at configurable intervals
     - Broken pipe handling
     - Proper process cleanup
+    - Keyboard interrupt handling
 
     Usage:
         player = StreamingPlayer("OpenAI")
@@ -80,6 +81,9 @@ class StreamingPlayer:
         # Asynchronous streaming
         async for chunk in async_response:
             await player.play_chunks_async(async_iter)
+
+        # Edge TTS style (dict with 'type' and 'data' keys)
+        await player.play_edge_tts_stream(communicate.stream())
     """
 
     def __init__(
@@ -87,6 +91,7 @@ class StreamingPlayer:
         provider_name: str,
         format_args: Optional[List[str]] = None,
         progress_interval: Optional[int] = None,
+        pulse_available: bool = False,
     ):
         """Initialize the streaming player.
 
@@ -94,9 +99,11 @@ class StreamingPlayer:
             provider_name: Name of the provider (for logging)
             format_args: FFplay format arguments (e.g., ["-f", "mp3"])
             progress_interval: Log progress every N chunks (default from config)
+            pulse_available: Whether PulseAudio is available (for format selection)
         """
         self.provider_name = provider_name
-        self.format_args = format_args
+        self.format_args = format_args or []
+        self.pulse_available = pulse_available
         self.logger = logging.getLogger(__name__)
         self.chunk_count = 0
         self.bytes_written = 0
@@ -105,6 +112,14 @@ class StreamingPlayer:
         self.progress_interval = progress_interval or get_config_value(
             "streaming_progress_interval", 100
         )
+        self._ffplay_process: Optional[subprocess.Popen] = None
+
+    def _create_process(self) -> subprocess.Popen:
+        """Create the ffplay process with appropriate format args."""
+        format_args = list(self.format_args)
+        if self.pulse_available and "-f" not in format_args:
+            format_args.extend(["-f", "pulse"])
+        return create_ffplay_process(logger=self.logger, format_args=format_args)
 
     def play_chunks(self, chunks: Iterator[bytes]) -> None:
         """Stream audio chunks to ffplay synchronously.
@@ -117,18 +132,19 @@ class StreamingPlayer:
             AudioPlaybackError: If streaming fails
         """
         self.start_time = time.time()
-        ffplay_process = create_ffplay_process(
-            logger=self.logger, format_args=self.format_args
-        )
+        self._ffplay_process = self._create_process()
 
         try:
             for chunk in chunks:
-                if not self._process_chunk(chunk, ffplay_process):
+                if not self._process_chunk(chunk, self._ffplay_process):
                     break
+        except KeyboardInterrupt:
+            self._terminate_process()
+            raise
         except BrokenPipeError:
-            self._handle_broken_pipe(ffplay_process)
+            self._handle_broken_pipe(self._ffplay_process)
         finally:
-            self._cleanup(ffplay_process)
+            self._cleanup(self._ffplay_process)
 
     async def play_chunks_async(self, chunks: AsyncIterator[bytes]) -> None:
         """Stream audio chunks to ffplay asynchronously.
@@ -141,18 +157,57 @@ class StreamingPlayer:
             AudioPlaybackError: If streaming fails
         """
         self.start_time = time.time()
-        ffplay_process = create_ffplay_process(
-            logger=self.logger, format_args=self.format_args
-        )
+        self._ffplay_process = self._create_process()
 
         try:
             async for chunk in chunks:
-                if not self._process_chunk(chunk, ffplay_process):
+                if not self._process_chunk(chunk, self._ffplay_process):
                     break
+        except KeyboardInterrupt:
+            self._terminate_process()
+            raise
         except BrokenPipeError:
-            self._handle_broken_pipe(ffplay_process)
+            self._handle_broken_pipe(self._ffplay_process)
         finally:
-            self._cleanup(ffplay_process)
+            self._cleanup(self._ffplay_process)
+
+    async def play_edge_tts_stream(self, stream: AsyncIterator[Dict[str, Any]]) -> None:
+        """Stream Edge TTS audio chunks (dict format with 'type' and 'data' keys).
+
+        Edge TTS yields dicts like {'type': 'audio', 'data': bytes} instead of
+        raw bytes. This method handles that format.
+
+        Args:
+            stream: Async iterator of Edge TTS chunk dicts
+
+        Raises:
+            DependencyError: If ffplay is not available
+            AudioPlaybackError: If streaming fails
+        """
+        self.start_time = time.time()
+        self._ffplay_process = self._create_process()
+
+        try:
+            async for chunk in stream:
+                if chunk.get("type") == "audio":
+                    if not self._process_chunk(chunk["data"], self._ffplay_process):
+                        break
+        except KeyboardInterrupt:
+            self._terminate_process()
+            raise
+        except BrokenPipeError:
+            self._handle_broken_pipe(self._ffplay_process)
+        finally:
+            self._cleanup(self._ffplay_process)
+
+    def _terminate_process(self) -> None:
+        """Terminate the ffplay process gracefully."""
+        if self._ffplay_process and self._ffplay_process.poll() is None:
+            self._ffplay_process.terminate()
+            try:
+                self._ffplay_process.wait(timeout=1.0)
+            except subprocess.TimeoutExpired:
+                self._ffplay_process.kill()
 
     def _process_chunk(self, chunk: bytes, process: subprocess.Popen) -> bool:
         """Process a single audio chunk.

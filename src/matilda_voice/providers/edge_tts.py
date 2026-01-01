@@ -1,10 +1,10 @@
 import asyncio
-import errno
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
 
 from ..audio_utils import (
+    StreamingPlayer,
     check_audio_environment,
     convert_with_cleanup,
     parse_bool_param,
@@ -12,7 +12,7 @@ from ..audio_utils import (
 )
 from ..base import TTSProvider
 from ..config import get_config_value
-from ..exceptions import DependencyError, NetworkError, ProviderError, classify_and_raise
+from ..exceptions import DependencyError, NetworkError, ProviderError
 from ..types import ProviderInfo
 
 
@@ -99,167 +99,28 @@ class EdgeTTSProvider(TTSProvider):
                 raise ProviderError(f"Edge TTS synthesis failed: {type(e).__name__}: {e}") from e
 
     async def _stream_async(self, text: str, voice: str, rate: str, pitch: str) -> None:
-        """Stream TTS audio directly to speakers without saving to file"""
-        import subprocess
+        """Stream TTS audio directly to speakers without saving to file."""
+        self.logger.debug(f"Starting Edge TTS streaming with voice: {voice}")
+        if self.edge_tts is None:
+            raise ProviderError("Edge TTS module not loaded")
+
+        # Check for audio environment first
+        audio_env = check_audio_environment()
+        if not audio_env["available"]:
+            self.logger.warning(f"Audio streaming not available: {audio_env['reason']}")
+            return await self._stream_via_tempfile(text, voice, rate, pitch)
 
         try:
-            import time
-
-            start_time = time.time()
-            self.logger.debug(f"Starting Edge TTS streaming with voice: {voice}")
-            if self.edge_tts is None:
-                raise ProviderError("Edge TTS module not loaded")
             communicate = self.edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
 
-            # Check for audio environment first
-            audio_env = check_audio_environment()
-            if not audio_env["available"]:
-                self.logger.warning(f"Audio streaming not available: {audio_env['reason']}")
-                # Fallback to temporary file method
-                return await self._stream_via_tempfile(text, voice, rate, pitch)
-
-            # Start ffplay process with better error handling
-            try:
-                # Use more robust ffplay options
-                ffplay_cmd = [
-                    "ffplay",
-                    "-nodisp",  # No video display
-                    "-autoexit",  # Exit when done
-                    "-loglevel",
-                    "quiet",  # Reduce ffplay output
-                    "-i",
-                    "pipe:0",  # Read from stdin
-                ]
-
-                # Add audio device options if available
-                if audio_env["pulse_available"]:
-                    ffplay_cmd.extend(["-f", "pulse"])
-
-                self.logger.debug(f"Starting ffplay with command: {' '.join(ffplay_cmd)}")
-                ffplay_process = subprocess.Popen(
-                    ffplay_cmd,
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.PIPE,
-                    bufsize=0,  # Unbuffered for real-time streaming
-                )
-            except FileNotFoundError:
-                self.logger.error("FFplay not found for audio streaming")
-                raise DependencyError("ffplay not found. Please install ffmpeg to use audio streaming.") from None
-
-            try:
-                # Stream audio data with improved error handling
-                self.logger.debug("Starting chunk-by-chunk audio streaming")
-                chunk_count = 0
-                bytes_written = 0
-
-                # Optimized streaming: Start playback as soon as first chunks arrive
-                first_chunk_time = None
-                playback_started = False
-
-                async for chunk in communicate.stream():
-                    if chunk["type"] == "audio":
-                        chunk_count += 1
-
-                        # Log when we get the first chunk (latency measurement)
-                        if chunk_count == 1:
-                            import time
-
-                            first_chunk_time = time.time()
-                            self.logger.debug("First audio chunk received - starting immediate playback")
-
-                        try:
-                            # Write chunk immediately to start playback ASAP
-                            if ffplay_process.stdin:
-                                ffplay_process.stdin.write(chunk["data"])
-                                ffplay_process.stdin.flush()  # Force immediate write
-                            bytes_written += len(chunk["data"])
-
-                            # Mark playback as started after first few chunks
-                            threshold = get_config_value("streaming_playback_start_threshold")
-                            if chunk_count == threshold and not playback_started:
-                                playback_started = True
-                                self.logger.debug("Optimized streaming: Playback should have started")
-
-                            # Log progress every N chunks
-                            if chunk_count % get_config_value("streaming_progress_interval") == 0:
-                                self.logger.debug(f"Streamed {chunk_count} chunks, {bytes_written} bytes")
-
-                        except BrokenPipeError:
-                            # Check if ffplay process ended early
-                            if ffplay_process.poll() is not None:
-                                # FFplay has terminated - this is expected when pipeline is interrupted
-                                self.logger.debug(f"FFplay terminated with exit code: {ffplay_process.returncode}")
-                                break
-                            else:
-                                # Broken pipe but ffplay still running - likely stdin closed
-                                self.logger.debug("Broken pipe error - stdin was closed, stopping audio stream")
-                                break
-
-                # Close stdin and wait for ffplay to finish
-                try:
-                    if ffplay_process.stdin:
-                        ffplay_process.stdin.close()
-                    exit_code = ffplay_process.wait()  # Let ffplay exit naturally with -autoexit
-
-                    # Calculate and log timing metrics
-                    total_time = time.time() - start_time
-                    if first_chunk_time:
-                        latency = first_chunk_time - start_time
-                        self.logger.info(f"Streaming optimization: First audio in {latency:.1f}s, Total: {total_time:.1f}s")
-
-                    self.logger.debug(
-                        f"Audio streaming completed. Chunks: {chunk_count}, Bytes: {bytes_written}, Exit code: {exit_code}"
-                    )
-                except KeyboardInterrupt:
-                    # Clean shutdown on Ctrl+C
-                    if ffplay_process.poll() is None:
-                        ffplay_process.terminate()
-                    raise
-                except (subprocess.SubprocessError, OSError) as e:
-                    self.logger.error(f"FFplay process error: {e}")
-                    ffplay_process.terminate()
-
-            except KeyboardInterrupt:
-                # Clean shutdown without error logging
-                if ffplay_process.poll() is None:
-                    ffplay_process.terminate()
-                raise
-            except BrokenPipeError:
-                # Broken pipe is expected when pipeline is interrupted - handle gracefully
-                self.logger.debug("Broken pipe error during audio streaming - pipeline was interrupted")
-                # Ensure ffplay is terminated cleanly
-                if ffplay_process.poll() is None:
-                    ffplay_process.terminate()
-                    try:
-                        ffplay_process.wait(timeout=1.0)  # Short timeout for quick cleanup
-                    except subprocess.TimeoutExpired:
-                        ffplay_process.kill()
-                # Don't propagate the error - exit gracefully
-                return
-            except (IOError, OSError, RuntimeError) as e:
-                # Check if it's actually a broken pipe error in disguise
-                if "Broken pipe" in str(e) or "EPIPE" in str(e) or (hasattr(e, "errno") and e.errno == errno.EPIPE):
-                    self.logger.debug("Broken pipe error detected - handling gracefully")
-                    if ffplay_process.poll() is None:
-                        ffplay_process.terminate()
-                    return
-
-                self.logger.error(f"Audio streaming failed: {e}")
-                # Ensure ffplay is terminated
-                if ffplay_process.poll() is None:
-                    ffplay_process.terminate()
-                    try:
-                        ffplay_process.wait(timeout=get_config_value("ffplay_termination_timeout"))
-                    except subprocess.TimeoutExpired:
-                        ffplay_process.kill()
-
-                if "internet" in str(e).lower() or "network" in str(e).lower():
-                    raise NetworkError("Network error during streaming. Check your internet connection.") from e
-                raise ProviderError(f"Audio streaming failed: {e}") from e
+            # Use StreamingPlayer for unified streaming logic
+            player = StreamingPlayer(
+                provider_name="Edge TTS",
+                pulse_available=audio_env.get("pulse_available", False),
+            )
+            await player.play_edge_tts_stream(communicate.stream())
 
         except KeyboardInterrupt:
-            # Propagate without logging
             raise
         except (ConnectionError, OSError, RuntimeError, ValueError) as e:
             error_str = str(e).lower()

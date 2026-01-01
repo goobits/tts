@@ -1,24 +1,21 @@
 """ElevenLabs TTS provider implementation with voice cloning support."""
 
 import logging
-import subprocess
 import tempfile
-import time
 from typing import Any, Dict, List, Optional, cast
 
 import httpx
 
 from ..audio_utils import (
+    StreamingPlayer,
     check_audio_environment,
     convert_audio,
-    create_ffplay_process,
     parse_bool_param,
     stream_via_tempfile,
 )
 from ..base import TTSProvider
 from ..config import get_api_key, get_config_value, is_ssml, strip_ssml_tags
 from ..exceptions import (
-    AudioPlaybackError,
     AuthenticationError,
     NetworkError,
     ProviderError,
@@ -245,136 +242,50 @@ class ElevenLabsProvider(TTSProvider):
         self, text: str, voice_id: str, voice_name: str, stability: float, similarity_boost: float, style: float
     ) -> None:
         """Stream TTS audio in real-time with minimal latency."""
+        self.logger.debug(f"Starting ElevenLabs TTS streaming with voice: {voice_name}")
+
+        # Check for audio environment first
+        audio_env = check_audio_environment()
+        if not audio_env["available"]:
+            self.logger.warning(f"Audio streaming not available: {audio_env['reason']}")
+            return self._stream_via_tempfile(text, voice_id, voice_name, stability, similarity_boost, style)
 
         try:
-            start_time = time.time()
-            self.logger.debug(f"Starting ElevenLabs TTS streaming with voice: {voice_name}")
+            # Prepare request for streaming
+            api_key = get_api_key("elevenlabs")
+            if not api_key:
+                raise ProviderError("ElevenLabs API key not found. Set with: tts config elevenlabs_api_key YOUR_KEY")
 
-            # Check for audio environment first
-            audio_env = check_audio_environment()
-            if not audio_env["available"]:
-                self.logger.warning(f"Audio streaming not available: {audio_env['reason']}")
-                # Fallback to temporary file method
-                return self._stream_via_tempfile(text, voice_id, voice_name, stability, similarity_boost, style)
+            headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
+            payload = {
+                "text": text,
+                "model_id": "eleven_monolingual_v1",
+                "voice_settings": {"stability": stability, "similarity_boost": similarity_boost, "style": style},
+            }
+            url = f"{self.base_url}/text-to-speech/{voice_id}/stream"
 
-            # Start ffplay process for streaming
-            ffplay_process = create_ffplay_process(logger=self.logger, format_args=["-f", "mp3"])
-
-            try:
-                # Prepare request for streaming
-                api_key = get_api_key("elevenlabs")
-                if not api_key:
-                    raise ProviderError("ElevenLabs API key not found. Set with: tts config elevenlabs_api_key YOUR_KEY")
-
-                headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
-
-                payload = {
-                    "text": text,
-                    "model_id": "eleven_monolingual_v1",
-                    "voice_settings": {"stability": stability, "similarity_boost": similarity_boost, "style": style},
-                }
-
-                url = f"{self.base_url}/text-to-speech/{voice_id}/stream"
-
-                # Make streaming request with httpx
-                self.logger.debug("Starting ElevenLabs streaming request")
-                with stream_with_retry(
-                    "POST",
-                    url,
-                    headers=headers,
-                    json=payload,
-                    idempotent=False,
-                    provider_name="ElevenLabs",
-                ) as response:
-                    if response.status_code != 200:
-                        error_msg = f"ElevenLabs API error {response.status_code}"
-                        try:
-                            error_detail = response.json().get("detail", {})
-                            if isinstance(error_detail, dict):
-                                error_msg += f": {error_detail.get('message', 'Unknown error')}"
-                            else:
-                                error_msg += f": {error_detail}"
-                        except (ValueError, KeyError, AttributeError):
-                            # JSON parsing failed or missing expected keys
-                            error_msg += f": {response.text[:200]}"
-                        raise ProviderError(error_msg)
-
-                    # Stream audio data chunks
-                    self.logger.debug("Starting chunk-by-chunk audio streaming")
-                    chunk_count = 0
-                    bytes_written = 0
-                    first_chunk_time = None
-
-                    # ElevenLabs streams in chunks (httpx uses iter_bytes instead of iter_content)
-                    for chunk in response.iter_bytes(chunk_size=get_config_value("http_streaming_chunk_size")):
-                        if chunk:
-                            chunk_count += 1
-
-                            # Log when we get the first chunk (latency measurement)
-                            if chunk_count == 1:
-                                first_chunk_time = time.time()
-                                self.logger.debug("First audio chunk received - starting immediate playback")
-
-                            try:
-                                # Write chunk immediately to start playback ASAP
-                                if ffplay_process.stdin is not None:
-                                    ffplay_process.stdin.write(chunk)
-                                    ffplay_process.stdin.flush()
-                                    bytes_written += len(chunk)
-
-                                # Log progress every N chunks
-                                if chunk_count % get_config_value("streaming_progress_interval") == 0:
-                                    self.logger.debug(f"Streamed {chunk_count} chunks, {bytes_written} bytes")
-
-                            except BrokenPipeError:
-                                # Check if ffplay process ended early
-                                if ffplay_process.poll() is not None:
-                                    stderr_output = ""
-                                    if ffplay_process.stderr is not None:
-                                        stderr_output = ffplay_process.stderr.read().decode("utf-8", errors="ignore")
-                                    self.logger.warning(
-                                        f"FFplay ended early (exit code: {ffplay_process.returncode}): {stderr_output}"
-                                    )
-                                    break
-                                else:
-                                    raise
-
-                # Close stdin and wait for ffplay to finish
-                try:
-                    if ffplay_process.stdin is not None:
-                        ffplay_process.stdin.close()
-                    exit_code = ffplay_process.wait(timeout=get_config_value("ffplay_timeout"))
-
-                    # Calculate and log timing metrics
-                    total_time = time.time() - start_time
-                    if first_chunk_time:
-                        latency = first_chunk_time - start_time
-                        self.logger.info(
-                            f"ElevenLabs streaming optimization: First audio in {latency:.1f}s, Total: {total_time:.1f}s"
-                        )
-
-                    self.logger.debug(
-                        f"Audio streaming completed. Chunks: {chunk_count}, Bytes: {bytes_written}, Exit code: {exit_code}"
-                    )
-                except subprocess.TimeoutExpired:
-                    self.logger.warning("FFplay process timeout, terminating")
-                    ffplay_process.terminate()
-
-            except (BrokenPipeError, IOError, OSError, subprocess.SubprocessError) as e:
-                self.logger.error(f"Audio streaming failed: {e}")
-                # Ensure ffplay is terminated
-                if ffplay_process.poll() is None:
-                    ffplay_process.terminate()
+            # Make streaming request with httpx
+            with stream_with_retry(
+                "POST", url, headers=headers, json=payload, idempotent=False, provider_name="ElevenLabs"
+            ) as response:
+                if response.status_code != 200:
+                    error_msg = f"ElevenLabs API error {response.status_code}"
                     try:
-                        ffplay_process.wait(timeout=get_config_value("ffplay_termination_timeout"))
-                    except subprocess.TimeoutExpired:
-                        ffplay_process.kill()
+                        error_detail = response.json().get("detail", {})
+                        if isinstance(error_detail, dict):
+                            error_msg += f": {error_detail.get('message', 'Unknown error')}"
+                        else:
+                            error_msg += f": {error_detail}"
+                    except (ValueError, KeyError, AttributeError):
+                        error_msg += f": {response.text[:200]}"
+                    raise ProviderError(error_msg)
 
-                if isinstance(e, BrokenPipeError):
-                    raise AudioPlaybackError(
-                        "Audio streaming failed: Audio device may not be available or configured properly."
-                    ) from e
-                raise ProviderError(f"Audio streaming failed: {e}") from e
+                # Use StreamingPlayer for unified streaming logic
+                player = StreamingPlayer(
+                    provider_name="ElevenLabs",
+                    format_args=["-f", "mp3"],
+                )
+                player.play_chunks(response.iter_bytes(chunk_size=get_config_value("http_streaming_chunk_size")))
 
         except (httpx.RequestError, ConnectionError, ValueError, RuntimeError) as e:
             self.logger.error(f"ElevenLabs TTS streaming failed: {e}")
