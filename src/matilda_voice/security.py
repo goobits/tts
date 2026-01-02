@@ -17,7 +17,7 @@ def get_allowed_origins() -> List[str]:
 
     Security behavior:
     - If ALLOWED_ORIGINS env var is set, use those origins
-    - If MATILDA_DEV_MODE=1, fall back to localhost defaults for development
+    - If MATILDA_DEV_MODE=1/true/yes, fall back to localhost defaults for development
     - Otherwise, return empty list (secure default for production)
 
     Returns:
