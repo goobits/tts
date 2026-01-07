@@ -106,7 +106,7 @@ def on_install(args: tuple, **kwargs) -> int:
         if provider not in install_commands:
             print(f"❌ Unknown provider: {provider}", file=sys.stderr)
             print("Available providers: edge-tts, openai, elevenlabs, google-tts, chatterbox", file=sys.stderr)
-            sys.exit(1)
+            raise ValueError(f"Unknown provider: {provider}")
 
         print(f"🔧 Installing {provider}...")
         print("=" * 40)
@@ -194,7 +194,7 @@ def on_info(provider: Optional[str], **kwargs) -> int:
                 shortcut = resolved_provider[1:]
                 print(f"Error: Unknown provider shortcut '@{shortcut}'", file=sys.stderr)
                 print(f"Available providers: {', '.join('@' + k for k in PROVIDER_SHORTCUTS.keys())}", file=sys.stderr)
-                sys.exit(1)
+                raise ValueError(f"Unknown provider shortcut '@{shortcut}'")
 
             provider_name = resolved_provider or provider
 

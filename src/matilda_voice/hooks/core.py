@@ -34,7 +34,7 @@ def on_speak(
                 shortcut = provider_name[1:]
                 print(f"Error: Unknown provider shortcut '@{shortcut}'", file=sys.stderr)
                 print(f"Available providers: {', '.join('@' + k for k in PROVIDER_SHORTCUTS.keys())}", file=sys.stderr)
-                sys.exit(1)
+                raise ValueError(f"Unknown provider shortcut '@{shortcut}'")
             all_args = remaining_args
 
         # Parse any additional text from remaining arguments
@@ -50,7 +50,7 @@ def on_speak(
                 except (BrokenPipeError, IOError):
                     # Stdin was closed (e.g., in a pipeline that was interrupted)
                     # Exit gracefully without error message
-                    sys.exit(0)
+                    return 0
 
         if not all_text:
             print("Error: No text provided to speak")
@@ -135,7 +135,7 @@ def on_save(
                 shortcut = provider_name[1:]
                 print(f"Error: Unknown provider shortcut '@{shortcut}'", file=sys.stderr)
                 print(f"Available providers: {', '.join('@' + k for k in PROVIDER_SHORTCUTS.keys())}", file=sys.stderr)
-                sys.exit(1)
+                raise ValueError(f"Unknown provider shortcut '@{shortcut}'")
             all_args = remaining_args
 
         # Parse any additional text from remaining arguments
@@ -181,4 +181,3 @@ def on_save(
     except Exception:
         # Re-raise to let CLI handle it with user-friendly messages
         raise
-
