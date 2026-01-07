@@ -4,7 +4,7 @@ os: auto
 project:
   name: tts
   hostname: dev.tts.local
-  workspace_path: .
+  workspace_path: /workspace
 vm:
   box: '@vibe-box'
   cpus: 2
