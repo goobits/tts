@@ -3,7 +3,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
 
-from ..audio_utils import (
+from ..internal.audio_utils import (
     StreamPlayer,
     check_audio_environment,
     convert_with_cleanup,
@@ -11,9 +11,9 @@ from ..audio_utils import (
     stream_via_tempfile,
 )
 from ..base import TTSProvider
-from ..config import get_config_value
+from ..internal.config import get_config_value
 from ..exceptions import DependencyError, NetworkError, ProviderError
-from ..types import ProviderInfo
+from ..internal.types import ProviderInfo
 
 
 class EdgeTTSProvider(TTSProvider):

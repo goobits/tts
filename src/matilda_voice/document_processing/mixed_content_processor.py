@@ -5,7 +5,7 @@ from collections import defaultdict
 from typing import Any, Dict, List
 
 from matilda_voice.document_processing.parser_factory import DocumentParserFactory
-from matilda_voice.types import SemanticElement
+from matilda_voice.internal.types import SemanticElement
 
 # TextFormatter removed - not needed for document processing
 

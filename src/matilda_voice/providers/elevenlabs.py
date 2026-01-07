@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, cast
 
 import httpx
 
-from ..audio_utils import (
+from ..internal.audio_utils import (
     StreamPlayer,
     check_audio_environment,
     convert_audio,
@@ -14,7 +14,7 @@ from ..audio_utils import (
     stream_via_tempfile,
 )
 from ..base import TTSProvider
-from ..config import get_api_key, get_config_value, is_ssml, strip_ssml_tags
+from ..internal.config import get_api_key, get_config_value, is_ssml, strip_ssml_tags
 from ..exceptions import (
     AuthenticationError,
     NetworkError,
@@ -23,8 +23,8 @@ from ..exceptions import (
     classify_and_raise,
     map_http_error,
 )
-from ..http_retry import request_with_retry, stream_with_retry
-from ..types import ProviderInfo
+from ..internal.http_retry import request_with_retry, stream_with_retry
+from ..internal.types import ProviderInfo
 
 
 class ElevenLabsProvider(TTSProvider):

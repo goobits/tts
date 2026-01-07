@@ -1,6 +1,6 @@
 """Custom exceptions for TTS CLI with standardized error hierarchy."""
 
-from .config import get_config_value
+from .internal.config import get_config_value
 
 
 class TTSError(Exception):

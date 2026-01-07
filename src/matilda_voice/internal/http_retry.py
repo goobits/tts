@@ -16,7 +16,7 @@ from typing import Any, Callable, Iterable, Optional, Set, Tuple, Type
 
 import httpx
 
-from .exceptions import NetworkError, ProviderError
+from ..exceptions import NetworkError, ProviderError
 
 logger = logging.getLogger(__name__)
 

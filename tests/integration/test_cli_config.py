@@ -328,7 +328,7 @@ class TestConfigErrorHandling:
         # This test is complex to implement portably, so we'll mock the save operation
         runner = CliRunner()
 
-        with patch("matilda_voice.config.save_config") as mock_save:
+        with patch("matilda_voice.internal.config.save_config") as mock_save:
             # Simulate a permission error
             mock_save.side_effect = PermissionError("Permission denied")
 
@@ -357,7 +357,7 @@ class TestConfigErrorHandling:
         """Test config show with I/O error during load."""
         runner = CliRunner()
 
-        with patch("matilda_voice.config.load_config") as mock_load:
+        with patch("matilda_voice.internal.config.load_config") as mock_load:
             # Simulate an I/O error
             mock_load.side_effect = IOError("Disk error")
 

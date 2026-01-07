@@ -15,10 +15,10 @@ import tempfile
 from pathlib import Path
 from typing import Any, Optional
 
-from ..audio_utils import convert_with_cleanup, parse_bool_param
+from ..internal.audio_utils import convert_with_cleanup, parse_bool_param
 from ..base import TTSProvider
 from ..exceptions import AudioPlaybackError, DependencyError, ProviderError
-from ..types import ProviderInfo
+from ..internal.types import ProviderInfo
 
 
 class CoquiProvider(TTSProvider):
@@ -145,7 +145,7 @@ class CoquiProvider(TTSProvider):
 
     def _stream_audio_file(self, audio_path: str) -> None:
         """Stream an audio file to speakers using StreamPlayer."""
-        from ..audio_utils import StreamPlayer
+        from ..internal.audio_utils import StreamPlayer
 
         try:
             self.logger.debug(f"Streaming audio file: {audio_path}")

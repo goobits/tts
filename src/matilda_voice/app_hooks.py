@@ -34,7 +34,7 @@ from matilda_voice.hooks import (
 )
 
 # Re-export config functions for backwards compatibility
-from matilda_voice.config import load_config, save_config
+from matilda_voice.internal.config import load_config, save_config
 
 __all__ = [
     # Registries

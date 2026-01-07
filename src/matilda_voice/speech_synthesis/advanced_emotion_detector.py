@@ -4,7 +4,7 @@ import re
 from typing import Any, Dict, List
 
 from matilda_voice.speech_synthesis.emotion_detector import ContentEmotionDetector
-from matilda_voice.types import SemanticElement, SemanticType
+from matilda_voice.internal.types import SemanticElement, SemanticType
 
 
 class AdvancedEmotionDetector(ContentEmotionDetector):

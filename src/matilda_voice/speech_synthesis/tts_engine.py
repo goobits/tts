@@ -5,7 +5,7 @@ import subprocess
 import time
 from typing import List
 
-from matilda_voice.types import SemanticElement, SemanticType
+from matilda_voice.internal.types import SemanticElement, SemanticType
 
 logger = logging.getLogger(__name__)
 

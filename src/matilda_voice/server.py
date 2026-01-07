@@ -25,7 +25,7 @@ from aiohttp import web
 logger = logging.getLogger(__name__)
 from aiohttp.web import Request, Response
 
-from .token_storage import get_or_create_token
+from .internal.token_storage import get_or_create_token
 
 # Security: API Token Management
 API_TOKEN = get_or_create_token()
@@ -59,7 +59,7 @@ async def auth_middleware(request: Request, handler):
     return await handler(request)
 
 # CORS headers for browser/cross-origin access
-from .security import get_allowed_origins
+from .internal.security import get_allowed_origins
 
 ALLOWED_ORIGINS = get_allowed_origins()
 
@@ -274,7 +274,7 @@ async def handle_reload(request: Request) -> Response:
     {"status": "ok", "message": "Configuration reloaded"}
     """
     try:
-        from .config import reload_config
+        from .internal.config import reload_config
         # Clear configuration cache
         reload_config()
         

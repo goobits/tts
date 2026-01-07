@@ -13,8 +13,8 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 import click
 
-from ..audio_utils import AudioPlaybackManager, cleanup_file
-from ..config import set_setting
+from ..internal.audio_utils import AudioPlaybackManager, cleanup_file
+from ..internal.config import set_setting
 from ..exceptions import AuthenticationError, DependencyError, ProviderLoadError, ProviderNotFoundError
 from .voice_analyzer import analyze_voice
 

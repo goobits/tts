@@ -4,7 +4,7 @@ import logging
 import tempfile
 from typing import Any, Optional, cast
 
-from ..audio_utils import (
+from ..internal.audio_utils import (
     StreamingPlayer,
     check_audio_environment,
     convert_audio,
@@ -12,15 +12,15 @@ from ..audio_utils import (
     stream_via_tempfile,
 )
 from ..base import TTSProvider
-from ..config import get_api_key, get_config_value, is_ssml, strip_ssml_tags
+from ..internal.config import get_api_key, get_config_value, is_ssml, strip_ssml_tags
 from ..exceptions import (
     AuthenticationError,
     DependencyError,
     ProviderError,
     classify_and_raise,
 )
-from ..http_retry import call_with_retry
-from ..types import ProviderInfo
+from ..internal.http_retry import call_with_retry
+from ..internal.types import ProviderInfo
 
 
 class OpenAITTSProvider(TTSProvider):

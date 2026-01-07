@@ -20,4 +20,4 @@
 
 ## Notes
 
-For project history and completed work, see [CHANGELOG.md](CHANGELOG.md).
+For project history and completed work, see [CHANGELOG.md](../CHANGELOG.md).

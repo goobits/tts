@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Type
 
 from .base import TTSProvider
-from .config import get_api_key, load_config, parse_voice_setting
+from .internal.config import get_api_key, load_config, parse_voice_setting
 from .exceptions import ProviderLoadError, ProviderNotFoundError, TTSError
-from .types import ProviderInfo
+from .internal.types import ProviderInfo
 
 
 class TTSEngine:

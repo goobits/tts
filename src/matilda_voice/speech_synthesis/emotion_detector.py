@@ -2,7 +2,7 @@
 
 from typing import Dict
 
-from matilda_voice.types import SemanticElement, SemanticType
+from matilda_voice.internal.types import SemanticElement, SemanticType
 
 
 class ContentEmotionDetector:

@@ -9,7 +9,7 @@ import time
 from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Optional, Union
 
 from .config import get_config_value
-from .exceptions import AudioPlaybackError, DependencyError
+from ..exceptions import AudioPlaybackError, DependencyError
 
 # Module logger
 logger = logging.getLogger(__name__)
@@ -162,6 +162,35 @@ class StreamingPlayer:
         try:
             async for chunk in chunks:
                 if not self._process_chunk(chunk, self._ffplay_process):
+                    break
+        except KeyboardInterrupt:
+            self._terminate_process()
+            raise
+        except BrokenPipeError:
+            self._handle_broken_pipe(self._ffplay_process)
+        finally:
+            self._cleanup(self._ffplay_process)
+
+    async def play_async(
+        self,
+        chunks: AsyncIterator[Any],
+        transform: Optional[Callable[[Any], Optional[bytes]]] = None,
+    ) -> None:
+        """Stream audio chunks with optional transformation.
+
+        Args:
+            chunks: Async iterator of source chunks.
+            transform: Optional transformer to extract bytes from each chunk.
+        """
+        self.start_time = time.time()
+        self._ffplay_process = self._create_process()
+
+        try:
+            async for chunk in chunks:
+                data = transform(chunk) if transform else chunk
+                if not data:
+                    continue
+                if not self._process_chunk(data, self._ffplay_process):
                     break
         except KeyboardInterrupt:
             self._terminate_process()
@@ -736,7 +765,7 @@ def convert_audio(input_path: str, output_path: str, output_format: str) -> None
     except FileNotFoundError as e:
         raise DependencyError("ffmpeg not found. Please install ffmpeg for format conversion.") from e
     except subprocess.CalledProcessError as e:
-        from .exceptions import ProviderError
+        from ..exceptions import ProviderError
 
         raise ProviderError(f"Audio conversion failed: {e}") from e
 
@@ -886,3 +915,7 @@ def validate_audio_file(audio_path: str) -> bool:
         return result.returncode == 0
     except (FileNotFoundError, subprocess.SubprocessError, subprocess.TimeoutExpired):
         return False
+
+
+# Backward-compatible alias for older call sites.
+StreamPlayer = StreamingPlayer

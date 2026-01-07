@@ -10,7 +10,7 @@ from .utils import get_engine
 
 def _get_config_functions():
     """Late-bind config functions to allow patching."""
-    from matilda_voice.config import load_config, save_config
+    from matilda_voice.internal.config import load_config, save_config
     return load_config, save_config
 def on_status(**kwargs) -> int:
     """Handle the status command"""

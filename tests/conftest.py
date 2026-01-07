@@ -15,6 +15,7 @@ preserving provider logic while avoiding network/hardware dependencies.
 import json
 import os
 import shutil
+import socket
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -23,7 +24,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from matilda_voice.base import TTSProvider
-from matilda_voice.types import Config, ProviderInfo
+from matilda_voice.internal.types import Config, ProviderInfo
 
 
 def provider_available() -> bool:
@@ -72,7 +73,7 @@ def mock_audio_environment(monkeypatch):
         }
 
     # Apply mock
-    monkeypatch.setattr("matilda_voice.audio_utils.check_audio_environment", mock_check_audio_env)
+    monkeypatch.setattr("matilda_voice.internal.audio_utils.check_audio_environment", mock_check_audio_env)
 
     return mock_check_audio_env
 
@@ -127,8 +128,8 @@ def mock_audio_conversion(monkeypatch):
         mock_convert_with_cleanup(input_path, output_path, target_format)
 
     # Mock both conversion functions
-    monkeypatch.setattr("matilda_voice.audio_utils.convert_with_cleanup", mock_convert_with_cleanup)
-    monkeypatch.setattr("matilda_voice.audio_utils.convert_audio", mock_convert_audio)
+    monkeypatch.setattr("matilda_voice.internal.audio_utils.convert_with_cleanup", mock_convert_with_cleanup)
+    monkeypatch.setattr("matilda_voice.internal.audio_utils.convert_audio", mock_convert_audio)
 
     return mock_convert_with_cleanup
 
@@ -220,6 +221,9 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "requires_providers: mark test to require actual TTS providers"
     )
+    config.addinivalue_line(
+        "markers", "requires_credentials: mark test to require API credentials"
+    )
 
 
 def pytest_collection_modifyitems(config, items):
@@ -242,8 +246,15 @@ def pytest_collection_modifyitems(config, items):
     except ImportError:
         has_chatterbox = False
 
-    # Check for network access (simplified check)
-    has_network = not is_ci  # Assume CI doesn't have network access to real providers
+    def _network_available() -> bool:
+        try:
+            with socket.create_connection(("1.1.1.1", 53), timeout=1):
+                return True
+        except OSError:
+            return False
+
+    allow_network_skips = os.getenv("VOICE_ALLOW_NETWORK_SKIPS") == "1"
+    has_network = _network_available()
 
     # Check for any real provider availability
     has_any_provider = False
@@ -281,8 +292,17 @@ def pytest_collection_modifyitems(config, items):
             should_deselect = True
             deselect_reason = "Google credentials not set"
         elif item.get_closest_marker("requires_network") and not has_network:
+            if allow_network_skips:
+                should_deselect = True
+                deselect_reason = "network access not available"
+            else:
+                raise pytest.UsageError(
+                    "Network is required for tests marked requires_network. "
+                    "Set VOICE_ALLOW_NETWORK_SKIPS=1 to deselect these tests."
+                )
+        elif item.get_closest_marker("requires_credentials") and not (has_elevenlabs or has_openai or has_google):
             should_deselect = True
-            deselect_reason = "network access not available"
+            deselect_reason = "credentials not set"
         elif item.get_closest_marker("requires_providers") and not has_any_provider:
             should_deselect = True
             deselect_reason = "no TTS providers available"
@@ -329,7 +349,7 @@ def isolated_config_dir(tmp_path, monkeypatch, test_config_factory):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
 
     # Mock the get_config_path function to return our test config file
-    monkeypatch.setattr("matilda_voice.config.get_config_path", lambda: config_file)
+    monkeypatch.setattr("matilda_voice.internal.config.get_config_path", lambda: config_file)
 
     # Create output directory
     (tmp_path / "output").mkdir(exist_ok=True)
@@ -373,10 +393,10 @@ def mock_config(isolated_config_dir, monkeypatch):
     def mock_get_setting(key: str, default: Any = None) -> Any:
         return test_config.get(key, default)
 
-    monkeypatch.setattr("matilda_voice.config.load_config", mock_load_config)
-    monkeypatch.setattr("matilda_voice.config.get_config_value", mock_get_config_value)
-    monkeypatch.setattr("matilda_voice.config.set_setting", mock_set_setting)
-    monkeypatch.setattr("matilda_voice.config.get_setting", mock_get_setting)
+    monkeypatch.setattr("matilda_voice.internal.config.load_config", mock_load_config)
+    monkeypatch.setattr("matilda_voice.internal.config.get_config_value", mock_get_config_value)
+    monkeypatch.setattr("matilda_voice.internal.config.set_setting", mock_set_setting)
+    monkeypatch.setattr("matilda_voice.internal.config.get_setting", mock_get_setting)
 
     return test_config
 
@@ -940,7 +960,7 @@ def unit_test_config(minimal_test_environment, tmp_path, monkeypatch, test_confi
         json.dump(config_data, f)
 
     # Mock the get_config_path function to return our test config file
-    monkeypatch.setattr("matilda_voice.config.get_config_path", lambda: config_file)
+    monkeypatch.setattr("matilda_voice.internal.config.get_config_path", lambda: config_file)
 
     # Create output directory
     (tmp_path / "output").mkdir(exist_ok=True)
@@ -967,7 +987,7 @@ def integration_test_env(unit_test_config, monkeypatch):
             "alsa_available": True,
         }
 
-    monkeypatch.setattr("matilda_voice.audio_utils.check_audio_environment", mock_check_audio_env)
+    monkeypatch.setattr("matilda_voice.internal.audio_utils.check_audio_environment", mock_check_audio_env)
 
     # Mock subprocess calls for audio playback
     from unittest.mock import MagicMock

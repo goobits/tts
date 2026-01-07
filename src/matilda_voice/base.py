@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
-from .types import ProviderInfo
+from .internal.types import ProviderInfo
 
 
 class TTSProvider(ABC):

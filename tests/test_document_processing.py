@@ -211,7 +211,7 @@ class TestDocumentProcessing:
 
     def test_configuration_integration(self):
         """Test that configuration settings are respected"""
-        from matilda_voice.config import load_config, save_config
+        from matilda_voice.internal.config import load_config, save_config
 
         # Save current config
         original_config = load_config()

@@ -2,10 +2,10 @@ import logging
 import tempfile
 from typing import Any, Optional
 
-from ..audio_utils import convert_with_cleanup, parse_bool_param
+from ..internal.audio_utils import convert_with_cleanup, parse_bool_param
 from ..base import TTSProvider
 from ..exceptions import AudioPlaybackError, DependencyError, ProviderError
-from ..types import ProviderInfo
+from ..internal.types import ProviderInfo
 from ..voice_manager import VoiceManager
 
 
@@ -138,7 +138,7 @@ class ChatterboxProvider(TTSProvider):
         import io
         import wave
         import numpy as np  # type: ignore
-        from ..audio_utils import StreamPlayer
+        from ..internal.audio_utils import StreamPlayer
 
         try:
             self.logger.debug("Converting audio tensor for streaming")
@@ -170,7 +170,7 @@ class ChatterboxProvider(TTSProvider):
 
     def _stream_audio_data(self, audio_data: bytes) -> None:
         """Stream raw audio data to speakers using ffplay"""
-        from ..audio_utils import StreamPlayer
+        from ..internal.audio_utils import StreamPlayer
         
         try:
             self.logger.debug("Streaming server audio data")
