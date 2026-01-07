@@ -106,13 +106,13 @@ Provider loading is dynamic via the `PROVIDERS_REGISTRY` dict in `src/matilda_vo
 ### Configuration System
 
 - Default config in `config.py` (DEFAULT_CONFIG constant)
-- XDG-compliant paths (`~/.config/tts/config.toml`)
+- XDG-compliant paths (`~/.config/voice/config.toml`)
 - Voice format: `provider:voice_name` (e.g., `edge_tts:en-IE-EmilyNeural`)
 - Auto-detection of providers from voice strings in `parse_voice_setting()`
 
 ### Key CLI Commands
 
-**Package name:** `goobits-matilda-voice` (installs as `tts` command)
+**Package name:** `goobits-matilda-voice` (installs as `voice` command)
 
 **IMPORTANT: Always use the setup script for installation:**
 ```bash
@@ -123,7 +123,7 @@ Provider loading is dynamic via the `PROVIDERS_REGISTRY` dict in `src/matilda_vo
 # Basic synthesis (direct streaming to speakers)
 voice "Hello world"             # Stream audio (default behavior)
 voice Hello world               # Unquoted text also works
-echo "Hello world" | tts      # Pipe input support
+echo "Hello world" | voice      # Pipe input support
 
 # Provider shortcuts
 voice @edge "Hello world"       # Edge Voice (free)

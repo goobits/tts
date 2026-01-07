@@ -12,7 +12,7 @@ def on_voice_load(voice_files: tuple, **kwargs) -> int:
 
         if not voice_files:
             print("Error: No voice files specified")
-            print("Usage: tts voice load <voice_file> [voice_file2] ...")
+            print("Usage: voice voice load <voice_file> [voice_file2] ...")
             return 1
 
         manager = VoiceManager()
@@ -98,8 +98,8 @@ def on_voice_unload(voice_files: tuple, all: bool, **kwargs) -> int:
         # Handle specific voice files
         if not voice_files:
             print("Error: No voice files specified")
-            print("Usage: tts voice unload <voice_file> [voice_file2] ...")
-            print("       tts voice unload --all")
+            print("Usage: voice voice unload <voice_file> [voice_file2] ...")
+            print("       voice voice unload --all")
             return 1
 
         unloaded_count = 0
@@ -176,7 +176,7 @@ def on_voice_status(**kwargs) -> int:
 
         if not loaded_voices:
             print("\n📭 No voices currently loaded")
-            print("💡 Use 'tts voice load <voice_file>' to load voices for fast synthesis")
+            print("💡 Use 'voice voice load <voice_file>' to load voices for fast synthesis")
         else:
             print(f"\n🎤 Loaded Voices ({len(loaded_voices)}):")
             print("   " + "=" * 50)
@@ -202,8 +202,8 @@ def on_voice_status(**kwargs) -> int:
         # Show memory usage hint
         if loaded_voices:
             print("💡 Tips:")
-            print("   • Use 'tts voice unload <voice_file>' to free memory")
-            print("   • Use 'tts voice unload --all' to unload all voices")
+            print("   • Use 'voice voice unload <voice_file>' to free memory")
+            print("   • Use 'voice voice unload --all' to unload all voices")
             print("   • Loaded voices provide faster synthesis with Chatterbox")
 
         return 0
@@ -211,4 +211,3 @@ def on_voice_status(**kwargs) -> int:
     except (ImportError, IOError, OSError, AttributeError) as e:
         print(f"Error in voice status command: {e}")
         return 1
-

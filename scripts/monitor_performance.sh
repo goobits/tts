@@ -1,5 +1,5 @@
 #!/bin/bash
-# Performance monitoring script for TTS CLI
+# Performance monitoring script for Voice CLI
 # This script runs performance benchmarks and generates monitoring reports
 
 set -euo pipefail
@@ -38,24 +38,24 @@ warning() {
 # Create logs directory if it doesn't exist
 mkdir -p "$(dirname "$MONITORING_LOG")"
 
-# Function to check if TTS CLI is properly installed
+# Function to check if Voice CLI is properly installed
 check_installation() {
-    log "Checking TTS CLI installation..."
+    log "Checking Voice CLI installation..."
     
-    if ! command -v tts &> /dev/null; then
-        error "TTS CLI is not installed or not in PATH"
+    if ! command -v voice &> /dev/null; then
+        error "Voice CLI is not installed or not in PATH"
         return 1
     fi
     
     # Check version
-    local version=$(tts --version 2>/dev/null || echo "unknown")
-    log "TTS CLI version: $version"
+    local version=$(voice --version 2>/dev/null || echo "unknown")
+    log "Voice CLI version: $version"
     
     # Check providers
     log "Checking available providers..."
-    tts providers > /tmp/tts_providers.txt 2>&1 || true
+    voice providers > /tmp/voice_providers.txt 2>&1 || true
     
-    success "TTS CLI installation check completed"
+    success "Voice CLI installation check completed"
 }
 
 # Function to run performance benchmarks
@@ -156,7 +156,7 @@ generate_performance_report() {
 **Generated:** $(date '+%Y-%m-%d %H:%M:%S')
 **System:** $(uname -a)
 **Python:** $(python --version 2>&1)
-**TTS Version:** $(tts --version 2>/dev/null || echo "unknown")
+**Voice Version:** $(voice --version 2>/dev/null || echo "unknown")
 
 ## Performance Benchmark Results
 
@@ -241,7 +241,7 @@ $(df -h | head -10)
 
 ### Python Packages
 \`\`\`
-$(pip list | grep -E "(tts|torch|numpy|scipy)" || echo "No relevant packages found")
+$(pip list | grep -E "(voice|torch|numpy|scipy)" || echo "No relevant packages found")
 \`\`\`
 
 ---

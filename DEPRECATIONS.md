@@ -10,7 +10,7 @@ This document tracks deprecated features and their removal timeline for Matilda 
 
 - [ ] **Legacy format cache (`.pkl` files)** - Pickle-based document cache files in the document processing cache directory. The cache system now uses JSON format (`.json` files). Legacy `.pkl` files are automatically cleaned up during `clear_cache()` operations but will not be read.
 
-- [ ] **`chatterbox` provider and `[chatterbox]` extra** - The Chatterbox TTS provider is deprecated in favor of Coqui TTS. The `[chatterbox]` optional dependency extra has been renamed to `[chatterbox-legacy]`. Use `[coqui]` extra and `@coqui` provider instead for local TTS with voice cloning. Coqui TTS offers better Python 3.11+ compatibility and a more mature, community-maintained ecosystem.
+- [ ] **`chatterbox` provider and `[chatterbox]` extra** - The Chatterbox Voice provider is deprecated in favor of Coqui Voice. The `[chatterbox]` optional dependency extra has been renamed to `[chatterbox-legacy]`. Use `[coqui]` extra and `@coqui` provider instead for local Voice with voice cloning. Coqui Voice offers better Python 3.11+ compatibility and a more mature, community-maintained ecosystem.
 
 ## Already Removed
 
@@ -67,9 +67,9 @@ If you have important cached documents:
 - Interoperability: JSON is human-readable and works across languages
 - Debugging: Easy to inspect cache contents
 
-### Migrating from Chatterbox to Coqui TTS
+### Migrating from Chatterbox to Coqui Voice
 
-Coqui TTS is now the recommended local TTS provider with voice cloning capabilities.
+Coqui Voice is now the recommended local Voice provider with voice cloning capabilities.
 
 **Installation change:**
 ```bash
@@ -102,7 +102,7 @@ from matilda_voice.providers.coqui import CoquiProvider
 provider = CoquiProvider()
 ```
 
-**Why Coqui TTS?**
+**Why Coqui Voice?**
 - Better Python 3.11+ compatibility
 - More mature ecosystem with ongoing community maintenance
 - Multiple model options (XTTS v2 for voice cloning, VITS, Tacotron2)

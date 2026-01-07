@@ -28,7 +28,7 @@ class ChatterboxProvider(TTSProvider):
 
             except ImportError:
                 raise DependencyError(
-                    "chatterbox dependencies not installed. Please install with: pip install tts-cli[chatterbox]"
+                    "chatterbox dependencies not installed. Please install with: pip install goobits-matilda-voice[chatterbox]"
                 ) from None
             except (RuntimeError, ValueError, MemoryError) as e:
                 raise ProviderError(f"Failed to load Chatterbox model: {e}") from e

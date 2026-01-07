@@ -1,7 +1,7 @@
-"""Interactive voice browser UI module for TTS CLI.
+"""Interactive voice browser UI module for Voice CLI.
 
 This module provides a comprehensive curses-based user interface for browsing,
-filtering, and previewing TTS voices across multiple providers. It features:
+filtering, and previewing voices across multiple providers. It features:
 
 - Three-panel layout with filters, voice list, and preview
 - Real-time voice preview with background audio playback
@@ -10,8 +10,8 @@ filtering, and previewing TTS voices across multiple providers. It features:
 - Voice quality analysis and metadata extraction
 - Interactive voice selection and configuration
 
-The voice browser is launched via the 'tts voices' command and provides
-an intuitive way to explore and test available TTS voices before use.
+The voice browser is launched via the 'voice voices' command and provides
+an intuitive way to explore and test available voices before use.
 """
 
 from .browser_commands import (

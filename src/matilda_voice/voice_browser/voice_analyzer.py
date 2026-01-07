@@ -1,4 +1,4 @@
-"""Voice analysis utilities for the TTS voice browser.
+"""Voice analysis utilities for the Voice browser.
 
 This module provides functions for analyzing voice names to extract
 quality, region, and gender information.
@@ -12,7 +12,7 @@ def analyze_voice(provider: str, voice: str) -> Tuple[int, str, str]:
     """Analyze a voice name to extract quality, region, and gender information.
 
     Args:
-        provider: The TTS provider name (e.g., 'edge_tts', 'openai')
+        provider: The Voice provider name (e.g., 'edge_tts', 'openai')
         voice: The voice name to analyze
 
     Returns:

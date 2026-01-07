@@ -560,16 +560,16 @@ class TestComplexWorkflowScenarios(WorkflowTestBase):
         This guide covers comprehensive TTS integration patterns.
 
         ## Quick Start
-        1. Install the TTS CLI: `pip install goobits-tts`
+        1. Install the Voice CLI: `pip install goobits-matilda-voice`
         2. Configure your preferred provider
-        3. Test basic synthesis: `tts "Hello, world!"`
+        3. Test basic synthesis: `voice "Hello, world!"`
 
         ## Advanced Usage
 
         ### Provider Configuration
         ```bash
-        tts config set openai_api_key YOUR_KEY
-        tts config set voice openai_tts:alloy
+        voice config set openai_api_key YOUR_KEY
+        voice config set voice openai_tts:alloy
         ```
 
         ### Document Processing

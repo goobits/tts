@@ -138,7 +138,7 @@ def show_browser_snapshot(providers_registry: Dict[str, str], load_provider_func
 
     click.echo(f"\nTOTAL VISIBLE: {len(filtered_voices)} voices")
     install_msg = "If you don't see these in the browser, try: "
-    install_msg += "pipx uninstall tts-cli && pipx install -e ."
+    install_msg += "pipx uninstall goobits-matilda-voice && pipx install -e ."
     click.echo(install_msg)
 
 
@@ -157,7 +157,7 @@ def handle_voices_command(args: tuple, providers_registry: Dict[str, str], load_
         language_filter = args[0].lower()
 
     if len(args) == 0:
-        # tts voices - launch interactive browser
+        # voice voices - launch interactive browser
         if sys.stdout.isatty():
             # Terminal environment - use interactive browser
             interactive_voice_browser(providers_registry, load_provider_func)
@@ -188,7 +188,7 @@ def handle_voices_command(args: tuple, providers_registry: Dict[str, str], load_
                     logger.warning(f"Unexpected error loading provider {provider_name}: {e}")
                     continue
     else:
-        # Language filtering mode: tts voices en, tts voices english, etc.
+        # Language filtering mode: voice voices en, voice voices english, etc.
         click.echo(f"Voices for language: {language_filter}")
         click.echo("=" * 40)
 

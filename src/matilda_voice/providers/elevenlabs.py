@@ -69,7 +69,7 @@ class ElevenLabsProvider(TTSProvider):
         """
         api_key = get_api_key("elevenlabs")
         if not api_key:
-            raise AuthenticationError("ElevenLabs API key not found. Set with: tts config elevenlabs_api_key YOUR_KEY")
+            raise AuthenticationError("ElevenLabs API key not found. Set with: voice config elevenlabs_api_key YOUR_KEY")
 
         headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
 
@@ -174,7 +174,7 @@ class ElevenLabsProvider(TTSProvider):
         # Get voice ID
         voice_id = self._get_voice_id(voice_name)
         if not voice_id:
-            raise VoiceNotFoundError(f"Voice '{voice_name}' not found. Use tts voices elevenlabs to see available voices.")
+            raise VoiceNotFoundError(f"Voice '{voice_name}' not found. Use voice voices elevenlabs to see available voices.")
 
         try:
             if stream:
@@ -254,7 +254,7 @@ class ElevenLabsProvider(TTSProvider):
             # Prepare request for streaming
             api_key = get_api_key("elevenlabs")
             if not api_key:
-                raise ProviderError("ElevenLabs API key not found. Set with: tts config elevenlabs_api_key YOUR_KEY")
+                raise ProviderError("ElevenLabs API key not found. Set with: voice config elevenlabs_api_key YOUR_KEY")
 
             headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
             payload = {

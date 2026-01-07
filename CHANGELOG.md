@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Goobits TTS will be documented in this file.
+All notable changes to Goobits Voice will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -20,12 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README reduced from 207 to 127 lines for better scanability
 - Removed excessive emoji usage for cleaner presentation
 - Updated package metadata to use README.md instead of CLAUDE.md
-- Standardized GitHub repository URLs to github.com/goobits/tts
+- Standardized GitHub repository URLs to github.com/goobits/voice
 - Fixed documentation accuracy issues (version command, line-length references)
 - Configuration file format standardized to .toml
 
 ### Fixed
-- Corrected version command syntax (tts --version)
+- Corrected version command syntax (voice --version)
 - Fixed line-length documentation (128 characters)
 - Removed false BeautifulSoup claim (uses regex-based HTML parsing)
 - Fixed configuration file path documentation
@@ -36,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced user experience with visual status indicators
 - Provider shortcuts (@edge, @openai, @elevenlabs, etc.)
 - Rich configuration display with organized sections
-- Pipeline integration examples (STT → TTT → TTS)
+- Pipeline integration examples (Ears → Brain → Voice)
 - Comprehensive providers command with setup instructions
 
 ## [1.0.0] - Repository Cleanup (August 2025)

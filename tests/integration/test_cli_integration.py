@@ -114,21 +114,21 @@ class TestNewSubcommands:
     """Tests for new subcommand functionality"""
 
     def test_save_subcommand_exists(self):
-        """Test that new 'tts save' subcommand works"""
+        """Test that new 'voice save' subcommand works"""
         runner = CliRunner()
         result = runner.invoke(cli, ["save", "--help"])
         assert result.exit_code == 0
         assert "Save text as an audio file" in result.output
 
     def test_document_subcommand_exists(self):
-        """Test that new 'tts document' subcommand works"""
+        """Test that new 'voice document' subcommand works"""
         runner = CliRunner()
         result = runner.invoke(cli, ["document", "--help"])
         assert result.exit_code == 0
         assert "Convert documents to speech" in result.output
 
     def test_voice_subcommand_group_exists(self):
-        """Test that new 'tts voice' subcommand group works"""
+        """Test that new 'voice voice' subcommand group works"""
         runner = CliRunner()
         result = runner.invoke(cli, ["voice", "--help"])
         assert result.exit_code == 0
@@ -146,7 +146,7 @@ class TestNewSubcommands:
         assert result.exit_code == 0
 
     def test_info_subcommand_enhanced(self, mock_cli_environment):
-        """Test that enhanced 'tts info' subcommand works"""
+        """Test that enhanced 'voice info' subcommand works"""
         runner = CliRunner()
         # Info command now requires a provider argument
         result = runner.invoke(cli, ["info", "edge_tts"])
@@ -154,7 +154,7 @@ class TestNewSubcommands:
         assert "Edge" in result.output or "edge_tts" in result.output
 
     def test_providers_subcommand_works(self, mock_cli_environment):
-        """Test that 'tts providers' subcommand works"""
+        """Test that 'voice providers' subcommand works"""
         runner = CliRunner()
         # Providers command now requires a provider name
         result = runner.invoke(cli, ["providers", "edge_tts"])
@@ -207,7 +207,7 @@ class TestCommandParity:
     """Tests for command parity (new syntax verification)"""
 
     def test_save_command_works(self, mock_cli_environment, tmp_path):
-        """Test that 'tts save' command works correctly"""
+        """Test that 'voice save' command works correctly"""
         runner = CliRunner()
         output_file = tmp_path / "test_output.mp3"
 
@@ -473,7 +473,7 @@ class TestCLIBehavior:
         assert "Usage:" in result.output, "Should show usage/help when no command provided"
 
         # This is the expected behavior - stdin input requires an explicit command
-        # like 'tts speak' or 'tts save' to know what to do with the input
+        # like 'voice speak' or 'voice save' to know what to do with the input
 
     def test_explicit_speak_with_stdin(self, mock_cli_environment):
         """Test explicit speak with piped input"""
@@ -577,7 +577,7 @@ class TestCLIBehavior:
             assert cmd in result.output.lower() or "usage" in result.output.lower()
 
     def test_no_stdin_shows_help(self, mock_cli_environment):
-        """Test that running tts with no args and no stdin shows help"""
+        """Test that running voice with no args and no stdin shows help"""
         runner = CliRunner()
         # When no args and stdin is empty, it should try to read from stdin
         # and may produce an empty synthesis attempt

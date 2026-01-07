@@ -76,18 +76,18 @@ def on_install(args: tuple, **kwargs) -> int:
         import subprocess
 
         if not args:
-            print("🔧 TTS Provider Installation")
+            print("🔧 Voice Provider Installation")
             print("===========================")
             print()
             print("Available providers to install:")
-            print("  • edge-tts        - Microsoft Edge TTS (free)")
-            print("  • openai          - OpenAI TTS API")
-            print("  • elevenlabs      - ElevenLabs TTS API")
-            print("  • google-tts      - Google Cloud TTS API")
+            print("  • edge-tts        - Microsoft Edge voice (free)")
+            print("  • openai          - OpenAI voice API")
+            print("  • elevenlabs      - ElevenLabs voice API")
+            print("  • google-tts      - Google Cloud voice API")
             print("  • chatterbox      - Local voice cloning")
             print()
-            print("Usage: tts install <provider>")
-            print("Example: tts install edge-tts")
+            print("Usage: voice install <provider>")
+            print("Example: voice install edge-tts")
             return 0
 
         provider = args[0].lower()
@@ -147,13 +147,13 @@ def on_install(args: tuple, **kwargs) -> int:
             if provider in ["openai", "elevenlabs", "google-tts", "google_tts"]:
                 print("\n💡 Next steps:")
                 if provider == "openai":
-                    print("   Set your API key: tts config set openai_api_key YOUR_KEY")
+                    print("   Set your API key: voice config set openai_api_key YOUR_KEY")
                 elif provider == "elevenlabs":
-                    print("   Set your API key: tts config set elevenlabs_api_key YOUR_KEY")
+                    print("   Set your API key: voice config set elevenlabs_api_key YOUR_KEY")
                 elif provider in ["google-tts", "google_tts"]:
                     print("   Set up authentication:")
-                    print("   • API key: tts config set google_api_key YOUR_KEY")
-                    print("   • Or service account: tts config set google_credentials_path /path/to/credentials.json")
+                    print("   • API key: voice config set google_api_key YOUR_KEY")
+                    print("   • Or service account: voice config set google_credentials_path /path/to/credentials.json")
 
             # Test the installation
             print(f"\n🧪 Testing {provider}...")
@@ -257,15 +257,15 @@ def on_info(provider: Optional[str], **kwargs) -> int:
                 print("\n💡 Setup Instructions:")
                 api_key_name = engine._get_api_key_provider_name(provider_name)
                 if provider_name == "openai_tts":
-                    print(f"   Set API key: tts config set {api_key_name}_api_key YOUR_KEY")
+                    print(f"   Set API key: voice config set {api_key_name}_api_key YOUR_KEY")
                     print("   Get your key at: https://platform.openai.com/api-keys")
                 elif provider_name == "elevenlabs":
-                    print(f"   Set API key: tts config set {api_key_name}_api_key YOUR_KEY")
+                    print(f"   Set API key: voice config set {api_key_name}_api_key YOUR_KEY")
                     print("   Get your key at: https://elevenlabs.io/profile")
                 elif provider_name == "google_tts":
-                    print(f"   Option 1 - API key: tts config set {api_key_name}_api_key YOUR_KEY")
+                    print(f"   Option 1 - API key: voice config set {api_key_name}_api_key YOUR_KEY")
                     print(
-                        f"   Option 2 - Service account: tts config set {api_key_name}_credentials_path "
+                        f"   Option 2 - Service account: voice config set {api_key_name}_credentials_path "
                         "/path/to/credentials.json"
                     )
                     print("   Get credentials at: https://console.cloud.google.com/")
@@ -306,11 +306,10 @@ def on_info(provider: Optional[str], **kwargs) -> int:
                 else:
                     print(f"   💡 Use: {provider_name}")
 
-            print("\n💡 Get detailed info: tts info <provider>")
-            print("Example: tts info @edge")
+            print("\n💡 Get detailed info: voice info <provider>")
+            print("Example: voice info @edge")
 
         return 0
     except (KeyError, AttributeError, ValueError) as e:
         print(f"Error in info command: {e}")
         return 1
-

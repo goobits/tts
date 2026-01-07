@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hook handlers for TTS CLI."""
+"""Hook handlers for Voice CLI."""
 
 from typing import Optional
 
@@ -60,12 +60,12 @@ def on_status(**kwargs) -> int:
             if not status["configured"] and status["installed"]:
                 api_key_name = engine._get_api_key_provider_name(provider)
                 if provider == "openai_tts":
-                    print(f"      💡 Run: tts config set {api_key_name}_api_key YOUR_KEY")
+                    print(f"      💡 Run: voice config set {api_key_name}_api_key YOUR_KEY")
                 elif provider == "elevenlabs":
-                    print(f"      💡 Run: tts config set {api_key_name}_api_key YOUR_KEY")
+                    print(f"      💡 Run: voice config set {api_key_name}_api_key YOUR_KEY")
                 elif provider == "google_tts":
-                    print(f"      💡 Run: tts config set {api_key_name}_api_key YOUR_KEY")
-                    print(f"      💡 Or:  tts config set {api_key_name}_credentials_path /path/to/creds.json")
+                    print(f"      💡 Run: voice config set {api_key_name}_api_key YOUR_KEY")
+                    print(f"      💡 Or:  voice config set {api_key_name}_credentials_path /path/to/creds.json")
 
         # Summary
         total = len(available)
@@ -94,7 +94,7 @@ def on_status(**kwargs) -> int:
             print("  • Get OpenAI key: https://platform.openai.com/api-keys")
             print("  • Get ElevenLabs key: https://elevenlabs.io/profile")
             print("  • Get Google Cloud creds: https://console.cloud.google.com/")
-            print("  • Run 'tts info <provider>' for detailed setup instructions")
+            print("  • Run 'voice info <provider>' for detailed setup instructions")
 
         return 0
     except (ImportError, KeyError, AttributeError) as e:
@@ -110,7 +110,7 @@ def on_config(action: Optional[str], key: Optional[str], value: Optional[str], *
         config = load_config()
 
         if action == "show" or not action:
-            print("🔧 TTS Configuration")
+            print("🔧 Voice Configuration")
             print("===================")
             for k, v in config.items():
                 if k != "config_path":  # Skip internal keys

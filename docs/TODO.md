@@ -1,4 +1,4 @@
-# TTS Development TODO
+# Voice Development TODO
 
 ## High Priority
 
@@ -14,7 +14,7 @@
 
 ## Low Priority
 
-- [ ] **Provider expansion** - Investigate additional TTS providers
+- [ ] **Provider expansion** - Investigate additional Voice providers
 - [ ] **CLI enhancements** - Add more interactive features
 - [ ] **Performance monitoring** - Add built-in performance metrics
 

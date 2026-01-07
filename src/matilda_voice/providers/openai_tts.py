@@ -61,7 +61,7 @@ class OpenAITTSProvider(TTSProvider):
 
             api_key = get_api_key("openai")
             if not api_key:
-                raise AuthenticationError("OpenAI API key not found. Set with: tts config openai_api_key YOUR_KEY")
+                raise AuthenticationError("OpenAI API key not found. Set with: voice config openai_api_key YOUR_KEY")
 
             self._client = OpenAI(api_key=api_key)
 
@@ -130,7 +130,9 @@ class OpenAITTSProvider(TTSProvider):
                     os.unlink(tmp_path)
 
         except ImportError:
-            raise DependencyError("OpenAI library not installed. Install with: pip install tts-cli[openai]") from None
+            raise DependencyError(
+                "OpenAI library not installed. Install with: pip install goobits-matilda-voice[openai]"
+            ) from None
         except (ValueError, RuntimeError, AttributeError, TypeError) as e:
             classify_and_raise(e, "OpenAI")
 

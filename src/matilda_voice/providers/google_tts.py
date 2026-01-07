@@ -54,7 +54,7 @@ class GoogleTTSProvider(TTSProvider):
         if self._client is None:
             api_key = get_api_key("google")
             if not api_key:
-                raise AuthenticationError("Google Cloud API key not found. Set with: tts config google_api_key YOUR_KEY")
+                raise AuthenticationError("Google Cloud API key not found. Set with: voice config google_api_key YOUR_KEY")
 
             # Determine authentication method
             if api_key.startswith("AIza"):
@@ -73,7 +73,7 @@ class GoogleTTSProvider(TTSProvider):
                     self._auth_method = "service_account"
                 except ImportError:
                     raise DependencyError(
-                        "Google Cloud TTS library not installed. Install with: pip install tts-cli[google]"
+                        "Google Cloud TTS library not installed. Install with: pip install goobits-matilda-voice[google]"
                     ) from None
                 except json.JSONDecodeError as e:
                     raise ProviderError(f"Invalid service account JSON: {e}") from e
@@ -89,7 +89,7 @@ class GoogleTTSProvider(TTSProvider):
                     self._auth_method = "service_account"
                 except ImportError:
                     raise DependencyError(
-                        "Google Cloud TTS library not installed. Install with: pip install tts-cli[google]"
+                        "Google Cloud TTS library not installed. Install with: pip install goobits-matilda-voice[google]"
                     ) from None
                 except json.JSONDecodeError as e:
                     raise ProviderError(f"Invalid service account JSON: {e}") from e
@@ -121,7 +121,7 @@ class GoogleTTSProvider(TTSProvider):
         """
         api_key = get_api_key("google")
         if not api_key:
-            raise AuthenticationError("Google Cloud API key not found. Set with: tts config google_api_key YOUR_KEY")
+            raise AuthenticationError("Google Cloud API key not found. Set with: voice config google_api_key YOUR_KEY")
 
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         params = {"key": api_key}
