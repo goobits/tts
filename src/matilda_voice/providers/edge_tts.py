@@ -3,6 +3,8 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
 
+from ..base import TTSProvider
+from ..exceptions import DependencyError, NetworkError, ProviderError
 from ..internal.audio_utils import (
     StreamPlayer,
     check_audio_environment,
@@ -10,9 +12,7 @@ from ..internal.audio_utils import (
     parse_bool_param,
     stream_via_tempfile,
 )
-from ..base import TTSProvider
 from ..internal.config import get_config_value
-from ..exceptions import DependencyError, NetworkError, ProviderError
 from ..internal.types import ProviderInfo
 
 
@@ -118,7 +118,7 @@ class EdgeTTSProvider(TTSProvider):
                 provider_name="Edge TTS",
                 pulse_available=audio_env.get("pulse_available", False),
             )
-            
+
             # Use transform to extract data from EdgeTTS chunk dicts
             # Chunk format: {'type': 'audio', 'data': bytes}
             await player.play_async(

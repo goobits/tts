@@ -13,9 +13,9 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 import click
 
+from ..exceptions import AuthenticationError, DependencyError, ProviderLoadError, ProviderNotFoundError
 from ..internal.audio_utils import AudioPlaybackManager, cleanup_file
 from ..internal.config import set_setting
-from ..exceptions import AuthenticationError, DependencyError, ProviderLoadError, ProviderNotFoundError
 from .voice_analyzer import analyze_voice
 
 

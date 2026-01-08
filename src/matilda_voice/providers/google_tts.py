@@ -7,9 +7,7 @@ from typing import Any, List, Optional
 
 import httpx
 
-from ..internal.audio_utils import convert_audio, stream_audio_file
 from ..base import TTSProvider
-from ..internal.config import get_api_key, get_config_value, is_ssml
 from ..exceptions import (
     AuthenticationError,
     DependencyError,
@@ -18,6 +16,8 @@ from ..exceptions import (
     QuotaError,
     map_http_error,
 )
+from ..internal.audio_utils import convert_audio, stream_audio_file
+from ..internal.config import get_api_key, get_config_value, is_ssml
 from ..internal.http_retry import request_with_retry
 from ..internal.types import ProviderInfo
 

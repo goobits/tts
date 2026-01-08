@@ -6,10 +6,10 @@ import subprocess
 import tempfile
 import threading
 import time
-from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Optional, Union
+from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Optional
 
-from .config import get_config_value
 from ..exceptions import AudioPlaybackError, DependencyError
+from .config import get_config_value
 
 # Module logger
 logger = logging.getLogger(__name__)

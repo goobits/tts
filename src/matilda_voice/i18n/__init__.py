@@ -27,6 +27,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+
 def _find_i18n_root() -> Path | None:
     env_path = os.environ.get("MATILDA_I18N_PATH")
     if env_path:

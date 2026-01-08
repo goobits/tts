@@ -4,6 +4,12 @@ import logging
 import tempfile
 from typing import Any, Optional, cast
 
+from ..base import TTSProvider
+from ..exceptions import (
+    AuthenticationError,
+    DependencyError,
+    classify_and_raise,
+)
 from ..internal.audio_utils import (
     StreamingPlayer,
     check_audio_environment,
@@ -11,14 +17,7 @@ from ..internal.audio_utils import (
     parse_bool_param,
     stream_via_tempfile,
 )
-from ..base import TTSProvider
 from ..internal.config import get_api_key, get_config_value, is_ssml, strip_ssml_tags
-from ..exceptions import (
-    AuthenticationError,
-    DependencyError,
-    ProviderError,
-    classify_and_raise,
-)
 from ..internal.http_retry import call_with_retry
 from ..internal.types import ProviderInfo
 

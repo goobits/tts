@@ -9,8 +9,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from matilda_voice.internal.config import get_config_value
 from matilda_voice.document_processing.parser_factory import DocumentParserFactory
+from matilda_voice.internal.config import get_config_value
 from matilda_voice.internal.types import SemanticElement, SemanticType
 
 logger = logging.getLogger(__name__)

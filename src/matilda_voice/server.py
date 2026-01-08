@@ -277,7 +277,7 @@ async def handle_reload(request: Request) -> Response:
         from .internal.config import reload_config
         # Clear configuration cache
         reload_config()
-        
+
         logger.info("Configuration reloaded via API")
         return add_cors_headers(web.json_response({"status": "ok", "message": "Configuration reloaded"}), request)
     except Exception as e:

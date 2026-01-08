@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Type
 
 from .base import TTSProvider
-from .internal.config import get_api_key, load_config, parse_voice_setting
 from .exceptions import ProviderLoadError, ProviderNotFoundError, TTSError
+from .internal.config import get_api_key, load_config, parse_voice_setting
 from .internal.types import ProviderInfo
 
 

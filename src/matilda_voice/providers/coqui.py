@@ -15,9 +15,9 @@ import tempfile
 from pathlib import Path
 from typing import Any, Optional
 
-from ..internal.audio_utils import convert_with_cleanup, parse_bool_param
 from ..base import TTSProvider
 from ..exceptions import AudioPlaybackError, DependencyError, ProviderError
+from ..internal.audio_utils import convert_with_cleanup, parse_bool_param
 from ..internal.types import ProviderInfo
 
 

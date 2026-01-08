@@ -2,9 +2,9 @@ import logging
 import tempfile
 from typing import Any, Optional
 
-from ..internal.audio_utils import convert_with_cleanup, parse_bool_param
 from ..base import TTSProvider
 from ..exceptions import AudioPlaybackError, DependencyError, ProviderError
+from ..internal.audio_utils import convert_with_cleanup, parse_bool_param
 from ..internal.types import ProviderInfo
 from ..voice_manager import VoiceManager
 
@@ -137,7 +137,9 @@ class ChatterboxProvider(TTSProvider):
         """Stream audio tensor directly to speakers using ffplay"""
         import io
         import wave
+
         import numpy as np  # type: ignore
+
         from ..internal.audio_utils import StreamPlayer
 
         try:
@@ -161,7 +163,7 @@ class ChatterboxProvider(TTSProvider):
             player = StreamPlayer(provider_name="Chatterbox")
             # Create a generator that yields the buffer content as a single chunk
             player.play(iter([buffer.getvalue()]))
-            
+
             self.logger.debug("Audio streaming completed")
 
         except (ValueError, RuntimeError, MemoryError) as e:
@@ -171,14 +173,14 @@ class ChatterboxProvider(TTSProvider):
     def _stream_audio_data(self, audio_data: bytes) -> None:
         """Stream raw audio data to speakers using ffplay"""
         from ..internal.audio_utils import StreamPlayer
-        
+
         try:
             self.logger.debug("Streaming server audio data")
-            
+
             # Stream using StreamPlayer
             player = StreamPlayer(provider_name="Chatterbox")
             player.play(iter([audio_data]))
-            
+
             self.logger.debug("Audio streaming completed")
 
         except (ValueError, RuntimeError, MemoryError) as e:
