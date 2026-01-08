@@ -123,7 +123,7 @@ class TestConfigShow:
         # Test config show
         result = runner.invoke(cli, ["config", "show", "", ""])
         assert result.exit_code == 0
-        assert "🔧 TTS Configuration" in result.output
+        assert "🔧 Voice Configuration" in result.output
         assert "===================" in result.output
 
         # Should show our set values
@@ -143,7 +143,7 @@ class TestConfigShow:
         # Test config show with empty key and value
         result = runner.invoke(cli, ["config", "show", "", ""])
         assert result.exit_code == 0
-        assert "🔧 TTS Configuration" in result.output
+        assert "🔧 Voice Configuration" in result.output
         assert "+20%" in result.output
 
     def test_config_show_with_empty_config(self, unit_test_config):
@@ -152,7 +152,7 @@ class TestConfigShow:
 
         result = runner.invoke(cli, ["config", "show", "", ""])
         assert result.exit_code == 0
-        assert "🔧 TTS Configuration" in result.output
+        assert "🔧 Voice Configuration" in result.output
         # Should show default values from the test config
         assert "en-US-AvaNeural" in result.output or "edge_tts" in result.output
 
