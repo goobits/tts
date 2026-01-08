@@ -25,6 +25,7 @@ PROVIDER_SHORTCUTS = {
     "coqui": "coqui",
 }
 
+
 def parse_provider_shortcuts(args: list) -> tuple[Optional[str], list]:
     """Parse @provider shortcuts from arguments"""
     if not args:
@@ -45,7 +46,6 @@ def parse_provider_shortcuts(args: list) -> tuple[Optional[str], list]:
     return None, args
 
 
-
 def handle_provider_shortcuts(provider_arg: Optional[str]) -> Optional[str]:
     """Handle @provider syntax in commands"""
     if not provider_arg:
@@ -62,7 +62,6 @@ def handle_provider_shortcuts(provider_arg: Optional[str]) -> Optional[str]:
     return provider_arg
 
 
-
 def get_engine() -> Any:
     """Get or create TTS engine instance"""
     try:
@@ -71,4 +70,3 @@ def get_engine() -> Any:
         from matilda_voice.core import initialize_tts_engine
 
         return initialize_tts_engine(PROVIDERS_REGISTRY)
-

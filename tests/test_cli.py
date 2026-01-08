@@ -19,17 +19,12 @@ def runner():
 class TestCLISynthesis:
     """Test CLI synthesis commands."""
 
-    @pytest.mark.skipif(
-        os.environ.get("CI") == "true",
-        reason="Network-dependent test skipped in CI"
-    )
+    @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Network-dependent test skipped in CI")
     def test_save_with_edge_provider(self, runner):
         """Test saving audio with Edge TTS provider."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_file = os.path.join(tmpdir, "test.mp3")
-            result = runner.invoke(
-                cli, ["save", "@edge", "test synthesis", "-o", output_file]
-            )
+            result = runner.invoke(cli, ["save", "@edge", "test synthesis", "-o", output_file])
 
             # Check command executed (may fail without network, that's OK in unit tests)
             if result.exit_code == 0:

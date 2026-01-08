@@ -32,9 +32,9 @@ class TestChatterboxIntegration(BaseProviderIntegrationTest):
     @pytest.fixture(autouse=True)
     def check_chatterbox_available(self):
         """Check if Chatterbox dependencies are available."""
-        try:
-            import chatterbox
-        except ImportError:
+        import importlib.util
+
+        if importlib.util.find_spec("chatterbox") is None:
             pytest.skip("Chatterbox library not installed")
 
         # Check if we have enough system resources
@@ -45,6 +45,7 @@ class TestChatterboxIntegration(BaseProviderIntegrationTest):
         """Check if system has enough memory for model loading."""
         try:
             import psutil
+
             memory = psutil.virtual_memory()
             # Chatterbox needs at least 2GB available
             return memory.available > 2 * 1024 * 1024 * 1024
@@ -74,7 +75,7 @@ class TestChatterboxIntegration(BaseProviderIntegrationTest):
         # Convert to 16-bit PCM
         audio_data = (audio_data * 32767).astype(np.int16)
 
-        with wave.open(temp_file.name, 'w') as wav_file:
+        with wave.open(temp_file.name, "w") as wav_file:
             wav_file.setnchannels(1)  # Mono
             wav_file.setsampwidth(2)  # 2 bytes per sample
             wav_file.setframerate(sample_rate)
@@ -101,25 +102,21 @@ class TestChatterboxIntegration(BaseProviderIntegrationTest):
         if has_cuda:
             try:
                 import torch
+
                 assert torch.cuda.is_available(), "Torch should confirm CUDA availability"
             except ImportError:
                 pytest.fail("CUDA detected but PyTorch not available")
 
     def test_basic_synthesis_with_default_voice(self, provider, temp_audio_file):
         """Test basic synthesis without loading custom voice."""
-        provider.synthesize(
-            text=self.TEST_TEXT_SHORT,
-            output_path=temp_audio_file
-        )
+        provider.synthesize(text=self.TEST_TEXT_SHORT, output_path=temp_audio_file)
         self.validate_audio_file(temp_audio_file)
 
     def test_voice_loading_and_synthesis(self, provider, sample_voice_file, temp_audio_file):
         """Test loading a voice file and using it for synthesis."""
         # Load the voice file
         provider.synthesize(
-            text=self.TEST_TEXT_SHORT,
-            output_path=temp_audio_file,
-            voice=sample_voice_file  # Use the voice file path
+            text=self.TEST_TEXT_SHORT, output_path=temp_audio_file, voice=sample_voice_file  # Use the voice file path
         )
         self.validate_audio_file(temp_audio_file)
 
@@ -138,11 +135,7 @@ class TestChatterboxIntegration(BaseProviderIntegrationTest):
         temp_file.close()
 
         try:
-            provider.synthesize(
-                text=self.TEST_TEXT_SHORT,
-                output_path=temp_file.name,
-                voice=voice_name
-            )
+            provider.synthesize(text=self.TEST_TEXT_SHORT, output_path=temp_file.name, voice=voice_name)
             self.validate_audio_file(temp_file.name)
         finally:
             if os.path.exists(temp_file.name):
@@ -155,11 +148,7 @@ class TestChatterboxIntegration(BaseProviderIntegrationTest):
         for fmt in formats:
             output_file = f"{temp_audio_file}.{fmt}"
             try:
-                provider.synthesize(
-                    text=self.TEST_TEXT_SHORT,
-                    output_path=output_file,
-                    output_format=fmt
-                )
+                provider.synthesize(text=self.TEST_TEXT_SHORT, output_path=output_file, output_format=fmt)
                 self.validate_audio_file(output_file)
             finally:
                 if os.path.exists(output_file):
@@ -170,9 +159,7 @@ class TestChatterboxIntegration(BaseProviderIntegrationTest):
         # Test different speaking rates if supported
         try:
             provider.synthesize(
-                text="Testing synthesis parameters.",
-                output_path=temp_audio_file,
-                rate=1.2  # Slightly faster
+                text="Testing synthesis parameters.", output_path=temp_audio_file, rate=1.2  # Slightly faster
             )
             self.validate_audio_file(temp_audio_file)
         except (TypeError, ProviderError):
@@ -181,10 +168,7 @@ class TestChatterboxIntegration(BaseProviderIntegrationTest):
 
     def test_long_text_processing(self, provider, temp_audio_file):
         """Test processing of longer text."""
-        provider.synthesize(
-            text=self.TEST_TEXT_LONG,
-            output_path=temp_audio_file
-        )
+        provider.synthesize(text=self.TEST_TEXT_LONG, output_path=temp_audio_file)
         self.validate_audio_file(temp_audio_file)
 
     def test_invalid_voice_file(self, provider, temp_audio_file):
@@ -192,11 +176,7 @@ class TestChatterboxIntegration(BaseProviderIntegrationTest):
         invalid_voice = "/tmp/nonexistent_voice.wav"
 
         with pytest.raises((FileNotFoundError, ProviderError)):
-            provider.synthesize(
-                text=self.TEST_TEXT_SHORT,
-                output_path=temp_audio_file,
-                voice=invalid_voice
-            )
+            provider.synthesize(text=self.TEST_TEXT_SHORT, output_path=temp_audio_file, voice=invalid_voice)
 
     def test_memory_cleanup(self, provider):
         """Test that models are properly cleaned up."""
@@ -209,13 +189,13 @@ class TestChatterboxIntegration(BaseProviderIntegrationTest):
 
     def test_device_fallback(self, provider):
         """Test fallback from CUDA to CPU if needed."""
-        with patch.object(provider, '_has_cuda', return_value=False):
+        with patch.object(provider, "_has_cuda", return_value=False):
             provider._lazy_load()
             assert provider.tts is not None, "Should fallback to CPU"
 
     def test_dependency_error(self):
         """Test error when chatterbox is not installed."""
-        with patch('matilda_voice.providers.chatterbox.ChatterboxTTS') as mock_tts:
+        with patch("matilda_voice.providers.chatterbox.ChatterboxTTS") as mock_tts:
             mock_tts.side_effect = ImportError("No module named 'chatterbox'")
 
             provider = ChatterboxProvider()
@@ -224,7 +204,7 @@ class TestChatterboxIntegration(BaseProviderIntegrationTest):
 
     def test_model_loading_error(self):
         """Test error handling during model loading."""
-        with patch('matilda_voice.providers.chatterbox.ChatterboxTTS.from_pretrained') as mock_pretrained:
+        with patch("matilda_voice.providers.chatterbox.ChatterboxTTS.from_pretrained") as mock_pretrained:
             mock_pretrained.side_effect = RuntimeError("Model loading failed")
 
             provider = ChatterboxProvider()
@@ -235,13 +215,9 @@ class TestChatterboxIntegration(BaseProviderIntegrationTest):
         """Test streaming functionality (if supported)."""
         # Chatterbox might not support streaming, test graceful handling
         try:
-            with patch('matilda_voice.providers.chatterbox.stream_audio_file') as mock_stream:
-                provider.synthesize(
-                    text="Testing streaming mode.",
-                    output_path=None,
-                    stream=True
-                )
-                # If streaming is supported, mock should be called
+            with patch("matilda_voice.providers.chatterbox.stream_audio_file"):
+                provider.synthesize(text="Testing streaming mode.", output_path=None, stream=True)
+                # If streaming is supported, patch is active
         except (NotImplementedError, ProviderError):
             # Streaming might not be supported
             pass
@@ -252,17 +228,11 @@ class TestChatterboxIntegration(BaseProviderIntegrationTest):
         import time
 
         # Warm up the model
-        provider.synthesize(
-            text="Warm up.",
-            output_path=temp_audio_file
-        )
+        provider.synthesize(text="Warm up.", output_path=temp_audio_file)
 
         # Time a synthesis operation
         start_time = time.time()
-        provider.synthesize(
-            text=self.TEST_TEXT_MEDIUM,
-            output_path=temp_audio_file
-        )
+        provider.synthesize(text=self.TEST_TEXT_MEDIUM, output_path=temp_audio_file)
         synthesis_time = time.time() - start_time
 
         # Should complete in reasonable time (under 30 seconds for medium text)

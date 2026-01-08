@@ -4,8 +4,6 @@ Test validation for the shared test utilities.
 This file tests the test utilities themselves to ensure they work correctly.
 """
 
-
-
 from tests.utils import (
     PROVIDER_SHORTCUTS_TEST_DATA,
     CLITestHelper,
@@ -63,15 +61,14 @@ class TestUtilitiesValidation:
     def test_config_creation(self, tmp_path):
         """Test test configuration creation utility."""
         config_file = create_test_config(
-            tmp_path / "config",
-            default_provider="test_provider",
-            default_voice="test_voice"
+            tmp_path / "config", default_provider="test_provider", default_voice="test_voice"
         )
 
         assert config_file.exists()
 
         # Check content
         import json
+
         with open(config_file) as f:
             config = json.load(f)
 
@@ -122,9 +119,11 @@ class TestUtilitiesIntegration:
         """Test that utilities can be imported correctly."""
         # Test direct imports
         from tests.utils.test_helpers import CLITestHelper, create_mock_provider
+
         assert CLITestHelper is not None
         assert create_mock_provider is not None
 
         # Test package imports
         from tests.utils import CLITestHelper as PackageCLIHelper
+
         assert PackageCLIHelper is CLITestHelper

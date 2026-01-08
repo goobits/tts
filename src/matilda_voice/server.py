@@ -21,14 +21,16 @@ import secrets
 import tempfile
 
 from aiohttp import web
-
-logger = logging.getLogger(__name__)
 from aiohttp.web import Request, Response
 
+from .internal.security import get_allowed_origins
 from .internal.token_storage import get_or_create_token
+
+logger = logging.getLogger(__name__)
 
 # Security: API Token Management
 API_TOKEN = get_or_create_token()
+
 
 @web.middleware
 async def auth_middleware(request: Request, handler):
@@ -44,23 +46,18 @@ async def auth_middleware(request: Request, handler):
     # Check Authorization header
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
-        return add_cors_headers(web.json_response(
-            {"error": "Unauthorized: Missing or invalid Authorization header"},
-            status=401
-        ), request)
+        return add_cors_headers(
+            web.json_response({"error": "Unauthorized: Missing or invalid Authorization header"}, status=401), request
+        )
 
     token = auth_header.split(" ")[1]
     if not secrets.compare_digest(token, API_TOKEN):
-        return add_cors_headers(web.json_response(
-            {"error": "Forbidden: Invalid token"},
-            status=403
-        ), request)
+        return add_cors_headers(web.json_response({"error": "Forbidden: Invalid token"}, status=403), request)
 
     return await handler(request)
 
-# CORS headers for browser/cross-origin access
-from .internal.security import get_allowed_origins
 
+# CORS headers for browser/cross-origin access
 ALLOWED_ORIGINS = get_allowed_origins()
 
 
@@ -118,15 +115,11 @@ async def handle_speak(request: Request) -> Response:
     try:
         data = await request.json()
     except json.JSONDecodeError:
-        return add_cors_headers(web.json_response(
-            {"error": "Invalid JSON"}, status=400
-        ), request)
+        return add_cors_headers(web.json_response({"error": "Invalid JSON"}, status=400), request)
 
     text = data.get("text")
     if not text:
-        return add_cors_headers(web.json_response(
-            {"error": "Missing 'text' field"}, status=400
-        ), request)
+        return add_cors_headers(web.json_response({"error": "Missing 'text' field"}, status=400), request)
 
     voice = data.get("voice")
     provider = data.get("provider")
@@ -137,10 +130,7 @@ async def handle_speak(request: Request) -> Response:
 
         # Run synthesis (this plays audio)
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(
-            None,
-            lambda: on_speak(text=text, voice=voice, provider=provider)
-        )
+        await loop.run_in_executor(None, lambda: on_speak(text=text, voice=voice, provider=provider))
 
         result = {
             "success": True,
@@ -151,9 +141,7 @@ async def handle_speak(request: Request) -> Response:
 
     except Exception as e:
         logger.exception("Failed to handle speak request")
-        return add_cors_headers(web.json_response(
-            {"error": str(e)}, status=500
-        ), request)
+        return add_cors_headers(web.json_response({"error": str(e)}, status=500), request)
 
 
 async def handle_synthesize(request: Request) -> Response:
@@ -179,15 +167,11 @@ async def handle_synthesize(request: Request) -> Response:
     try:
         data = await request.json()
     except json.JSONDecodeError:
-        return add_cors_headers(web.json_response(
-            {"error": "Invalid JSON"}, status=400
-        ), request)
+        return add_cors_headers(web.json_response({"error": "Invalid JSON"}, status=400), request)
 
     text = data.get("text")
     if not text:
-        return add_cors_headers(web.json_response(
-            {"error": "Missing 'text' field"}, status=400
-        ), request)
+        return add_cors_headers(web.json_response({"error": "Missing 'text' field"}, status=400), request)
 
     voice = data.get("voice")
     provider = data.get("provider")
@@ -211,7 +195,7 @@ async def handle_synthesize(request: Request) -> Response:
                     voice=voice,
                     provider=provider,
                     format=audio_format,
-                )
+                ),
             )
 
             # Read audio file and encode as base64
@@ -235,9 +219,7 @@ async def handle_synthesize(request: Request) -> Response:
 
     except Exception as e:
         logger.exception("Failed to handle synthesize request")
-        return add_cors_headers(web.json_response(
-            {"error": str(e)}, status=500
-        ), request)
+        return add_cors_headers(web.json_response({"error": str(e)}, status=500), request)
 
 
 async def handle_providers(request: Request) -> Response:
@@ -259,9 +241,7 @@ async def handle_providers(request: Request) -> Response:
 
     except Exception as e:
         logger.exception("Failed to list providers")
-        return add_cors_headers(web.json_response(
-            {"error": str(e)}, status=500
-        ), request)
+        return add_cors_headers(web.json_response({"error": str(e)}, status=500), request)
 
 
 async def handle_reload(request: Request) -> Response:
@@ -275,6 +255,7 @@ async def handle_reload(request: Request) -> Response:
     """
     try:
         from .internal.config import reload_config
+
         # Clear configuration cache
         reload_config()
 

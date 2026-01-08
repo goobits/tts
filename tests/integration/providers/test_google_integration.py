@@ -44,7 +44,9 @@ class TestGoogleTTSIntegration(BaseProviderIntegrationTest):
         service_account = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
         if not api_key and not service_account:
-            pytest.skip("Google Cloud TTS credentials not found (need GOOGLE_TTS_API_KEY or GOOGLE_APPLICATION_CREDENTIALS)")
+            pytest.skip(
+                "Google Cloud TTS credentials not found (need GOOGLE_TTS_API_KEY or GOOGLE_APPLICATION_CREDENTIALS)"
+            )
 
     def test_neural_voices(self, provider, temp_audio_file):
         """Test synthesis with different Neural2 voices."""
@@ -58,11 +60,7 @@ class TestGoogleTTSIntegration(BaseProviderIntegrationTest):
         for voice in voices:
             output_file = f"{temp_audio_file}_{voice.replace('-', '_')}.mp3"
             try:
-                provider.synthesize(
-                    text=f"Testing {voice} voice from Google.",
-                    output_path=output_file,
-                    voice=voice
-                )
+                provider.synthesize(text=f"Testing {voice} voice from Google.", output_path=output_file, voice=voice)
                 self.validate_audio_file(output_file)
             finally:
                 if os.path.exists(output_file):
@@ -73,18 +71,14 @@ class TestGoogleTTSIntegration(BaseProviderIntegrationTest):
 
     def test_ssml_support(self, provider, temp_audio_file):
         """Test SSML (Speech Synthesis Markup Language) support."""
-        ssml_text = '''<speak>
+        ssml_text = """<speak>
             Hello! <break time="0.5s"/>
             This is a test of <emphasis level="strong">SSML support</emphasis>.
             <prosody rate="slow" pitch="+2st">Speaking slowly with higher pitch.</prosody>
             <say-as interpret-as="date" format="mdy">12/25/2023</say-as>
-        </speak>'''
+        </speak>"""
 
-        provider.synthesize(
-            text=ssml_text,
-            output_path=temp_audio_file,
-            voice=self.get_test_voice()
-        )
+        provider.synthesize(text=ssml_text, output_path=temp_audio_file, voice=self.get_test_voice())
         self.validate_audio_file(temp_audio_file)
 
     def test_audio_effects(self, provider, temp_audio_file):
@@ -97,7 +91,7 @@ class TestGoogleTTSIntegration(BaseProviderIntegrationTest):
             "small-bluetooth-speaker-class-device",
             "medium-bluetooth-speaker-class-device",
             "large-home-entertainment-class-device",
-            "large-automotive-class-device"
+            "large-automotive-class-device",
         ]
 
         for effect in effects[:3]:  # Test first 3 to avoid quota limits
@@ -108,7 +102,7 @@ class TestGoogleTTSIntegration(BaseProviderIntegrationTest):
                     output_path=output_file,
                     voice=self.get_test_voice(),
                     audio_encoding="MP3",
-                    effects_profile_id=[effect]
+                    effects_profile_id=[effect],
                 )
                 self.validate_audio_file(output_file)
             finally:
@@ -118,9 +112,9 @@ class TestGoogleTTSIntegration(BaseProviderIntegrationTest):
     def test_speaking_rate_and_pitch(self, provider, temp_audio_file):
         """Test speaking rate and pitch adjustments."""
         test_cases = [
-            {"speaking_rate": 0.5, "pitch": 0.0},    # Slow, normal pitch
-            {"speaking_rate": 1.0, "pitch": 5.0},    # Normal speed, higher pitch
-            {"speaking_rate": 1.5, "pitch": -3.0},   # Fast, lower pitch
+            {"speaking_rate": 0.5, "pitch": 0.0},  # Slow, normal pitch
+            {"speaking_rate": 1.0, "pitch": 5.0},  # Normal speed, higher pitch
+            {"speaking_rate": 1.5, "pitch": -3.0},  # Fast, lower pitch
         ]
 
         for i, params in enumerate(test_cases):
@@ -130,7 +124,7 @@ class TestGoogleTTSIntegration(BaseProviderIntegrationTest):
                     text=f"Testing speaking rate {params['speaking_rate']} and pitch {params['pitch']}.",
                     output_path=output_file,
                     voice=self.get_test_voice(),
-                    **params
+                    **params,
                 )
                 self.validate_audio_file(output_file)
             finally:
@@ -152,7 +146,7 @@ class TestGoogleTTSIntegration(BaseProviderIntegrationTest):
                     text="Testing audio format.",
                     output_path=temp_file,
                     voice=self.get_test_voice(),
-                    audio_encoding=encoding
+                    audio_encoding=encoding,
                 )
                 self.validate_audio_file(temp_file)
             finally:
@@ -173,11 +167,7 @@ class TestGoogleTTSIntegration(BaseProviderIntegrationTest):
     def test_invalid_voice_error(self, provider, temp_audio_file):
         """Test invalid voice handling."""
         with pytest.raises((ProviderError)):
-            provider.synthesize(
-                text="This should fail.",
-                output_path=temp_audio_file,
-                voice="invalid-voice-12345"
-            )
+            provider.synthesize(text="This should fail.", output_path=temp_audio_file, voice="invalid-voice-12345")
 
     def test_authentication_methods(self):
         """Test both API key and service account authentication."""
@@ -206,38 +196,30 @@ class TestGoogleTTSIntegration(BaseProviderIntegrationTest):
                 provider = GoogleTTSProvider()
                 with pytest.raises((AuthenticationError, ProviderError)):
                     provider.synthesize(
-                        text="This should fail.",
-                        output_path="/tmp/fail.mp3",
-                        voice=self.get_test_voice()
+                        text="This should fail.", output_path="/tmp/fail.mp3", voice=self.get_test_voice()
                     )
 
     def test_network_error_handling(self, provider, temp_audio_file):
         """Test network error handling."""
         # Mock requests to simulate network error
-        with patch('matilda_voice.providers.google_tts.requests.post') as mock_post:
+        with patch("matilda_voice.providers.google_tts.requests.post") as mock_post:
             mock_post.side_effect = NetworkError("Connection failed")
 
             with pytest.raises(NetworkError):
-                provider.synthesize(
-                    text="This should fail.",
-                    output_path=temp_audio_file,
-                    voice=self.get_test_voice()
-                )
+                provider.synthesize(text="This should fail.", output_path=temp_audio_file, voice=self.get_test_voice())
 
     def test_quota_error_handling(self, provider):
         """Test quota exceeded error handling."""
         # This would require actually hitting quota limits
         # For now, just test that the provider can handle quota errors
-        with patch('matilda_voice.providers.google_tts.requests.post') as mock_post:
+        with patch("matilda_voice.providers.google_tts.requests.post") as mock_post:
             mock_response = mock_post.return_value
             mock_response.status_code = 429
             mock_response.json.return_value = {"error": {"message": "Quota exceeded"}}
 
             with pytest.raises(QuotaError):
                 provider.synthesize(
-                    text="This should fail.",
-                    output_path="/tmp/quota_fail.mp3",
-                    voice=self.get_test_voice()
+                    text="This should fail.", output_path="/tmp/quota_fail.mp3", voice=self.get_test_voice()
                 )
 
     def test_multilingual_support(self, provider, temp_audio_file):
@@ -252,11 +234,7 @@ class TestGoogleTTSIntegration(BaseProviderIntegrationTest):
         for voice, text in multilingual_tests:
             output_file = f"{temp_audio_file}_{voice.replace('-', '_')}.mp3"
             try:
-                provider.synthesize(
-                    text=text,
-                    output_path=output_file,
-                    voice=voice
-                )
+                provider.synthesize(text=text, output_path=output_file, voice=voice)
                 self.validate_audio_file(output_file)
             except ProviderError as e:
                 if "not found" in str(e).lower():
@@ -277,11 +255,7 @@ class TestGoogleTTSIntegration(BaseProviderIntegrationTest):
         for i in range(3):  # Limited to avoid hitting actual quotas
             temp_file = f"/tmp/rate_test_{i}.mp3"
             try:
-                provider.synthesize(
-                    text=f"Rate limit test {i}",
-                    output_path=temp_file,
-                    voice=self.get_test_voice()
-                )
+                provider.synthesize(text=f"Rate limit test {i}", output_path=temp_file, voice=self.get_test_voice())
                 self.validate_audio_file(temp_file)
             finally:
                 if os.path.exists(temp_file):

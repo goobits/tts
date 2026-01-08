@@ -33,9 +33,9 @@ class TestOpenAIIntegration(BaseProviderIntegrationTest):
     @pytest.fixture(autouse=True)
     def check_openai_available(self):
         """Check if OpenAI module is available."""
-        try:
-            import openai
-        except ImportError:
+        import importlib.util
+
+        if importlib.util.find_spec("openai") is None:
             pytest.skip("OpenAI library not installed")
 
     def test_all_voices(self, provider, temp_audio_file):
@@ -45,11 +45,7 @@ class TestOpenAIIntegration(BaseProviderIntegrationTest):
         for voice in voices:
             output_file = f"{temp_audio_file}_{voice}.mp3"
             try:
-                provider.synthesize(
-                    text=f"Testing {voice} voice.",
-                    output_path=output_file,
-                    voice=voice
-                )
+                provider.synthesize(text=f"Testing {voice} voice.", output_path=output_file, voice=voice)
                 self.validate_audio_file(output_file)
             finally:
                 if os.path.exists(output_file):
@@ -69,7 +65,7 @@ class TestOpenAIIntegration(BaseProviderIntegrationTest):
                     text=f"Testing {model} model quality.",
                     output_path=output_file,
                     voice=self.get_test_voice(),
-                    model=model
+                    model=model,
                 )
                 self.validate_audio_file(output_file)
 
@@ -94,7 +90,7 @@ class TestOpenAIIntegration(BaseProviderIntegrationTest):
                     text="Testing speech speed adjustment.",
                     output_path=output_file,
                     voice=self.get_test_voice(),
-                    speed=speed
+                    speed=speed,
                 )
                 self.validate_audio_file(output_file)
             finally:
@@ -112,7 +108,7 @@ class TestOpenAIIntegration(BaseProviderIntegrationTest):
                     text="Testing output format.",
                     output_path=temp_file,
                     voice=self.get_test_voice(),
-                    response_format=fmt
+                    response_format=fmt,
                 )
                 self.validate_audio_file(temp_file)
             finally:
@@ -123,12 +119,9 @@ class TestOpenAIIntegration(BaseProviderIntegrationTest):
         """Test streaming functionality (if supported)."""
         # OpenAI supports streaming - we'll test by not providing output_path
         # and using stream=True
-        with patch('matilda_voice.providers.openai_tts.stream_via_tempfile') as mock_stream:
+        with patch("matilda_voice.providers.openai_tts.stream_via_tempfile") as mock_stream:
             provider.synthesize(
-                text="Testing streaming mode.",
-                output_path=None,
-                voice=self.get_test_voice(),
-                stream=True
+                text="Testing streaming mode.", output_path=None, voice=self.get_test_voice(), stream=True
             )
             mock_stream.assert_called_once()
 
@@ -137,46 +130,30 @@ class TestOpenAIIntegration(BaseProviderIntegrationTest):
         with patch.dict(os.environ, {"OPENAI_API_KEY": "invalid_key_12345"}):
             provider = OpenAITTSProvider()
             with pytest.raises((AuthenticationError, ProviderError)):
-                provider.synthesize(
-                    text="This should fail.",
-                    output_path="/tmp/fail.mp3",
-                    voice=self.get_test_voice()
-                )
+                provider.synthesize(text="This should fail.", output_path="/tmp/fail.mp3", voice=self.get_test_voice())
 
     def test_network_error_handling(self, provider, temp_audio_file):
         """Test network error handling."""
         # Mock the OpenAI client to simulate network error
-        with patch.object(provider, '_get_client') as mock_client:
+        with patch.object(provider, "_get_client") as mock_client:
             mock_client.side_effect = NetworkError("Connection failed")
 
             with pytest.raises(NetworkError):
-                provider.synthesize(
-                    text="This should fail.",
-                    output_path=temp_audio_file,
-                    voice=self.get_test_voice()
-                )
+                provider.synthesize(text="This should fail.", output_path=temp_audio_file, voice=self.get_test_voice())
 
     def test_long_text_chunking(self, provider, temp_audio_file):
         """Test handling of very long text (over 4096 chars limit)."""
         # OpenAI has a 4096 character limit
         long_text = "This is a test sentence. " * 300  # ~7500 chars
 
-        provider.synthesize(
-            text=long_text,
-            output_path=temp_audio_file,
-            voice=self.get_test_voice()
-        )
+        provider.synthesize(text=long_text, output_path=temp_audio_file, voice=self.get_test_voice())
         self.validate_audio_file(temp_audio_file)
 
     def test_ssml_stripping(self, provider, temp_audio_file):
         """Test that SSML tags are properly stripped."""
         ssml_text = '<speak>Hello <break time="1s"/> world!</speak>'
 
-        provider.synthesize(
-            text=ssml_text,
-            output_path=temp_audio_file,
-            voice=self.get_test_voice()
-        )
+        provider.synthesize(text=ssml_text, output_path=temp_audio_file, voice=self.get_test_voice())
         self.validate_audio_file(temp_audio_file)
 
     @pytest.mark.slow
@@ -186,11 +163,7 @@ class TestOpenAIIntegration(BaseProviderIntegrationTest):
         for i in range(5):
             temp_file = f"/tmp/rate_test_{i}.mp3"
             try:
-                provider.synthesize(
-                    text=f"Rate limit test {i}",
-                    output_path=temp_file,
-                    voice=self.get_test_voice()
-                )
+                provider.synthesize(text=f"Rate limit test {i}", output_path=temp_file, voice=self.get_test_voice())
                 self.validate_audio_file(temp_file)
             except ProviderError as e:
                 if "rate" in str(e).lower():

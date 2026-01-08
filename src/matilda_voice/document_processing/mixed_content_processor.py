@@ -31,7 +31,7 @@ class MixedContentProcessor:
             r"|(?P<num_list>^\s*\d+\.\s)"
             r"|(?P<json_struct>\"[^\"]*\":\s*[{\[])"
             r"|(?P<json_start>{\s*\"[^\"]*\")",
-            re.MULTILINE | re.IGNORECASE
+            re.MULTILINE | re.IGNORECASE,
         )
 
         # Combined single-pass pattern for transcription indicators
@@ -41,7 +41,7 @@ class MixedContentProcessor:
             r"|(?P<contraction>\b(?:gonna|wanna|gotta)\b)"
             r"|(?P<pause>\.{2,})"
             r"|(?P<uncertainty>\?\s*\?)",
-            re.MULTILINE | re.IGNORECASE
+            re.MULTILINE | re.IGNORECASE,
         )
 
         # Additional heuristic patterns (single-pass combined)
@@ -49,7 +49,7 @@ class MixedContentProcessor:
             r"(?P<struct_header>(?:^|\n)#{1,6}\s+\w+)"
             r"|(?P<html_struct><(?:html|head|body|div|p|h[1-6]))"
             r"|(?P<code_pre>```[\s\S]*?```|<pre>[\s\S]*?</pre>)",
-            re.MULTILINE | re.IGNORECASE
+            re.MULTILINE | re.IGNORECASE,
         )
 
         self._extra_trans_pattern = re.compile(
@@ -58,7 +58,7 @@ class MixedContentProcessor:
             r"|(?P<lets>\blet's\s+\w+)"
             r"|(?P<what_do>\bwhat\s+do\s+you\b)"
             r"|(?P<spoken_num>\b(?:one|two|three|four|five|six|seven|eight|nine|ten)\b)",
-            re.MULTILINE | re.IGNORECASE
+            re.MULTILINE | re.IGNORECASE,
         )
 
     def process_mixed_content(self, content: str, content_type: str = "auto", format_hint: str = "") -> str:
@@ -204,7 +204,11 @@ class MixedContentProcessor:
                 if val:
                     structure_matches[name] = True
 
-        has_headers = structure_matches.get("struct_header", False) or structure_matches.get("html_struct", False) or structure_matches.get("md_header", False)
+        has_headers = (
+            structure_matches.get("struct_header", False)
+            or structure_matches.get("html_struct", False)
+            or structure_matches.get("md_header", False)
+        )
         has_code = structure_matches.get("code_pre", False) or structure_matches.get("code_block", False)
         has_lists = structure_matches.get("list_item", False) or structure_matches.get("num_list", False)
         has_links = structure_matches.get("md_link", False) or bool(re.search(r"<a\s+href", content))

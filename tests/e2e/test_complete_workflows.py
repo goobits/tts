@@ -29,30 +29,32 @@ class WorkflowTestBase:
         self.cli_helper = CLITestHelper(self.runner)
         self.start_time = time.time()
         self.workflow_metrics = {
-            'synthesis_time': None,
-            'validation_time': None,
-            'total_time': None,
-            'audio_quality': None,
-            'success_rate': 0.0
+            "synthesis_time": None,
+            "validation_time": None,
+            "total_time": None,
+            "audio_quality": None,
+            "success_rate": 0.0,
         }
 
     def teardown_method(self):
         """Clean up and record workflow metrics."""
-        self.workflow_metrics['total_time'] = time.time() - self.start_time
+        self.workflow_metrics["total_time"] = time.time() - self.start_time
 
     def record_workflow_success(self, successful_steps: int, total_steps: int):
         """Record workflow success rate."""
-        self.workflow_metrics['success_rate'] = successful_steps / total_steps if total_steps > 0 else 0.0
+        self.workflow_metrics["success_rate"] = successful_steps / total_steps if total_steps > 0 else 0.0
 
     def validate_workflow_performance(self, max_duration: float = 60.0):
         """Validate that workflow completed within performance expectations."""
-        assert self.workflow_metrics['total_time'] <= max_duration, \
-            f"Workflow took too long: {self.workflow_metrics['total_time']:.2f}s > {max_duration}s"
+        assert (
+            self.workflow_metrics["total_time"] <= max_duration
+        ), f"Workflow took too long: {self.workflow_metrics['total_time']:.2f}s > {max_duration}s"
 
     def _check_network_available(self):
         """Check if network is available for real API tests."""
         try:
             import socket
+
             socket.create_connection(("8.8.8.8", 53), timeout=3)
             return True
         except (socket.error, OSError):
@@ -66,7 +68,7 @@ class TestBasicSynthesisWorkflows(WorkflowTestBase):
 
     @pytest.mark.skipif(
         os.getenv("CI") or os.getenv("GITHUB_ACTIONS") or os.getenv("PYTEST_CURRENT_TEST"),
-        reason="Skipping real provider test in automated environments"
+        reason="Skipping real provider test in automated environments",
     )
     def test_complete_text_to_audio_workflow(self, tmp_path):
         """Test complete workflow: text input → TTS synthesis → audio validation."""
@@ -75,18 +77,14 @@ class TestBasicSynthesisWorkflows(WorkflowTestBase):
         output_file = tmp_path / "workflow_test.mp3"
 
         workflow_steps = []
-        start_time = time.time()
 
         # Step 2: Synthesize audio
         synthesis_start = time.time()
         result, actual_output = self.cli_helper.invoke_save(
-            test_text,
-            provider="@edge",
-            output_path=str(output_file),
-            format="mp3"
+            test_text, provider="@edge", output_path=str(output_file), format="mp3"
         )
         synthesis_time = time.time() - synthesis_start
-        self.workflow_metrics['synthesis_time'] = synthesis_time
+        self.workflow_metrics["synthesis_time"] = synthesis_time
         workflow_steps.append(("synthesis", result.exit_code == 0))
 
         # Step 3: Validate file creation
@@ -104,10 +102,10 @@ class TestBasicSynthesisWorkflows(WorkflowTestBase):
             min_duration=2.0,
             max_duration=20.0,
             min_file_size=1000,
-            check_silence=True
+            check_silence=True,
         )
         validation_time = time.time() - validation_start
-        self.workflow_metrics['validation_time'] = validation_time
+        self.workflow_metrics["validation_time"] = validation_time
         workflow_steps.append(("audio_validation", validation_result.valid))
 
         # Step 5: Verify audio content quality
@@ -135,8 +133,9 @@ class TestBasicSynthesisWorkflows(WorkflowTestBase):
         assert result.exit_code == 0, f"CLI command failed: {result.output}"
         assert file_exists, "Audio file was not created"
         assert validation_result.valid, f"Audio validation failed: {validation_result.error}"
-        assert self.workflow_metrics['success_rate'] >= 0.8, \
-            f"Workflow success rate too low: {self.workflow_metrics['success_rate']:.2f}"
+        assert (
+            self.workflow_metrics["success_rate"] >= 0.8
+        ), f"Workflow success rate too low: {self.workflow_metrics['success_rate']:.2f}"
 
         # Performance assertions
         assert synthesis_time < 30.0, f"Synthesis took too long: {synthesis_time:.2f}s"
@@ -160,36 +159,25 @@ class TestBasicSynthesisWorkflows(WorkflowTestBase):
 
             # Synthesize
             result, actual_output = self.cli_helper.invoke_save(
-                test_text,
-                provider="@edge",
-                output_path=str(output_file),
-                format=format_name
+                test_text, provider="@edge", output_path=str(output_file), format=format_name
             )
 
             if result.exit_code == 0 and actual_output and actual_output.exists():
                 # Validate
                 validation_result = validate_audio_file_comprehensive(
-                    actual_output,
-                    expected_format=format_name,
-                    min_duration=1.0,
-                    max_duration=10.0,
-                    min_file_size=500
+                    actual_output, expected_format=format_name, min_duration=1.0, max_duration=10.0, min_file_size=500
                 )
 
                 workflow_results[format_name] = {
-                    'synthesis_success': True,
-                    'validation_result': validation_result,
-                    'file_size': actual_output.stat().st_size if actual_output.exists() else 0
+                    "synthesis_success": True,
+                    "validation_result": validation_result,
+                    "file_size": actual_output.stat().st_size if actual_output.exists() else 0,
                 }
 
                 if validation_result.valid:
                     successful_formats += 1
             else:
-                workflow_results[format_name] = {
-                    'synthesis_success': False,
-                    'validation_result': None,
-                    'file_size': 0
-                }
+                workflow_results[format_name] = {"synthesis_success": False, "validation_result": None, "file_size": 0}
 
         # At least one format should work in test environment
         if successful_formats == 0:
@@ -198,15 +186,16 @@ class TestBasicSynthesisWorkflows(WorkflowTestBase):
         # Compare format characteristics
         if successful_formats > 1:
             valid_formats = [
-                (fmt, data) for fmt, data in workflow_results.items()
-                if data['synthesis_success'] and data['validation_result'] and data['validation_result'].valid
+                (fmt, data)
+                for fmt, data in workflow_results.items()
+                if data["synthesis_success"] and data["validation_result"] and data["validation_result"].valid
             ]
 
             if len(valid_formats) > 1:
                 durations = [
-                    data['validation_result'].duration
+                    data["validation_result"].duration
                     for _, data in valid_formats
-                    if data['validation_result'].duration
+                    if data["validation_result"].duration
                 ]
 
                 # Durations should be similar across formats
@@ -217,7 +206,7 @@ class TestBasicSynthesisWorkflows(WorkflowTestBase):
                         assert variance < 0.2, f"Duration variance {variance} too high across formats"
 
         self.record_workflow_success(successful_formats, len(formats))
-        assert self.workflow_metrics['success_rate'] >= 0.33, "Too few formats succeeded"
+        assert self.workflow_metrics["success_rate"] >= 0.33, "Too few formats succeeded"
 
     def test_streaming_vs_save_workflow_comparison(self, tmp_path):
         """Test and compare streaming vs save workflows."""
@@ -228,10 +217,7 @@ class TestBasicSynthesisWorkflows(WorkflowTestBase):
         save_start_time = time.time()
 
         save_result, actual_output = self.cli_helper.invoke_save(
-            test_text,
-            provider="@edge",
-            output_path=str(output_file),
-            voice="en-US-AvaNeural"
+            test_text, provider="@edge", output_path=str(output_file), voice="en-US-AvaNeural"
         )
         save_duration = time.time() - save_start_time
 
@@ -245,24 +231,12 @@ class TestBasicSynthesisWorkflows(WorkflowTestBase):
         save_success = False
         if save_result.exit_code == 0 and actual_output and actual_output.exists():
             validation_result = validate_audio_file_comprehensive(
-                actual_output,
-                expected_format="mp3",
-                min_duration=1.0,
-                max_duration=15.0,
-                min_file_size=800
+                actual_output, expected_format="mp3", min_duration=1.0, max_duration=15.0, min_file_size=800
             )
             save_success = validation_result.valid
 
         # Validate streaming workflow (basic success check)
         stream_success = stream_result.exit_code == 0
-
-        # Performance comparison
-        workflow_metrics = {
-            'save_duration': save_duration,
-            'stream_duration': stream_duration,
-            'save_success': save_success,
-            'stream_success': stream_success
-        }
 
         # At least one workflow should succeed
         assert save_success or stream_success, "Both workflows failed"
@@ -272,17 +246,15 @@ class TestBasicSynthesisWorkflows(WorkflowTestBase):
             # Note: In test environments without real audio playback, streaming may not be faster
             # than save due to mocking overhead. We use a lenient comparison.
             # In production, streaming should be faster due to no file I/O overhead.
-            assert stream_duration <= save_duration * 3.0, \
-                f"Streaming workflow unexpectedly slower: {stream_duration:.2f}s vs {save_duration:.2f}s"
+            assert (
+                stream_duration <= save_duration * 3.0
+            ), f"Streaming workflow unexpectedly slower: {stream_duration:.2f}s vs {save_duration:.2f}s"
 
         # Both workflows should complete in reasonable time
         assert save_duration < 45.0, f"Save workflow too slow: {save_duration:.2f}s"
         assert stream_duration < 30.0, f"Stream workflow too slow: {stream_duration:.2f}s"
 
-        self.record_workflow_success(
-            int(save_success) + int(stream_success),
-            2
-        )
+        self.record_workflow_success(int(save_success) + int(stream_success), 2)
 
 
 @pytest.mark.e2e
@@ -317,14 +289,23 @@ class TestDocumentProcessingWorkflows(WorkflowTestBase):
 
         # Step 1: Process document
         # New CLI: document DOCUMENT_PATH OPTIONS [--options]
-        result = self.runner.invoke(cli, [
-            "document", str(html_file), "@edge",
-            "--doc-format", "html",
-            "--emotion-profile", "technical",
-            "--save",
-            "--output", str(output_file),
-            "--format", "wav"
-        ])
+        result = self.runner.invoke(
+            cli,
+            [
+                "document",
+                str(html_file),
+                "@edge",
+                "--doc-format",
+                "html",
+                "--emotion-profile",
+                "technical",
+                "--save",
+                "--output",
+                str(output_file),
+                "--format",
+                "wav",
+            ],
+        )
 
         workflow_steps.append(("document_processing", result.exit_code == 0))
 
@@ -350,7 +331,7 @@ class TestDocumentProcessingWorkflows(WorkflowTestBase):
             min_duration=5.0,  # HTML should produce substantial audio
             max_duration=60.0,
             min_file_size=20000,
-            check_silence=True
+            check_silence=True,
         )
         workflow_steps.append(("audio_validation", validation_result.valid))
 
@@ -358,7 +339,9 @@ class TestDocumentProcessingWorkflows(WorkflowTestBase):
         if validation_result.valid:
             # Duration should be appropriate for content length
             content_text = "Welcome to TTS Testing This is a comprehensive test of HTML to speech conversion. The system should handle various HTML elements correctly. Process text content Handle formatting Maintain document structure"
-            estimated_duration = estimate_audio_duration_from_text(content_text, wpm=140)  # Slightly slower for structured content
+            estimated_duration = estimate_audio_duration_from_text(
+                content_text, wpm=140
+            )  # Slightly slower for structured content
 
             if validation_result.duration and estimated_duration > 0:
                 duration_ratio = validation_result.duration / estimated_duration
@@ -375,8 +358,9 @@ class TestDocumentProcessingWorkflows(WorkflowTestBase):
         assert result.exit_code == 0, f"Document processing failed: {result.output}"
         assert file_exists, "Audio output file was not created"
         assert validation_result.valid, f"Audio validation failed: {validation_result.error}"
-        assert self.workflow_metrics['success_rate'] >= 0.75, \
-            f"HTML workflow success rate too low: {self.workflow_metrics['success_rate']:.2f}"
+        assert (
+            self.workflow_metrics["success_rate"] >= 0.75
+        ), f"HTML workflow success rate too low: {self.workflow_metrics['success_rate']:.2f}"
 
     def test_markdown_to_speech_workflow_with_ssml(self, tmp_path):
         """Test Markdown document processing with SSML generation."""
@@ -411,14 +395,23 @@ class TestDocumentProcessingWorkflows(WorkflowTestBase):
 
         # Process with SSML generation
         # New CLI: document DOCUMENT_PATH OPTIONS [--options]
-        result = self.runner.invoke(cli, [
-            "document", str(md_file), "@edge",
-            "--doc-format", "markdown",
-            "--ssml-platform", "azure",
-            "--emotion-profile", "tutorial",
-            "--save",
-            "--output", str(output_file)
-        ])
+        result = self.runner.invoke(
+            cli,
+            [
+                "document",
+                str(md_file),
+                "@edge",
+                "--doc-format",
+                "markdown",
+                "--ssml-platform",
+                "azure",
+                "--emotion-profile",
+                "tutorial",
+                "--save",
+                "--output",
+                str(output_file),
+            ],
+        )
 
         workflow_success = []
 
@@ -443,7 +436,7 @@ class TestDocumentProcessingWorkflows(WorkflowTestBase):
                 expected_format="mp3",
                 min_duration=8.0,  # Markdown content should be substantial
                 max_duration=90.0,
-                min_file_size=5000
+                min_file_size=5000,
             )
             workflow_success.append(validation_result.valid)
 
@@ -471,13 +464,13 @@ class TestDocumentProcessingWorkflows(WorkflowTestBase):
                 "metrics": {
                     "synthesis_speed": "2.5x real-time",
                     "audio_quality": "High fidelity",
-                    "success_rate": "98.5%"
+                    "success_rate": "98.5%",
                 },
                 "recommendations": [
                     "Continue monitoring performance",
                     "Optimize for edge cases",
-                    "Expand format support"
-                ]
+                    "Expand format support",
+                ],
             }
         }
 
@@ -487,58 +480,68 @@ class TestDocumentProcessingWorkflows(WorkflowTestBase):
 
         # Process JSON document
         # New CLI: document DOCUMENT_PATH OPTIONS [--options]
-        result = self.runner.invoke(cli, [
-            "document", str(json_file), "@edge",
-            "--doc-format", "json",
-            "--emotion-profile", "technical",
-            "--save",
-            "--output", str(output_file),
-            "--format", "wav"
-        ])
+        result = self.runner.invoke(
+            cli,
+            [
+                "document",
+                str(json_file),
+                "@edge",
+                "--doc-format",
+                "json",
+                "--emotion-profile",
+                "technical",
+                "--save",
+                "--output",
+                str(output_file),
+                "--format",
+                "wav",
+            ],
+        )
 
         workflow_metrics = {
-            'processing_success': result.exit_code == 0,
-            'file_creation': False,
-            'audio_validation': False,
-            'duration_appropriate': False
+            "processing_success": result.exit_code == 0,
+            "file_creation": False,
+            "audio_validation": False,
+            "duration_appropriate": False,
         }
 
         # Check file creation
         if output_file.exists():
-            workflow_metrics['file_creation'] = True
+            workflow_metrics["file_creation"] = True
         else:
             # Check for alternative output files
             potential_files = list(tmp_path.glob("*.wav"))
             if potential_files:
                 output_file = potential_files[0]
-                workflow_metrics['file_creation'] = True
+                workflow_metrics["file_creation"] = True
 
-        if workflow_metrics['file_creation']:
+        if workflow_metrics["file_creation"]:
             # Validate audio output
             validation_result = validate_audio_file_comprehensive(
                 output_file,
                 expected_format="wav",
                 min_duration=10.0,  # JSON content should produce substantial audio
                 max_duration=120.0,
-                min_file_size=40000  # WAV files should be larger
+                min_file_size=40000,  # WAV files should be larger
             )
 
-            workflow_metrics['audio_validation'] = validation_result.valid
+            workflow_metrics["audio_validation"] = validation_result.valid
 
             # Check duration appropriateness for structured data
             if validation_result.duration:
-                workflow_metrics['duration_appropriate'] = validation_result.duration >= 10.0
+                workflow_metrics["duration_appropriate"] = validation_result.duration >= 10.0
 
         successful_steps = sum(1 for success in workflow_metrics.values() if success)
         self.record_workflow_success(successful_steps, len(workflow_metrics))
 
-        if not workflow_metrics['file_creation']:
+        if not workflow_metrics["file_creation"]:
             pytest.skip("JSON processing failed or provider not available")
 
-        assert workflow_metrics['processing_success'], f"JSON processing failed: {result.output}"
-        assert workflow_metrics['file_creation'], "JSON processing did not create audio file"
-        assert self.workflow_metrics['success_rate'] >= 0.5, \
-            f"JSON workflow success rate too low: {self.workflow_metrics['success_rate']:.2f}"
+        assert workflow_metrics["processing_success"], f"JSON processing failed: {result.output}"
+        assert workflow_metrics["file_creation"], "JSON processing did not create audio file"
+        assert (
+            self.workflow_metrics["success_rate"] >= 0.5
+        ), f"JSON workflow success rate too low: {self.workflow_metrics['success_rate']:.2f}"
 
 
 @pytest.mark.e2e
@@ -602,42 +605,64 @@ class TestComplexWorkflowScenarios(WorkflowTestBase):
         # Step 1: Process with technical emotion profile
         # New CLI: document DOCUMENT_PATH OPTIONS [--options]
         technical_output = tmp_path / "technical_guide.mp3"
-        technical_result = self.runner.invoke(cli, [
-            "document", str(content_file), "@edge",
-            "--emotion-profile", "technical",
-            "--save",
-            "--output", str(technical_output)
-        ])
-        workflow_results['technical_processing'] = technical_result.exit_code == 0
+        technical_result = self.runner.invoke(
+            cli,
+            [
+                "document",
+                str(content_file),
+                "@edge",
+                "--emotion-profile",
+                "technical",
+                "--save",
+                "--output",
+                str(technical_output),
+            ],
+        )
+        workflow_results["technical_processing"] = technical_result.exit_code == 0
 
         # Step 2: Process with tutorial emotion profile
         tutorial_output = tmp_path / "tutorial_guide.wav"
-        tutorial_result = self.runner.invoke(cli, [
-            "document", str(content_file), "@edge",
-            "--emotion-profile", "tutorial",
-            "--save",
-            "--output", str(tutorial_output),
-            "--format", "wav"
-        ])
-        workflow_results['tutorial_processing'] = tutorial_result.exit_code == 0
+        tutorial_result = self.runner.invoke(
+            cli,
+            [
+                "document",
+                str(content_file),
+                "@edge",
+                "--emotion-profile",
+                "tutorial",
+                "--save",
+                "--output",
+                str(tutorial_output),
+                "--format",
+                "wav",
+            ],
+        )
+        workflow_results["tutorial_processing"] = tutorial_result.exit_code == 0
 
         # Step 3: Generate SSML version
         ssml_output = tmp_path / "ssml_guide.mp3"
-        ssml_result = self.runner.invoke(cli, [
-            "document", str(content_file), "@edge",
-            "--ssml-platform", "azure",
-            "--save",
-            "--output", str(ssml_output)
-        ])
-        workflow_results['ssml_processing'] = ssml_result.exit_code == 0
+        ssml_result = self.runner.invoke(
+            cli,
+            [
+                "document",
+                str(content_file),
+                "@edge",
+                "--ssml-platform",
+                "azure",
+                "--save",
+                "--output",
+                str(ssml_output),
+            ],
+        )
+        workflow_results["ssml_processing"] = ssml_result.exit_code == 0
 
         # Validate outputs
         output_validations = {}
 
         for name, output_file in [
-            ('technical', technical_output),
-            ('tutorial', tutorial_output),
-            ('ssml', ssml_output)
+            ("technical", technical_output),
+            ("tutorial", tutorial_output),
+            ("ssml", ssml_output),
         ]:
             if output_file.exists():
                 validation_result = validate_audio_file_comprehensive(
@@ -645,7 +670,7 @@ class TestComplexWorkflowScenarios(WorkflowTestBase):
                     expected_format=output_file.suffix[1:],  # Remove dot from extension
                     min_duration=15.0,  # Complex content should be substantial
                     max_duration=180.0,
-                    min_file_size=10000
+                    min_file_size=10000,
                 )
                 output_validations[name] = validation_result.valid
             else:
@@ -653,10 +678,7 @@ class TestComplexWorkflowScenarios(WorkflowTestBase):
                 alt_files = list(tmp_path.glob(f"*{name}*"))
                 if alt_files:
                     validation_result = validate_audio_file_comprehensive(
-                        alt_files[0],
-                        min_duration=15.0,
-                        max_duration=180.0,
-                        min_file_size=10000
+                        alt_files[0], min_duration=15.0, max_duration=180.0, min_file_size=10000
                     )
                     output_validations[name] = validation_result.valid
                 else:
@@ -669,17 +691,22 @@ class TestComplexWorkflowScenarios(WorkflowTestBase):
 
         # Assertions - Allow for CI/test environment limitations
         if successful_steps == 0:
-            pytest.skip("Multi-step workflow failed completely - likely due to provider availability in test environment")
+            pytest.skip(
+                "Multi-step workflow failed completely - likely due to provider availability in test environment"
+            )
 
-        assert successful_steps >= len(all_results) * 0.33, \
-            f"Multi-step workflow success rate too low: {self.workflow_metrics['success_rate']:.2f}"
+        assert (
+            successful_steps >= len(all_results) * 0.33
+        ), f"Multi-step workflow success rate too low: {self.workflow_metrics['success_rate']:.2f}"
 
         # At least one processing step should succeed
-        processing_success = any([
-            workflow_results['technical_processing'],
-            workflow_results['tutorial_processing'],
-            workflow_results['ssml_processing']
-        ])
+        processing_success = any(
+            [
+                workflow_results["technical_processing"],
+                workflow_results["tutorial_processing"],
+                workflow_results["ssml_processing"],
+            ]
+        )
         assert processing_success, "All document processing steps failed"
 
         # At least one validation should succeed
@@ -692,59 +719,59 @@ class TestComplexWorkflowScenarios(WorkflowTestBase):
         # New CLI: command TEXT OPTIONS [--options]
         error_scenarios = [
             {
-                'name': 'invalid_provider',
-                'command': ["speak", "test", "@invalid_provider"],
-                'expected_behavior': 'graceful_error'
+                "name": "invalid_provider",
+                "command": ["speak", "test", "@invalid_provider"],
+                "expected_behavior": "graceful_error",
             },
             {
-                'name': 'missing_output_dir',
-                'command': ["save", "test", "@edge", "-o", str(tmp_path / "nonexistent" / "output.mp3")],
-                'expected_behavior': 'directory_creation_or_error'
+                "name": "missing_output_dir",
+                "command": ["save", "test", "@edge", "-o", str(tmp_path / "nonexistent" / "output.mp3")],
+                "expected_behavior": "directory_creation_or_error",
             },
             {
-                'name': 'invalid_format',
-                'command': ["save", "test", "@edge", "-f", "invalid_format", "-o", str(tmp_path / "test.mp3")],
-                'expected_behavior': 'format_error'
+                "name": "invalid_format",
+                "command": ["save", "test", "@edge", "-f", "invalid_format", "-o", str(tmp_path / "test.mp3")],
+                "expected_behavior": "format_error",
             },
             {
-                'name': 'empty_document',
-                'setup': lambda: (tmp_path / "empty.md").write_text(""),
-                'command': ["document", str(tmp_path / "empty.md"), "@edge"],
-                'expected_behavior': 'empty_content_handling'
-            }
+                "name": "empty_document",
+                "setup": lambda: (tmp_path / "empty.md").write_text(""),
+                "command": ["document", str(tmp_path / "empty.md"), "@edge"],
+                "expected_behavior": "empty_content_handling",
+            },
         ]
 
         recovery_results = {}
 
         for scenario in error_scenarios:
             # Setup if needed
-            if 'setup' in scenario:
-                scenario['setup']()
+            if "setup" in scenario:
+                scenario["setup"]()
 
             # Execute command
-            result = self.runner.invoke(cli, scenario['command'])
+            result = self.runner.invoke(cli, scenario["command"])
 
             # Analyze recovery behavior
             recovery_analysis = {
-                'exit_code': result.exit_code,
-                'has_error_message': 'error' in result.output.lower() or 'Error' in result.output,
-                'graceful_handling': result.exit_code in [0, 1, 2],  # Expected error codes
-                'provides_guidance': any(keyword in result.output.lower() for keyword in [
-                    'usage', 'help', 'available', 'try', 'check'
-                ])
+                "exit_code": result.exit_code,
+                "has_error_message": "error" in result.output.lower() or "Error" in result.output,
+                "graceful_handling": result.exit_code in [0, 1, 2],  # Expected error codes
+                "provides_guidance": any(
+                    keyword in result.output.lower() for keyword in ["usage", "help", "available", "try", "check"]
+                ),
             }
 
-            recovery_results[scenario['name']] = recovery_analysis
+            recovery_results[scenario["name"]] = recovery_analysis
 
         # Evaluate recovery quality
         recovery_scores = []
         for scenario_name, analysis in recovery_results.items():
             score = 0
-            if analysis['graceful_handling']:
+            if analysis["graceful_handling"]:
                 score += 0.4
-            if analysis['has_error_message']:
+            if analysis["has_error_message"]:
                 score += 0.3
-            if analysis['provides_guidance']:
+            if analysis["provides_guidance"]:
                 score += 0.3
             recovery_scores.append(score)
 
@@ -758,11 +785,9 @@ class TestComplexWorkflowScenarios(WorkflowTestBase):
 
         # All scenarios should handle errors gracefully (no crashes)
         for scenario_name, analysis in recovery_results.items():
-            assert analysis['graceful_handling'], \
-                f"Scenario '{scenario_name}' did not handle error gracefully"
+            assert analysis["graceful_handling"], f"Scenario '{scenario_name}' did not handle error gracefully"
 
-    @pytest.mark.skipif(not os.getenv("TEST_PERFORMANCE_WORKFLOWS"),
-                       reason="Performance workflow testing disabled")
+    @pytest.mark.skipif(not os.getenv("TEST_PERFORMANCE_WORKFLOWS"), reason="Performance workflow testing disabled")
     def test_performance_stress_workflow(self, tmp_path):
         """Test workflow performance under stress conditions."""
         import queue
@@ -771,9 +796,9 @@ class TestComplexWorkflowScenarios(WorkflowTestBase):
         # Create multiple processing tasks
         tasks = [
             {
-                'text': f"Performance stress test number {i}. This is a medium-length text to test concurrent processing capabilities.",
-                'output': tmp_path / f"stress_test_{i}.mp3",
-                'provider': "@edge"
+                "text": f"Performance stress test number {i}. This is a medium-length text to test concurrent processing capabilities.",
+                "output": tmp_path / f"stress_test_{i}.mp3",
+                "provider": "@edge",
             }
             for i in range(5)
         ]
@@ -785,29 +810,25 @@ class TestComplexWorkflowScenarios(WorkflowTestBase):
         def process_task(task):
             task_start = time.time()
             result, actual_output = self.cli_helper.invoke_save(
-                task['text'],
-                provider=task['provider'],
-                output_path=str(task['output'])
+                task["text"], provider=task["provider"], output_path=str(task["output"])
             )
             task_duration = time.time() - task_start
 
             validation_result = None
             if result.exit_code == 0 and actual_output and actual_output.exists():
                 validation_result = validate_audio_file_comprehensive(
-                    actual_output,
-                    expected_format="mp3",
-                    min_duration=2.0,
-                    max_duration=20.0,
-                    min_file_size=1000
+                    actual_output, expected_format="mp3", min_duration=2.0, max_duration=20.0, min_file_size=1000
                 )
 
-            results_queue.put({
-                'task': task,
-                'result': result,
-                'duration': task_duration,
-                'validation': validation_result,
-                'success': result.exit_code == 0 and validation_result and validation_result.valid
-            })
+            results_queue.put(
+                {
+                    "task": task,
+                    "result": result,
+                    "duration": task_duration,
+                    "validation": validation_result,
+                    "success": result.exit_code == 0 and validation_result and validation_result.valid,
+                }
+            )
 
         # Start concurrent processing
         threads = []
@@ -828,28 +849,31 @@ class TestComplexWorkflowScenarios(WorkflowTestBase):
             task_results.append(results_queue.get())
 
         # Analyze performance
-        successful_tasks = [r for r in task_results if r['success']]
-        task_durations = [r['duration'] for r in task_results]
+        successful_tasks = [r for r in task_results if r["success"]]
+        task_durations = [r["duration"] for r in task_results]
 
         performance_metrics = {
-            'total_time': total_time,
-            'avg_task_duration': sum(task_durations) / len(task_durations) if task_durations else 0,
-            'success_rate': len(successful_tasks) / len(tasks),
-            'concurrent_efficiency': len(tasks) / total_time if total_time > 0 else 0
+            "total_time": total_time,
+            "avg_task_duration": sum(task_durations) / len(task_durations) if task_durations else 0,
+            "success_rate": len(successful_tasks) / len(tasks),
+            "concurrent_efficiency": len(tasks) / total_time if total_time > 0 else 0,
         }
 
         self.record_workflow_success(len(successful_tasks), len(tasks))
 
         # Performance assertions
         assert total_time < 120.0, f"Concurrent processing took too long: {total_time:.2f}s"
-        assert performance_metrics['success_rate'] >= 0.6, \
-            f"Concurrent workflow success rate too low: {performance_metrics['success_rate']:.2f}"
-        assert performance_metrics['avg_task_duration'] < 30.0, \
-            f"Average task duration too high: {performance_metrics['avg_task_duration']:.2f}s"
+        assert (
+            performance_metrics["success_rate"] >= 0.6
+        ), f"Concurrent workflow success rate too low: {performance_metrics['success_rate']:.2f}"
+        assert (
+            performance_metrics["avg_task_duration"] < 30.0
+        ), f"Average task duration too high: {performance_metrics['avg_task_duration']:.2f}s"
 
         # Should process at least 0.05 tasks per second (reasonable concurrency)
-        assert performance_metrics['concurrent_efficiency'] >= 0.05, \
-            f"Concurrent efficiency too low: {performance_metrics['concurrent_efficiency']:.3f} tasks/s"
+        assert (
+            performance_metrics["concurrent_efficiency"] >= 0.05
+        ), f"Concurrent efficiency too low: {performance_metrics['concurrent_efficiency']:.3f} tasks/s"
 
 
 if __name__ == "__main__":

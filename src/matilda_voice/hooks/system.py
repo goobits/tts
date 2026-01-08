@@ -11,7 +11,10 @@ from .utils import get_engine
 def _get_config_functions():
     """Late-bind config functions to allow patching."""
     from matilda_voice.internal.config import load_config, save_config
+
     return load_config, save_config
+
+
 def on_status(**kwargs) -> int:
     """Handle the status command"""
     try:
@@ -100,7 +103,6 @@ def on_status(**kwargs) -> int:
     except (ImportError, KeyError, AttributeError) as e:
         print(f"Error in status command: {e}")
         return 1
-
 
 
 def on_config(action: Optional[str], key: Optional[str], value: Optional[str], **kwargs) -> int:

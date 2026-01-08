@@ -12,7 +12,13 @@ from .utils import (
 
 
 def on_speak(
-    text: Optional[str], options: tuple, voice: Optional[str], rate: Optional[str], pitch: Optional[str], debug: bool, **kwargs
+    text: Optional[str],
+    options: tuple,
+    voice: Optional[str],
+    rate: Optional[str],
+    pitch: Optional[str],
+    debug: bool,
+    **kwargs,
 ) -> int:
     """Handle the speak command"""
     try:
@@ -100,7 +106,6 @@ def on_speak(
     except Exception:
         # Re-raise to let CLI handle it with user-friendly messages
         raise
-
 
 
 def on_save(

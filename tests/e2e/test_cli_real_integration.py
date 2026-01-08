@@ -9,7 +9,6 @@ They test things like:
 - Error handling with real edge cases
 """
 
-import json
 import tempfile
 from pathlib import Path
 
@@ -24,7 +23,6 @@ class TestRealConfigOperations:
     def setup_method(self):
         """Set up test runner for each test."""
         self.runner = CliRunner()
-
 
     def test_config_json_output(self):
         """Test config with JSON output format."""
@@ -169,9 +167,9 @@ class TestRealErrorHandling:
         """Test handling of invalid voice format."""
         invalid_voices = [
             "invalid_voice",  # No provider prefix
-            ":voice_only",    # Missing provider
-            "provider:",      # Missing voice
-            "too:many:colons", # Too many colons
+            ":voice_only",  # Missing provider
+            "provider:",  # Missing voice
+            "too:many:colons",  # Too many colons
         ]
 
         for voice in invalid_voices:
@@ -183,7 +181,7 @@ class TestRealErrorHandling:
     def test_special_characters_in_text(self, mock_cli_environment):
         """Test handling of special characters in text input."""
         special_texts = [
-            "Hello \"quoted\" world",
+            'Hello "quoted" world',
             "Text with 'single quotes'",
             "Text with\nnewlines",
             "Text with\ttabs",
@@ -209,29 +207,47 @@ class TestRealComplexWorkflows:
         """Test commands with multiple options combined."""
         # Test speak with all options
         # New CLI: speak TEXT OPTIONS [--options]
-        result = self.runner.invoke(cli, [
-            "speak", "test text", "@edge",
-            "--voice", "en-US-AriaNeural",
-            "--rate", "+20%",
-            "--pitch", "+5Hz",
-            "--debug"
-        ])
+        result = self.runner.invoke(
+            cli,
+            [
+                "speak",
+                "test text",
+                "@edge",
+                "--voice",
+                "en-US-AriaNeural",
+                "--rate",
+                "+20%",
+                "--pitch",
+                "+5Hz",
+                "--debug",
+            ],
+        )
         # Should parse all options correctly
         assert result.exit_code in [0, 1]
 
         # Test save with all options
         # New CLI: save TEXT OPTIONS [--options]
         with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
-            result = self.runner.invoke(cli, [
-                "save", "test text", "@openai",
-                "--output", tmp.name,
-                "--format", "wav",
-                "--voice", "alloy",
-                "--rate", "+10%",
-                "--pitch", "-5Hz",
-                "--json",
-                "--debug"
-            ])
+            result = self.runner.invoke(
+                cli,
+                [
+                    "save",
+                    "test text",
+                    "@openai",
+                    "--output",
+                    tmp.name,
+                    "--format",
+                    "wav",
+                    "--voice",
+                    "alloy",
+                    "--rate",
+                    "+10%",
+                    "--pitch",
+                    "-5Hz",
+                    "--json",
+                    "--debug",
+                ],
+            )
             assert result.exit_code in [0, 1]
 
     def test_document_with_all_options(self, mock_cli_environment):
@@ -242,15 +258,25 @@ class TestRealComplexWorkflows:
             test_file.write_text("# Test\n\nContent for testing.")
 
             # New CLI: document DOCUMENT_PATH OPTIONS [--options]
-            result = self.runner.invoke(cli, [
-                "document", str(test_file), "@edge",
-                "--doc-format", "markdown",
-                "--ssml-platform", "azure",
-                "--emotion-profile", "technical",
-                "--rate", "+10%",
-                "--pitch", "+5Hz",
-                "--debug"
-            ])
+            result = self.runner.invoke(
+                cli,
+                [
+                    "document",
+                    str(test_file),
+                    "@edge",
+                    "--doc-format",
+                    "markdown",
+                    "--ssml-platform",
+                    "azure",
+                    "--emotion-profile",
+                    "technical",
+                    "--rate",
+                    "+10%",
+                    "--pitch",
+                    "+5Hz",
+                    "--debug",
+                ],
+            )
             # Should parse all options
             assert result.exit_code in [0, 1]
 
@@ -260,17 +286,11 @@ class TestRealComplexWorkflows:
 
         # Test with speak options
         # New CLI: speak TEXT OPTIONS [--options] - use "-" for stdin
-        result = self.runner.invoke(cli, [
-            "speak", "-", "@edge", "--rate", "+20%", "--pitch", "+5Hz"
-        ], input=test_text)
+        result = self.runner.invoke(cli, ["speak", "-", "@edge", "--rate", "+20%", "--pitch", "+5Hz"], input=test_text)
         assert result.exit_code in [0, 1, 2]  # Accept various outcomes
 
         # Test with save options
         # New CLI: save TEXT OPTIONS [--options] - use "-" for stdin
         with tempfile.NamedTemporaryFile(suffix=".mp3") as tmp:
-            result = self.runner.invoke(cli, [
-                "save", "-", "@edge", "-o", tmp.name, "--format", "mp3"
-            ], input=test_text)
+            result = self.runner.invoke(cli, ["save", "-", "@edge", "-o", tmp.name, "--format", "mp3"], input=test_text)
             assert result.exit_code in [0, 1, 2]  # Accept various outcomes
-
-

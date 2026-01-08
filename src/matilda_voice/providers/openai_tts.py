@@ -177,10 +177,14 @@ class OpenAITTSProvider(TTSProvider):
 
         def synthesize_to_file(text: str, output_path: str, **kwargs: Any) -> None:
             client = self._get_client()
-            response = client.audio.speech.create(model="tts-1", voice=kwargs["voice"], input=text, response_format="mp3")
+            response = client.audio.speech.create(
+                model="tts-1", voice=kwargs["voice"], input=text, response_format="mp3"
+            )
             response.stream_to_file(output_path)
 
-        stream_via_tempfile(synthesize_func=synthesize_to_file, text=text, logger=self.logger, file_suffix=".mp3", voice=voice)
+        stream_via_tempfile(
+            synthesize_func=synthesize_to_file, text=text, logger=self.logger, file_suffix=".mp3", voice=voice
+        )
 
     def get_info(self) -> Optional[ProviderInfo]:
         """Get provider information including available voices."""

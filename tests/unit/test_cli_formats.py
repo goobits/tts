@@ -59,7 +59,7 @@ class TestFormatValidation:
 
             for format_name in invalid_formats:
                 output_file = tmp_path / f"test_output.{format_name}"
-                result = runner.invoke(
+                runner.invoke(
                     cli, ["save", "Test text", "@edge", "--format", format_name, "--output", str(output_file)]
                 )
                 # The command may succeed (exit 0) but synthesis should report the format
@@ -85,7 +85,7 @@ class TestFormatValidation:
                 output_file = tmp_path / f"test_output.{format_name.lower()}"
                 output_file.write_bytes(b"mock audio data")
 
-                result = runner.invoke(
+                runner.invoke(
                     cli, ["save", "Test text", "@edge", "--format", format_name, "--output", str(output_file)]
                 )
                 # Verify the format was passed to the engine (case preserved)
@@ -106,9 +106,7 @@ class TestFormatValidation:
                 output_file = tmp_path / f"test_output.{format_name}"
                 output_file.write_bytes(b"mock audio data")
 
-                result = runner.invoke(
-                    cli, ["save", "Test text", "@edge", "-f", format_name, "-o", str(output_file)]
-                )
+                result = runner.invoke(cli, ["save", "Test text", "@edge", "-f", format_name, "-o", str(output_file)])
                 assert result.exit_code == 0, f"Short form -f should work for {format_name}"
 
 
@@ -198,7 +196,17 @@ class TestDocumentCommandFormats:
 
                 # document expects: DOCUMENT_PATH OPTIONS [--options]
                 result = runner.invoke(
-                    cli, ["document", str(test_doc), "@edge", "--save", "--format", format_name, "--output", str(output_file)]
+                    cli,
+                    [
+                        "document",
+                        str(test_doc),
+                        "@edge",
+                        "--save",
+                        "--format",
+                        format_name,
+                        "--output",
+                        str(output_file),
+                    ],
                 )
                 assert result.exit_code == 0, f"Document command failed for {format_name}: {result.output}"
                 assert output_file.exists(), f"Document output should exist for {format_name}"
@@ -236,9 +244,7 @@ class TestFormatErrorHandling:
             output_file = tmp_path / "output.mp3"
             output_file.write_bytes(b"mock audio data")
 
-            result = runner.invoke(
-                cli, ["save", "Test text", "@edge", "--format", "", "--output", str(output_file)]
-            )
+            runner.invoke(cli, ["save", "Test text", "@edge", "--format", "", "--output", str(output_file)])
             # Empty format may be converted to None by the hook
             assert mock_engine.synthesize_text.called
             call_kwargs = mock_engine.synthesize_text.call_args.kwargs
@@ -265,7 +271,7 @@ class TestFormatErrorHandling:
                 output_file = tmp_path / f"test_{format_case.strip()}.mp3"
                 output_file.write_bytes(b"mock audio data")
 
-                result = runner.invoke(
+                runner.invoke(
                     cli, ["save", "Test text", "@edge", "--format", format_case, "--output", str(output_file)]
                 )
                 # Format values with whitespace are passed to the engine as-is
@@ -373,7 +379,8 @@ class TestFormatIntegrationScenarios:
                 output_path.write_bytes(b"mock audio data")
 
                 result = runner.invoke(
-                    cli, ["save", f"Complex path test {i}", "@edge", "--format", format_name, "--output", str(output_path)]
+                    cli,
+                    ["save", f"Complex path test {i}", "@edge", "--format", format_name, "--output", str(output_path)],
                 )
                 assert result.exit_code == 0
                 assert output_path.exists()

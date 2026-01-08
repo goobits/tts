@@ -33,19 +33,13 @@ def provider_available() -> bool:
         return False
 
     # Quick check for Edge TTS (most reliable free provider)
-    try:
-        import edge_tts
+    import importlib.util
+
+    if importlib.util.find_spec("edge_tts") is not None:
         return True
-    except ImportError:
-        pass
 
     # Check for other providers via environment variables
-    api_keys = [
-        "OPENAI_API_KEY",
-        "ELEVENLABS_API_KEY",
-        "GOOGLE_API_KEY",
-        "GOOGLE_APPLICATION_CREDENTIALS"
-    ]
+    api_keys = ["OPENAI_API_KEY", "ELEVENLABS_API_KEY", "GOOGLE_API_KEY", "GOOGLE_APPLICATION_CREDENTIALS"]
 
     return any(os.getenv(key) for key in api_keys)
 
@@ -167,12 +161,13 @@ def test_safe_environment(monkeypatch):
 @pytest.fixture
 def test_config_factory():
     """Factory for creating test configuration data with customizable options."""
+
     def _create_config(
         include_api_keys: bool = True,
         provider: str = "edge_tts",
         voice: str = "en-US-AvaNeural",
         output_format: str = "mp3",
-        custom_settings: Optional[Dict[str, Any]] = None
+        custom_settings: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Create test configuration data.
@@ -180,7 +175,7 @@ def test_config_factory():
         Args:
             include_api_keys: Whether to include API keys in config
             provider: Default provider to use
-            voice: Default voice to use  
+            voice: Default voice to use
             output_format: Default output format
             custom_settings: Additional custom settings to include
 
@@ -194,11 +189,13 @@ def test_config_factory():
         }
 
         if include_api_keys:
-            base_config.update({
-                "openai_api_key": "sk-test1234567890abcdefghijklmnopqrstuvwxyz12345678",
-                "elevenlabs_api_key": "abcdef0123456789abcdef0123456789",
-                "google_cloud_api_key": "AIzaSyD-test1234567890abcdefghijklmnopq",
-            })
+            base_config.update(
+                {
+                    "openai_api_key": "sk-test1234567890abcdefghijklmnopqrstuvwxyz12345678",
+                    "elevenlabs_api_key": "abcdef0123456789abcdef0123456789",
+                    "google_cloud_api_key": "AIzaSyD-test1234567890abcdefghijklmnopq",
+                }
+            )
 
         if custom_settings:
             base_config.update(custom_settings)
@@ -218,12 +215,8 @@ def requires_providers():
 # Pytest markers
 def pytest_configure(config):
     """Register custom pytest markers."""
-    config.addinivalue_line(
-        "markers", "requires_providers: mark test to require actual TTS providers"
-    )
-    config.addinivalue_line(
-        "markers", "requires_credentials: mark test to require API credentials"
-    )
+    config.addinivalue_line("markers", "requires_providers: mark test to require actual TTS providers")
+    config.addinivalue_line("markers", "requires_credentials: mark test to require API credentials")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -242,6 +235,7 @@ def pytest_collection_modifyitems(config, items):
     # Check for chatterbox library
     try:
         import chatterbox  # noqa: F401
+
         has_chatterbox = True
     except ImportError:
         has_chatterbox = False
@@ -261,6 +255,7 @@ def pytest_collection_modifyitems(config, items):
     if not is_ci:
         try:
             import edge_tts  # noqa: F401
+
             has_any_provider = True
         except ImportError:
             pass
@@ -274,27 +269,20 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         # Check each marker condition
         should_deselect = False
-        deselect_reason = None
 
         if item.get_closest_marker("requires_ci_skip") and is_ci:
             should_deselect = True
-            deselect_reason = "CI environment"
         elif item.get_closest_marker("requires_chatterbox") and not has_chatterbox:
             should_deselect = True
-            deselect_reason = "chatterbox-tts not installed"
         elif item.get_closest_marker("requires_elevenlabs") and not has_elevenlabs:
             should_deselect = True
-            deselect_reason = "ELEVENLABS_API_KEY not set"
         elif item.get_closest_marker("requires_openai") and not has_openai:
             should_deselect = True
-            deselect_reason = "OPENAI_API_KEY not set"
         elif item.get_closest_marker("requires_google") and not has_google:
             should_deselect = True
-            deselect_reason = "Google credentials not set"
         elif item.get_closest_marker("requires_network") and not has_network:
             if allow_network_skips:
                 should_deselect = True
-                deselect_reason = "network access not available"
             else:
                 raise pytest.UsageError(
                     "Network is required for tests marked requires_network. "
@@ -302,10 +290,8 @@ def pytest_collection_modifyitems(config, items):
                 )
         elif item.get_closest_marker("requires_credentials") and not (has_elevenlabs or has_openai or has_google):
             should_deselect = True
-            deselect_reason = "credentials not set"
         elif item.get_closest_marker("requires_providers") and not has_any_provider:
             should_deselect = True
-            deselect_reason = "no TTS providers available"
 
         if should_deselect:
             deselected.append(item)
@@ -339,7 +325,7 @@ def isolated_config_dir(tmp_path, monkeypatch, test_config_factory):
             "thread_pool_max_workers": 4,
             "browser_page_size": 20,
             "browser_preview_text": "Hello, this is a test.",
-        }
+        },
     )
 
     with open(config_file, "w") as f:
@@ -490,10 +476,12 @@ class MockBackend:
 
             def stream(self):
                 """Mock async generator for streaming."""
+
                 async def _stream():
                     chunks = backend._get_stream_chunks()
                     for chunk in chunks:
                         yield chunk
+
                 backend._record_call("stream", {})
                 return _stream()
 
@@ -541,7 +529,7 @@ class MockBackend:
             "openai": b"mock openai audio content",
             "elevenlabs": b"mock elevenlabs audio content",
             "google": b"mock google tts audio content",
-            "generic": b"mock audio data"
+            "generic": b"mock audio data",
         }
         return provider_content.get(self.provider_type, provider_content["generic"])
 
@@ -550,7 +538,7 @@ class MockBackend:
         return [
             {"type": "audio", "data": b"chunk1"},
             {"type": "audio", "data": b"chunk2"},
-            {"type": "audio", "data": b"chunk3"}
+            {"type": "audio", "data": b"chunk3"},
         ]
 
     def _record_call(self, method: str, args: Dict[str, Any]) -> None:
@@ -594,7 +582,7 @@ class MockTTSProvider(TTSProvider):
             "openai": ["alloy", "echo", "fable"],
             "elevenlabs": ["Rachel", "Domi"],
             "google": ["en-US-Standard-A", "en-US-Standard-B"],
-            "generic": ["mock-voice-1", "mock-voice-2"]
+            "generic": ["mock-voice-1", "mock-voice-2"],
         }
 
         return {
@@ -952,8 +940,7 @@ def unit_test_config(minimal_test_environment, tmp_path, monkeypatch, test_confi
     # Create minimal config file using factory (without API keys for unit tests)
     config_file = config_dir / "config.json"
     config_data = test_config_factory(
-        include_api_keys=False,
-        custom_settings={"output_directory": str(tmp_path / "output")}
+        include_api_keys=False, custom_settings={"output_directory": str(tmp_path / "output")}
     )
 
     with open(config_file, "w") as f:
@@ -965,7 +952,12 @@ def unit_test_config(minimal_test_environment, tmp_path, monkeypatch, test_confi
     # Create output directory
     (tmp_path / "output").mkdir(exist_ok=True)
 
-    return {**minimal_test_environment, "config_dir": config_dir, "config_file": config_file, "config_data": config_data}
+    return {
+        **minimal_test_environment,
+        "config_dir": config_dir,
+        "config_file": config_file,
+        "config_data": config_data,
+    }
 
 
 @pytest.fixture
@@ -1095,7 +1087,7 @@ def full_cli_env(integration_test_env, monkeypatch, mock_edge_tts_backend, mock_
         "edge_tts_mocked": True,
         "comprehensive_mocking": True,
         "edge_backend": mock_edge_tts_backend,
-        "openai_backend": mock_openai_backend
+        "openai_backend": mock_openai_backend,
     }
 
 

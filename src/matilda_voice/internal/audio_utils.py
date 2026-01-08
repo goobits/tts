@@ -109,9 +109,7 @@ class StreamingPlayer:
         self.bytes_written = 0
         self.first_chunk_time: Optional[float] = None
         self.start_time: Optional[float] = None
-        self.progress_interval = progress_interval or get_config_value(
-            "streaming_progress_interval", 100
-        )
+        self.progress_interval = progress_interval or get_config_value("streaming_progress_interval", 100)
         self._ffplay_process: Optional[subprocess.Popen] = None
 
     def _create_process(self) -> subprocess.Popen:
@@ -253,9 +251,7 @@ class StreamingPlayer:
         # Track first chunk latency
         if self.chunk_count == 1:
             self.first_chunk_time = time.time()
-            self.logger.debug(
-                f"[{self.provider_name}] First audio chunk received - starting playback"
-            )
+            self.logger.debug(f"[{self.provider_name}] First audio chunk received - starting playback")
 
         try:
             if process.stdin is not None:
@@ -266,8 +262,7 @@ class StreamingPlayer:
             # Log progress periodically
             if self.chunk_count % self.progress_interval == 0:
                 self.logger.debug(
-                    f"[{self.provider_name}] Streamed {self.chunk_count} chunks, "
-                    f"{self.bytes_written} bytes"
+                    f"[{self.provider_name}] Streamed {self.chunk_count} chunks, " f"{self.bytes_written} bytes"
                 )
 
             return True
@@ -293,8 +288,7 @@ class StreamingPlayer:
                 except Exception:
                     pass
             self.logger.warning(
-                f"[{self.provider_name}] FFplay ended early "
-                f"(exit code: {process.returncode}): {stderr}"
+                f"[{self.provider_name}] FFplay ended early " f"(exit code: {process.returncode}): {stderr}"
             )
 
     def _cleanup(self, process: subprocess.Popen) -> None:
@@ -377,6 +371,7 @@ class AudioPlaybackManager:
             self.logger.debug(f"Audio playback disabled by TTS_DISABLE_PLAYBACK, creating mock process: {audio_path}")
             # Return a mock process that immediately exits successfully
             from unittest.mock import MagicMock
+
             mock_process = MagicMock()
             mock_process.returncode = 0
             mock_process.poll.return_value = 0
@@ -436,7 +431,9 @@ class AudioPlaybackManager:
 
         try:
             # Run and wait for completion
-            subprocess.run(["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", audio_path], check=True, timeout=timeout)
+            subprocess.run(
+                ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", audio_path], check=True, timeout=timeout
+            )
 
             self.logger.debug(f"Audio playback completed: {audio_path}")
 
@@ -639,6 +636,7 @@ def create_ffplay_process(
         logger.debug("Audio playback disabled by TTS_DISABLE_PLAYBACK, creating mock process")
         # Return a mock process that accepts input but doesn't play audio
         from unittest.mock import MagicMock
+
         mock_process = MagicMock()
         mock_process.stdin = MagicMock()
         mock_process.stdin.write = MagicMock()
@@ -813,7 +811,12 @@ def create_ffplay_process_simple(args: Optional[List[str]] = None, **kwargs: Any
         cmd.extend(args)
 
     # Set common defaults
-    default_kwargs = {"stdin": subprocess.PIPE, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL, "bufsize": 0}
+    default_kwargs = {
+        "stdin": subprocess.PIPE,
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+        "bufsize": 0,
+    }
     default_kwargs.update(kwargs)
 
     try:
@@ -909,7 +912,9 @@ def validate_audio_file(audio_path: str) -> bool:
     try:
         # Use ffprobe to validate the file
         result = subprocess.run(
-            ["ffprobe", "-v", "quiet", "-show_entries", "format=format_name", audio_path], capture_output=True, timeout=5
+            ["ffprobe", "-v", "quiet", "-show_entries", "format=format_name", audio_path],
+            capture_output=True,
+            timeout=5,
         )
 
         return result.returncode == 0

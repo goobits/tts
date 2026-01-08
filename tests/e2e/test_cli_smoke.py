@@ -42,7 +42,6 @@ class TestCLISmokeTests:
     # CORE COMMANDS SMOKE TESTS
     # =============================================================================
 
-
     def test_speak_basic(self, mock_cli_environment):
         """Test basic speak command with mocked environment."""
         # New CLI: speak TEXT OPTIONS
@@ -51,7 +50,6 @@ class TestCLISmokeTests:
         # With mocks, should succeed
         assert result.exit_code == 0
         # Streaming audio operations succeed silently
-
 
     def test_save_basic(self, mock_cli_environment, tmp_path):
         """Test basic save command with mocked environment."""
@@ -64,7 +62,6 @@ class TestCLISmokeTests:
         # Should contain indication of processing
         assert "saved" in result.output.lower() or "Audio" in result.output or output_file.exists()
 
-
     # =============================================================================
     # PROVIDER MANAGEMENT SMOKE TESTS
     # =============================================================================
@@ -75,8 +72,6 @@ class TestCLISmokeTests:
         result = self.runner.invoke(cli, ["providers", "edge_tts"])
         assert result.exit_code == 0
         assert "edge_tts" in result.output or "Edge" in result.output
-
-
 
     def test_info_basic(self, mock_cli_environment):
         """Test info command with provider argument."""
@@ -94,7 +89,6 @@ class TestCLISmokeTests:
         assert result.exit_code == 0
         assert "edge_tts" in result.output or "Edge TTS" in result.output
 
-
     def test_install_basic(self, mock_cli_environment):
         """Test install command with provider argument."""
         # New CLI: install requires a provider name
@@ -102,12 +96,15 @@ class TestCLISmokeTests:
         # Install may fail (exit 1) if provider not found, or succeed (exit 0)
         assert result.exit_code in [0, 1]
         # Should show something about the provider
-        assert "edge" in result.output.lower() or "install" in result.output.lower() or "not found" in result.output.lower()
+        assert (
+            "edge" in result.output.lower()
+            or "install" in result.output.lower()
+            or "not found" in result.output.lower()
+        )
 
     # =============================================================================
     # CONFIGURATION SMOKE TESTS
     # =============================================================================
-
 
     def test_config_basic(self, mock_cli_environment):
         """Test config show command."""
@@ -132,20 +129,15 @@ class TestCLISmokeTests:
         # Should show status information
         assert "TTS" in result.output or "status" in result.output.lower() or "Available" in result.output
 
-
     # =============================================================================
     # ADVANCED FEATURES SMOKE TESTS
     # =============================================================================
-
 
     def test_voice_status(self, mock_cli_environment):
         """Test voice status command."""
         result = self.runner.invoke(cli, ["voice", "status"])
         assert result.exit_code == 0
         assert "Voice" in result.output or "status" in result.output.lower() or "server" in result.output.lower()
-
-
-
 
     # =============================================================================
     # PROVIDER SHORTCUTS SMOKE TESTS
@@ -236,7 +228,6 @@ class TestCLISmokeTests:
     # =============================================================================
     # HELP SYSTEM SMOKE TESTS
     # =============================================================================
-
 
     # =============================================================================
     # ARGUMENT PARSING SMOKE TESTS
@@ -356,7 +347,6 @@ class TestCLISmokeTests:
     # NEW TEST SUITE SMOKE TESTS - CRITICAL FUNCTIONALITY
     # =============================================================================
 
-
     def test_document_format_options_smoke(self, mock_cli_environment, tmp_path):
         """Smoke test for document format options from test_cli_document.py."""
         # Create a test markdown file
@@ -420,4 +410,6 @@ def test_cli_basic_smoke(mock_cli_environment):
 
     for cmd, expected_exit in basic_tests:
         result = runner.invoke(cli, cmd)
-        assert result.exit_code == expected_exit, f"Command {cmd} failed with exit code {result.exit_code}: {result.output}"
+        assert (
+            result.exit_code == expected_exit
+        ), f"Command {cmd} failed with exit code {result.exit_code}: {result.output}"

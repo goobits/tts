@@ -69,9 +69,7 @@ class TestVoiceQualityAnalysis:
 
         for voice_part, expected_quality in test_cases:
             quality, _, _ = analyze_voice("provider", f"voice-{voice_part}")
-            assert quality == expected_quality, (
-                f"Voice with '{voice_part}' should have quality {expected_quality}"
-            )
+            assert quality == expected_quality, f"Voice with '{voice_part}' should have quality {expected_quality}"
 
 
 class TestVoiceRegionAnalysis:
@@ -167,9 +165,7 @@ class TestVoiceRegionAnalysis:
 
         for voice in chatterbox_voices:
             _, region, _ = analyze_voice("chatterbox", voice)
-            assert region == "Chatterbox", (
-                f"Chatterbox voice '{voice}' should be detected as Chatterbox region"
-            )
+            assert region == "Chatterbox", f"Chatterbox voice '{voice}' should be detected as Chatterbox region"
 
     def test_general_region_default(self):
         """Test that unknown regions default to General."""
@@ -272,9 +268,7 @@ class TestVoiceGenderAnalysis:
 
         for name_part, expected_gender in test_cases:
             _, _, gender = analyze_voice("provider", f"voice-{name_part}")
-            assert gender == expected_gender, (
-                f"Voice with '{name_part}' should be detected as {expected_gender}"
-            )
+            assert gender == expected_gender, f"Voice with '{name_part}' should be detected as {expected_gender}"
 
     def test_partial_name_matching(self):
         """Test that gender detection works with partial name matching."""
@@ -289,9 +283,7 @@ class TestVoiceGenderAnalysis:
 
         for voice, expected_gender in test_voices:
             _, _, gender = analyze_voice("provider", voice)
-            assert gender == expected_gender, (
-                f"Voice '{voice}' should be detected as {expected_gender}"
-            )
+            assert gender == expected_gender, f"Voice '{voice}' should be detected as {expected_gender}"
 
 
 class TestVoiceAnalysisIntegration:
@@ -350,13 +342,10 @@ class TestVoiceAnalysisIntegration:
         complex_voices = [
             # Voice with multiple quality indicators (Neural should win)
             ("basic-neural-emily", "edge_tts", 3, "General", "F"),
-
             # Voice with multiple region indicators (first match should win)
             ("en-IE-american-style", "edge_tts", 2, "Irish", "U"),
-
             # Voice with multiple gender indicators (first match should win)
             ("emily-guy-voice", "provider", 2, "General", "F"),
-
             # Voice combining all dimensions
             ("en-US-premium-jenny-neural", "edge_tts", 3, "American", "F"),
         ]
@@ -366,4 +355,3 @@ class TestVoiceAnalysisIntegration:
             assert quality == expected_quality, f"Quality mismatch for complex voice {voice}"
             assert region == expected_region, f"Region mismatch for complex voice {voice}"
             assert gender == expected_gender, f"Gender mismatch for complex voice {voice}"
-

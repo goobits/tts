@@ -39,7 +39,6 @@ def on_voices(args: tuple, **kwargs) -> int:
         raise
 
 
-
 def on_providers(provider_name: Optional[str], **kwargs) -> int:
     """Handle the providers command"""
     try:
@@ -67,7 +66,6 @@ def on_providers(provider_name: Optional[str], **kwargs) -> int:
     except (KeyError, AttributeError, ValueError) as e:
         print(f"Error in providers command: {e}")
         return 1
-
 
 
 def on_install(args: tuple, **kwargs) -> int:
@@ -117,7 +115,9 @@ def on_install(args: tuple, **kwargs) -> int:
                 packages = ["torch", "torchaudio", "transformers", "librosa"]
                 for package in packages:
                     print(f"📦 Installing {package}...")
-                    result = subprocess.run([sys.executable, "-m", "pip", "install", package], capture_output=True, text=True)
+                    result = subprocess.run(
+                        [sys.executable, "-m", "pip", "install", package], capture_output=True, text=True
+                    )
 
                     if result.returncode != 0:
                         print(f"❌ Failed to install {package}")
@@ -178,7 +178,6 @@ def on_install(args: tuple, **kwargs) -> int:
     except (ImportError, ValueError, KeyError) as e:
         print(f"Error in install command: {e}")
         return 1
-
 
 
 def on_info(provider: Optional[str], **kwargs) -> int:

@@ -69,7 +69,9 @@ class ElevenLabsProvider(TTSProvider):
         """
         api_key = get_api_key("elevenlabs")
         if not api_key:
-            raise AuthenticationError("ElevenLabs API key not found. Set with: voice config elevenlabs_api_key YOUR_KEY")
+            raise AuthenticationError(
+                "ElevenLabs API key not found. Set with: voice config elevenlabs_api_key YOUR_KEY"
+            )
 
         headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
 
@@ -156,7 +158,9 @@ class ElevenLabsProvider(TTSProvider):
         stream = parse_bool_param(kwargs.get("stream"), False)
         output_format = kwargs.get("output_format", "wav")
         stability = float(kwargs.get("stability", str(get_config_value("elevenlabs_default_stability"))))
-        similarity_boost = float(kwargs.get("similarity_boost", str(get_config_value("elevenlabs_default_similarity_boost"))))
+        similarity_boost = float(
+            kwargs.get("similarity_boost", str(get_config_value("elevenlabs_default_similarity_boost")))
+        )
         style = float(kwargs.get("style", str(get_config_value("elevenlabs_default_style"))))
 
         # Handle SSML (ElevenLabs doesn't support SSML, so strip tags)
@@ -174,7 +178,9 @@ class ElevenLabsProvider(TTSProvider):
         # Get voice ID
         voice_id = self._get_voice_id(voice_name)
         if not voice_id:
-            raise VoiceNotFoundError(f"Voice '{voice_name}' not found. Use voice voices elevenlabs to see available voices.")
+            raise VoiceNotFoundError(
+                f"Voice '{voice_name}' not found. Use voice voices elevenlabs to see available voices."
+            )
 
         try:
             if stream:
@@ -307,7 +313,9 @@ class ElevenLabsProvider(TTSProvider):
                 },
             }
 
-            response = self._make_request("POST", f"/text-to-speech/{kwargs['voice_id']}", json=payload, idempotent=False)
+            response = self._make_request(
+                "POST", f"/text-to-speech/{kwargs['voice_id']}", json=payload, idempotent=False
+            )
 
             if response.status_code != 200:
                 error_msg = f"ElevenLabs API error {response.status_code}: {response.text[:200]}"
@@ -357,7 +365,9 @@ class ElevenLabsProvider(TTSProvider):
             ProviderInfo,
             {
                 "name": "ElevenLabs",
-                "description": (f"Premium voice cloning with {len(all_voices) if 'all_voices' in locals() else '10+'} voices"),
+                "description": (
+                    f"Premium voice cloning with {len(all_voices) if 'all_voices' in locals() else '10+'} voices"
+                ),
                 "api_status": api_status,
                 "sample_voices": list(self.DEFAULT_VOICES.keys()),
                 "all_voices": voice_names if "voice_names" in locals() else list(self.DEFAULT_VOICES.keys()),

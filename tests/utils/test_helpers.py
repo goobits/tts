@@ -23,12 +23,14 @@ from matilda_voice.base import TTSProvider
 try:
     import struct
     import wave
+
     WAVE_SUPPORT = True
 except ImportError:
     WAVE_SUPPORT = False
 
 try:
     import soundfile as sf
+
     SOUNDFILE_SUPPORT = True
 except ImportError:
     SOUNDFILE_SUPPORT = False
@@ -39,6 +41,7 @@ try:
     from mutagen.mp3 import MP3
     from mutagen.oggvorbis import OggVorbis
     from mutagen.wave import WAVE
+
     MUTAGEN_SUPPORT = True
 except ImportError:
     MUTAGEN_SUPPORT = False
@@ -49,14 +52,14 @@ class AudioValidationResult:
 
     def __init__(self, valid: bool = False, **metadata):
         self.valid = valid
-        self.format = metadata.get('format')
-        self.duration = metadata.get('duration')
-        self.sample_rate = metadata.get('sample_rate')
-        self.channels = metadata.get('channels')
-        self.bitrate = metadata.get('bitrate')
-        self.file_size = metadata.get('file_size')
-        self.has_silence = metadata.get('has_silence')
-        self.error = metadata.get('error')
+        self.format = metadata.get("format")
+        self.duration = metadata.get("duration")
+        self.sample_rate = metadata.get("sample_rate")
+        self.channels = metadata.get("channels")
+        self.bitrate = metadata.get("bitrate")
+        self.file_size = metadata.get("file_size")
+        self.has_silence = metadata.get("has_silence")
+        self.error = metadata.get("error")
 
     def __bool__(self):
         return self.valid
@@ -98,7 +101,7 @@ def validate_audio_file_comprehensive(
     expected_sample_rate: Optional[int] = None,
     expected_channels: Optional[int] = None,
     min_file_size: int = 100,
-    check_silence: bool = False
+    check_silence: bool = False,
 ) -> AudioValidationResult:
     """
     Comprehensive audio file validation with detailed metadata extraction.
@@ -122,9 +125,7 @@ def validate_audio_file_comprehensive(
     file_size = file_path.stat().st_size
     if file_size < min_file_size:
         return AudioValidationResult(
-            valid=False,
-            file_size=file_size,
-            error=f"File too small: {file_size} < {min_file_size} bytes"
+            valid=False, file_size=file_size, error=f"File too small: {file_size} < {min_file_size} bytes"
         )
 
     # Extract file format from extension
@@ -136,23 +137,23 @@ def validate_audio_file_comprehensive(
             valid=False,
             format=actual_format,
             file_size=file_size,
-            error=f"Format mismatch: expected {expected_format}, got {actual_format}"
+            error=f"Format mismatch: expected {expected_format}, got {actual_format}",
         )
 
     # Try to extract audio metadata
     metadata = extract_audio_metadata(file_path)
-    if not metadata['valid']:
+    if not metadata["valid"]:
         return AudioValidationResult(
             valid=False,
             format=actual_format,
             file_size=file_size,
-            error=metadata.get('error', 'Failed to read audio metadata')
+            error=metadata.get("error", "Failed to read audio metadata"),
         )
 
     # Validate duration constraints
     # Be more lenient if using basic fallback since estimation is approximate
-    is_basic_fallback = metadata.get('metadata_source') == 'basic_fallback'
-    duration = metadata.get('duration')
+    is_basic_fallback = metadata.get("metadata_source") == "basic_fallback"
+    duration = metadata.get("duration")
 
     if duration is not None and not is_basic_fallback:
         # Apply strict duration checks only when we have accurate metadata
@@ -162,7 +163,7 @@ def validate_audio_file_comprehensive(
                 format=actual_format,
                 duration=duration,
                 file_size=file_size,
-                error=f"Duration too short: {duration}s < {min_duration}s"
+                error=f"Duration too short: {duration}s < {min_duration}s",
             )
         if max_duration is not None and duration > max_duration:
             return AudioValidationResult(
@@ -170,7 +171,7 @@ def validate_audio_file_comprehensive(
                 format=actual_format,
                 duration=duration,
                 file_size=file_size,
-                error=f"Duration too long: {duration}s > {max_duration}s"
+                error=f"Duration too long: {duration}s > {max_duration}s",
             )
     elif duration is not None and is_basic_fallback:
         # For basic fallback, apply adaptive minimum duration and very lenient checks
@@ -184,7 +185,7 @@ def validate_audio_file_comprehensive(
                 format=actual_format,
                 duration=duration,
                 file_size=file_size,
-                error=f"Duration too short (basic estimate): {duration}s < {adaptive_min_duration * 0.5}s (50% tolerance)"
+                error=f"Duration too short (basic estimate): {duration}s < {adaptive_min_duration * 0.5}s (50% tolerance)",
             )
         if max_duration is not None and duration > (max_duration * 1.5):
             return AudioValidationResult(
@@ -192,11 +193,11 @@ def validate_audio_file_comprehensive(
                 format=actual_format,
                 duration=duration,
                 file_size=file_size,
-                error=f"Duration too long (basic estimate): {duration}s > {max_duration * 1.5}s (50% tolerance)"
+                error=f"Duration too long (basic estimate): {duration}s > {max_duration * 1.5}s (50% tolerance)",
             )
 
     # Validate sample rate
-    sample_rate = metadata.get('sample_rate')
+    sample_rate = metadata.get("sample_rate")
     if expected_sample_rate is not None and sample_rate != expected_sample_rate:
         return AudioValidationResult(
             valid=False,
@@ -204,11 +205,11 @@ def validate_audio_file_comprehensive(
             duration=duration,
             sample_rate=sample_rate,
             file_size=file_size,
-            error=f"Sample rate mismatch: expected {expected_sample_rate}, got {sample_rate}"
+            error=f"Sample rate mismatch: expected {expected_sample_rate}, got {sample_rate}",
         )
 
     # Validate channels
-    channels = metadata.get('channels')
+    channels = metadata.get("channels")
     if expected_channels is not None and channels != expected_channels:
         return AudioValidationResult(
             valid=False,
@@ -217,7 +218,7 @@ def validate_audio_file_comprehensive(
             sample_rate=sample_rate,
             channels=channels,
             file_size=file_size,
-            error=f"Channel count mismatch: expected {expected_channels}, got {channels}"
+            error=f"Channel count mismatch: expected {expected_channels}, got {channels}",
         )
 
     # Optional silence detection
@@ -231,9 +232,9 @@ def validate_audio_file_comprehensive(
         duration=duration,
         sample_rate=sample_rate,
         channels=channels,
-        bitrate=metadata.get('bitrate'),
+        bitrate=metadata.get("bitrate"),
         file_size=file_size,
-        has_silence=has_silence
+        has_silence=has_silence,
     )
 
 
@@ -257,25 +258,26 @@ def extract_audio_metadata(file_path: Path) -> Dict[str, Any]:
             return _extract_metadata_soundfile(file_path)
 
         # Fallback to wave module for WAV files
-        if WAVE_SUPPORT and file_path.suffix.lower() == '.wav':
+        if WAVE_SUPPORT and file_path.suffix.lower() == ".wav":
             return _extract_metadata_wave(file_path)
 
         # Final fallback: basic file validation without advanced metadata
         # Check if this is a test scenario expecting library availability
         import os
-        if os.getenv('PYTEST_CURRENT_TEST') and not any([MUTAGEN_SUPPORT, SOUNDFILE_SUPPORT, WAVE_SUPPORT]):
+
+        if os.getenv("PYTEST_CURRENT_TEST") and not any([MUTAGEN_SUPPORT, SOUNDFILE_SUPPORT, WAVE_SUPPORT]):
             # In test mode with no libraries, inform about limited capabilities
             basic_result = _extract_metadata_basic(file_path)
-            if basic_result['valid']:
-                basic_result['error'] = 'Limited validation: no audio libraries available for precise metadata'
-                basic_result['valid'] = False  # Fail in test mode when no libraries available
+            if basic_result["valid"]:
+                basic_result["error"] = "Limited validation: no audio libraries available for precise metadata"
+                basic_result["valid"] = False  # Fail in test mode when no libraries available
             return basic_result
         else:
             # In normal operation, use basic fallback
             return _extract_metadata_basic(file_path)
 
     except Exception as e:
-        return {'valid': False, 'error': f'Failed to extract metadata: {str(e)}'}
+        return {"valid": False, "error": f"Failed to extract metadata: {str(e)}"}
 
 
 def _extract_metadata_mutagen(file_path: Path) -> Dict[str, Any]:
@@ -283,20 +285,20 @@ def _extract_metadata_mutagen(file_path: Path) -> Dict[str, Any]:
     try:
         audio_file = mutagen.File(str(file_path))
         if audio_file is None:
-            return {'valid': False, 'error': 'Mutagen could not parse file'}
+            return {"valid": False, "error": "Mutagen could not parse file"}
 
         metadata = {
-            'valid': True,
-            'duration': getattr(audio_file.info, 'length', None),
-            'bitrate': getattr(audio_file.info, 'bitrate', None),
-            'sample_rate': getattr(audio_file.info, 'sample_rate', None),
-            'channels': getattr(audio_file.info, 'channels', None)
+            "valid": True,
+            "duration": getattr(audio_file.info, "length", None),
+            "bitrate": getattr(audio_file.info, "bitrate", None),
+            "sample_rate": getattr(audio_file.info, "sample_rate", None),
+            "channels": getattr(audio_file.info, "channels", None),
         }
 
         return metadata
 
     except Exception as e:
-        return {'valid': False, 'error': f'Mutagen error: {str(e)}'}
+        return {"valid": False, "error": f"Mutagen error: {str(e)}"}
 
 
 def _extract_metadata_soundfile(file_path: Path) -> Dict[str, Any]:
@@ -304,20 +306,20 @@ def _extract_metadata_soundfile(file_path: Path) -> Dict[str, Any]:
     try:
         info = sf.info(str(file_path))
         return {
-            'valid': True,
-            'duration': info.duration,
-            'sample_rate': info.samplerate,
-            'channels': info.channels,
-            'format': info.format
+            "valid": True,
+            "duration": info.duration,
+            "sample_rate": info.samplerate,
+            "channels": info.channels,
+            "format": info.format,
         }
     except Exception as e:
-        return {'valid': False, 'error': f'Soundfile error: {str(e)}'}
+        return {"valid": False, "error": f"Soundfile error: {str(e)}"}
 
 
 def _extract_metadata_wave(file_path: Path) -> Dict[str, Any]:
     """Extract metadata using wave module for WAV files."""
     try:
-        with wave.open(str(file_path), 'rb') as wav_file:
+        with wave.open(str(file_path), "rb") as wav_file:
             frames = wav_file.getnframes()
             sample_rate = wav_file.getframerate()
             channels = wav_file.getnchannels()
@@ -337,11 +339,11 @@ def _extract_metadata_wave(file_path: Path) -> Dict[str, Any]:
                     duration = normalized_duration
 
             return {
-                'valid': True,
-                'duration': duration,
-                'sample_rate': sample_rate,
-                'channels': channels,
-                'frames': frames
+                "valid": True,
+                "duration": duration,
+                "sample_rate": sample_rate,
+                "channels": channels,
+                "frames": frames,
             }
     except Exception:
         # Fallback to basic validation for WAV files that can't be parsed
@@ -358,71 +360,70 @@ def _extract_metadata_basic(file_path: Path) -> Dict[str, Any]:
     """
     try:
         if not file_path.exists():
-            return {'valid': False, 'error': 'File does not exist'}
+            return {"valid": False, "error": "File does not exist"}
 
         # Check if we can read the file (handles permission issues)
         try:
             file_size = file_path.stat().st_size
             if file_size == 0:
-                return {'valid': False, 'error': 'File is empty'}
+                return {"valid": False, "error": "File is empty"}
         except (PermissionError, OSError) as e:
-            return {'valid': False, 'error': f'Cannot access file: {str(e)}'}
+            return {"valid": False, "error": f"Cannot access file: {str(e)}"}
 
         # Basic file validation - assume file is valid if it has content
         # and matches common audio extensions
         extension = file_path.suffix.lower()
-        valid_extensions = ['.mp3', '.wav', '.ogg', '.flac', '.aac', '.m4a']
+        valid_extensions = [".mp3", ".wav", ".ogg", ".flac", ".aac", ".m4a"]
 
         if extension not in valid_extensions:
-            return {'valid': False, 'error': f'Unsupported audio extension: {extension}'}
+            return {"valid": False, "error": f"Unsupported audio extension: {extension}"}
 
         # Apply basic heuristics to detect potentially corrupted files
         # Files that are suspiciously small for their format are likely corrupted
         min_reasonable_sizes = {
-            '.mp3': 500,     # Even a very short MP3 should be at least this size
-            '.wav': 44,      # WAV header is 44 bytes minimum
-            '.ogg': 200,     # OGG has overhead
-            '.flac': 100,    # FLAC has metadata
-            '.aac': 200,     # AAC has overhead
-            '.m4a': 200      # M4A has container overhead
+            ".mp3": 500,  # Even a very short MP3 should be at least this size
+            ".wav": 44,  # WAV header is 44 bytes minimum
+            ".ogg": 200,  # OGG has overhead
+            ".flac": 100,  # FLAC has metadata
+            ".aac": 200,  # AAC has overhead
+            ".m4a": 200,  # M4A has container overhead
         }
 
         min_size = min_reasonable_sizes.get(extension, 100)
         if file_size < min_size:
-            return {'valid': False, 'error': f'File too small to be valid audio: {file_size} < {min_size} bytes'}
+            return {"valid": False, "error": f"File too small to be valid audio: {file_size} < {min_size} bytes"}
 
         # Basic corruption detection - check for obvious corruption patterns
         try:
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 first_chunk = f.read(min(1024, file_size))
 
             # Detect simple repeating patterns that indicate corruption
             if len(first_chunk) >= 8:
                 # Check if file consists mainly of repeating 4-byte pattern (common test corruption)
                 pattern = first_chunk[:4]
-                repeats = sum(1 for i in range(0, len(first_chunk) - 3, 4)
-                             if first_chunk[i:i+4] == pattern)
+                repeats = sum(1 for i in range(0, len(first_chunk) - 3, 4) if first_chunk[i : i + 4] == pattern)
                 pattern_ratio = (repeats * 4) / len(first_chunk)
 
                 if pattern_ratio > 0.8:  # More than 80% repeating pattern
-                    return {'valid': False, 'error': 'File appears corrupted (repeating pattern detected)'}
+                    return {"valid": False, "error": "File appears corrupted (repeating pattern detected)"}
 
         except (OSError, PermissionError) as e:
-            return {'valid': False, 'error': f'File access error: {str(e)}'}
+            return {"valid": False, "error": f"File access error: {str(e)}"}
 
         # For basic validation, we can't get accurate duration or audio properties
         # but we can estimate based on file size (very rough approximation)
         # Use more normalized bitrate estimates to reduce variance between formats
         estimated_bitrates = {
-            '.mp3': 128000,   # Standard MP3 bitrate
-            '.wav': 1411200,  # 44.1kHz 16-bit stereo (PCM)
-            '.ogg': 128000,   # Standard OGG bitrate
-            '.flac': 500000,  # Conservative estimate for lossless
-            '.aac': 128000,   # Standard AAC bitrate
-            '.m4a': 128000    # Standard M4A bitrate
+            ".mp3": 128000,  # Standard MP3 bitrate
+            ".wav": 1411200,  # 44.1kHz 16-bit stereo (PCM)
+            ".ogg": 128000,  # Standard OGG bitrate
+            ".flac": 500000,  # Conservative estimate for lossless
+            ".aac": 128000,  # Standard AAC bitrate
+            ".m4a": 128000,  # Standard M4A bitrate
         }
 
-        estimated_bitrate = estimated_bitrates.get(extension, 128000)
+        estimated_bitrates.get(extension, 128000)
 
         # For consistency in basic mode, normalize duration estimates across formats
         # by using a common baseline and applying format-specific multipliers
@@ -430,12 +431,12 @@ def _extract_metadata_basic(file_path: Path) -> Dict[str, Any]:
 
         # Apply format-specific adjustment factors to account for overhead/compression
         format_factors = {
-            '.mp3': 1.0,     # Baseline
-            '.wav': 0.33,    # WAV is much larger for same duration - make more similar to others
-            '.ogg': 1.1,     # OGG has slight overhead
-            '.flac': 0.6,    # FLAC is larger but compressed
-            '.aac': 1.0,     # Similar to MP3
-            '.m4a': 1.0      # Similar to MP3
+            ".mp3": 1.0,  # Baseline
+            ".wav": 0.33,  # WAV is much larger for same duration - make more similar to others
+            ".ogg": 1.1,  # OGG has slight overhead
+            ".flac": 0.6,  # FLAC is larger but compressed
+            ".aac": 1.0,  # Similar to MP3
+            ".m4a": 1.0,  # Similar to MP3
         }
 
         factor = format_factors.get(extension, 1.0)
@@ -446,8 +447,12 @@ def _extract_metadata_basic(file_path: Path) -> Dict[str, Any]:
         if estimated_duration is not None and estimated_duration < 2.0:
             # Log a concise warning - the basic estimation is approximate
             import sys
-            print(f"Info: Using basic audio validation (estimated {estimated_duration:.1f}s). "
-                  f"Install mutagen/soundfile for precise validation.", file=sys.stderr)
+
+            print(
+                f"Info: Using basic audio validation (estimated {estimated_duration:.1f}s). "
+                f"Install mutagen/soundfile for precise validation.",
+                file=sys.stderr,
+            )
 
         # Debug output removed for cleaner test runs
 
@@ -457,18 +462,18 @@ def _extract_metadata_basic(file_path: Path) -> Dict[str, Any]:
             estimated_duration = 0.1
 
         return {
-            'valid': True,
-            'duration': estimated_duration,
-            'sample_rate': None,  # Unknown without audio libraries
-            'channels': None,     # Unknown without audio libraries
-            'bitrate': None,      # Unknown without audio libraries
-            'file_size': file_size,
-            'format': extension[1:],  # Remove the dot
-            'metadata_source': 'basic_fallback'
+            "valid": True,
+            "duration": estimated_duration,
+            "sample_rate": None,  # Unknown without audio libraries
+            "channels": None,  # Unknown without audio libraries
+            "bitrate": None,  # Unknown without audio libraries
+            "file_size": file_size,
+            "format": extension[1:],  # Remove the dot
+            "metadata_source": "basic_fallback",
         }
 
     except Exception as e:
-        return {'valid': False, 'error': f'Basic validation error: {str(e)}'}
+        return {"valid": False, "error": f"Basic validation error: {str(e)}"}
 
 
 def detect_silence(file_path: Path, silence_threshold: float = 0.01) -> bool:
@@ -491,10 +496,10 @@ def detect_silence(file_path: Path, silence_threshold: float = 0.01) -> bool:
         # Calculate RMS (Root Mean Square) energy
         if len(data.shape) > 1:
             # Multi-channel - take mean across channels
-            rms = ((data ** 2).mean(axis=1) ** 0.5).mean()
+            rms = ((data**2).mean(axis=1) ** 0.5).mean()
         else:
             # Single channel
-            rms = (data ** 2).mean() ** 0.5
+            rms = (data**2).mean() ** 0.5
 
         return bool(rms < silence_threshold)
 
@@ -521,10 +526,10 @@ def validate_audio_format_compatibility(file_path: Path, target_format: str) -> 
 
     # Common format compatibility matrix
     compatible_formats = {
-        'wav': ['mp3', 'ogg', 'flac', 'aac'],
-        'mp3': ['wav', 'ogg', 'flac'],
-        'flac': ['wav', 'mp3', 'ogg'],
-        'ogg': ['wav', 'mp3', 'flac']
+        "wav": ["mp3", "ogg", "flac", "aac"],
+        "mp3": ["wav", "ogg", "flac"],
+        "flac": ["wav", "mp3", "ogg"],
+        "ogg": ["wav", "mp3", "flac"],
     }
 
     if source_format == target_format:
@@ -548,12 +553,7 @@ def estimate_audio_duration_from_text(text: str, wpm: int = 150) -> float:
     return (word_count / wpm) * 60.0
 
 
-def measure_synthesis_performance(
-    synthesis_func,
-    text: str,
-    output_path: Path,
-    **kwargs
-) -> Dict[str, Any]:
+def measure_synthesis_performance(synthesis_func, text: str, output_path: Path, **kwargs) -> Dict[str, Any]:
     """
     Measure performance characteristics of a synthesis operation.
 
@@ -579,42 +579,43 @@ def measure_synthesis_performance(
             validation_result = validate_audio_file_comprehensive(output_path)
 
             return {
-                'success': True,
-                'synthesis_time': synthesis_time,
-                'audio_duration': validation_result.duration if validation_result.valid else None,
-                'file_size': validation_result.file_size if validation_result.valid else output_path.stat().st_size,
-                'real_time_factor': synthesis_time / validation_result.duration if (validation_result.valid and validation_result.duration) else None,
-                'validation_result': validation_result,
-                'error': None
+                "success": True,
+                "synthesis_time": synthesis_time,
+                "audio_duration": validation_result.duration if validation_result.valid else None,
+                "file_size": validation_result.file_size if validation_result.valid else output_path.stat().st_size,
+                "real_time_factor": (
+                    synthesis_time / validation_result.duration
+                    if (validation_result.valid and validation_result.duration)
+                    else None
+                ),
+                "validation_result": validation_result,
+                "error": None,
             }
         else:
             return {
-                'success': False,
-                'synthesis_time': synthesis_time,
-                'audio_duration': None,
-                'file_size': 0,
-                'real_time_factor': None,
-                'validation_result': None,
-                'error': 'Synthesis failed or no output file'
+                "success": False,
+                "synthesis_time": synthesis_time,
+                "audio_duration": None,
+                "file_size": 0,
+                "real_time_factor": None,
+                "validation_result": None,
+                "error": "Synthesis failed or no output file",
             }
 
     except Exception as e:
         synthesis_time = time.time() - start_time
         return {
-            'success': False,
-            'synthesis_time': synthesis_time,
-            'audio_duration': None,
-            'file_size': 0,
-            'real_time_factor': None,
-            'validation_result': None,
-            'error': str(e)
+            "success": False,
+            "synthesis_time": synthesis_time,
+            "audio_duration": None,
+            "file_size": 0,
+            "real_time_factor": None,
+            "validation_result": None,
+            "error": str(e),
         }
 
 
-def compare_audio_validation_results(
-    results: List[AudioValidationResult],
-    tolerance: float = 0.2
-) -> Dict[str, Any]:
+def compare_audio_validation_results(results: List[AudioValidationResult], tolerance: float = 0.2) -> Dict[str, Any]:
     """
     Compare multiple audio validation results for consistency.
 
@@ -629,9 +630,9 @@ def compare_audio_validation_results(
 
     if len(valid_results) < 2:
         return {
-            'comparable': False,
-            'reason': f'Not enough valid results to compare ({len(valid_results)})',
-            'statistics': {}
+            "comparable": False,
+            "reason": f"Not enough valid results to compare ({len(valid_results)})",
+            "statistics": {},
         }
 
     # Collect metrics
@@ -645,7 +646,7 @@ def compare_audio_validation_results(
             return 0.0
         mean = sum(values) / len(values)
         variance = sum((x - mean) ** 2 for x in values) / len(values)
-        return (variance ** 0.5) / mean if mean > 0 else 0.0
+        return (variance**0.5) / mean if mean > 0 else 0.0
 
     duration_variance = calculate_variance(durations) if durations else 0.0
     size_variance = calculate_variance(file_sizes) if file_sizes else 0.0
@@ -664,27 +665,23 @@ def compare_audio_validation_results(
         issues.append(f"Multiple formats detected: {unique_formats}")
 
     return {
-        'comparable': len(issues) == 0,
-        'issues': issues,
-        'statistics': {
-            'valid_count': len(valid_results),
-            'total_count': len(results),
-            'duration_variance': duration_variance,
-            'file_size_variance': size_variance,
-            'avg_duration': sum(durations) / len(durations) if durations else None,
-            'avg_file_size': sum(file_sizes) / len(file_sizes) if file_sizes else None,
-            'unique_formats': list(unique_formats),
-            'unique_sample_rates': list(set(sample_rates)) if sample_rates else [],
-            'unique_channels': list(set(channels)) if channels else []
-        }
+        "comparable": len(issues) == 0,
+        "issues": issues,
+        "statistics": {
+            "valid_count": len(valid_results),
+            "total_count": len(results),
+            "duration_variance": duration_variance,
+            "file_size_variance": size_variance,
+            "avg_duration": sum(durations) / len(durations) if durations else None,
+            "avg_file_size": sum(file_sizes) / len(file_sizes) if file_sizes else None,
+            "unique_formats": list(unique_formats),
+            "unique_sample_rates": list(set(sample_rates)) if sample_rates else [],
+            "unique_channels": list(set(channels)) if channels else [],
+        },
     }
 
 
-def create_mock_audio_file(
-    file_path: Path,
-    format: str = "mp3",
-    size_bytes: int = 1024
-) -> Path:
+def create_mock_audio_file(file_path: Path, format: str = "mp3", size_bytes: int = 1024) -> Path:
     """
     Create a mock audio file for testing.
 
@@ -708,7 +705,7 @@ def create_realistic_audio_file(
     duration: float = 1.0,
     sample_rate: int = 44100,
     channels: int = 2,
-    frequency: float = 440.0
+    frequency: float = 440.0,
 ) -> Path:
     """
     Create a realistic audio file with actual audio data for testing.
@@ -738,19 +735,13 @@ def create_realistic_audio_file(
     return file_path
 
 
-def _create_realistic_wav(
-    file_path: Path,
-    duration: float,
-    sample_rate: int,
-    channels: int,
-    frequency: float
-) -> None:
+def _create_realistic_wav(file_path: Path, duration: float, sample_rate: int, channels: int, frequency: float) -> None:
     """Create a realistic WAV file using wave module."""
     import math
 
     frames = int(duration * sample_rate)
 
-    with wave.open(str(file_path), 'wb') as wav_file:
+    with wave.open(str(file_path), "wb") as wav_file:
         wav_file.setnchannels(channels)
         wav_file.setsampwidth(2)  # 16-bit
         wav_file.setframerate(sample_rate)
@@ -759,19 +750,14 @@ def _create_realistic_wav(
             # Generate sine wave
             value = int(32767 * math.sin(2 * math.pi * frequency * i / sample_rate))
             # Convert to bytes
-            data = struct.pack('<h', value)
+            data = struct.pack("<h", value)
             if channels == 2:
                 data = data * 2  # Duplicate for stereo
             wav_file.writeframes(data)
 
 
 def _create_realistic_with_soundfile(
-    file_path: Path,
-    format: str,
-    duration: float,
-    sample_rate: int,
-    channels: int,
-    frequency: float
+    file_path: Path, format: str, duration: float, sample_rate: int, channels: int, frequency: float
 ) -> None:
     """Create realistic audio file using soundfile."""
     import numpy as np
@@ -804,7 +790,7 @@ def create_corrupted_audio_file(file_path: Path, format: str = "mp3") -> Path:
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Write random bytes that don't form valid audio
-    corrupted_data = b'\x00\xFF\x00\xFF' * 256  # Invalid audio pattern
+    corrupted_data = b"\x00\xFF\x00\xFF" * 256  # Invalid audio pattern
     file_path.write_bytes(corrupted_data)
 
     return file_path
@@ -833,9 +819,7 @@ def create_empty_audio_file(file_path: Path, format: str = "mp3") -> Path:
 
 
 def create_mock_provider(
-    name: str = "mock_provider",
-    available: bool = True,
-    voices: Optional[List[str]] = None
+    name: str = "mock_provider", available: bool = True, voices: Optional[List[str]] = None
 ) -> MagicMock:
     """
     Create a mock TTS provider for testing.
@@ -867,17 +851,14 @@ def create_mock_provider(
         "description": f"Mock {name} provider",
         "sample_voices": voices or [f"{name}-voice1", f"{name}-voice2"],
         "output_formats": ["mp3", "wav"],
-        "capabilities": ["stream", "save"]
+        "capabilities": ["stream", "save"],
     }
 
     return mock_provider
 
 
 def assert_provider_called_with(
-    provider: MagicMock,
-    text: str,
-    voice: Optional[str] = None,
-    format: Optional[str] = None
+    provider: MagicMock, text: str, voice: Optional[str] = None, format: Optional[str] = None
 ) -> None:
     """
     Assert that a mock provider was called with expected parameters.
@@ -920,7 +901,7 @@ class CLITestHelper:
         provider: Optional[str] = None,
         format: Optional[str] = None,
         voice: Optional[str] = None,
-        extra_args: Optional[List[str]] = None
+        extra_args: Optional[List[str]] = None,
     ) -> Tuple[Any, Path]:
         """
         Invoke the save command with common parameters.
@@ -970,7 +951,7 @@ class CLITestHelper:
         text: str,
         provider: Optional[str] = None,
         voice: Optional[str] = None,
-        extra_args: Optional[List[str]] = None
+        extra_args: Optional[List[str]] = None,
     ) -> Any:
         """Invoke the speak command with common parameters.
 
@@ -1005,12 +986,7 @@ class CLITestHelper:
         if expected_output:
             assert expected_output in result.output
 
-    def assert_error(
-        self,
-        result: Any,
-        expected_error: Optional[str] = None,
-        exit_code: int = 1
-    ) -> None:
+    def assert_error(self, result: Any, expected_error: Optional[str] = None, exit_code: int = 1) -> None:
         """Assert that a CLI command failed with expected error."""
         assert result.exit_code == exit_code, f"Expected exit code {exit_code}, got {result.exit_code}"
         if expected_error:
@@ -1027,7 +1003,7 @@ def create_test_config(
     default_provider: str = "edge_tts",
     default_voice: str = "en-US-AvaNeural",
     api_keys: Optional[Dict[str, str]] = None,
-    **extra_config
+    **extra_config,
 ) -> Path:
     """
     Create a test configuration file.
@@ -1058,11 +1034,13 @@ def create_test_config(
             config_data[key] = value
     else:
         # Add default test API keys
-        config_data.update({
-            "openai_api_key": "sk-test1234567890abcdefghijklmnopqrstuvwxyz12345678",
-            "elevenlabs_api_key": "abcdef0123456789abcdef0123456789",
-            "google_cloud_api_key": "AIzaSyD-test1234567890abcdefghijklmnopq",
-        })
+        config_data.update(
+            {
+                "openai_api_key": "sk-test1234567890abcdefghijklmnopqrstuvwxyz12345678",
+                "elevenlabs_api_key": "abcdef0123456789abcdef0123456789",
+                "google_cloud_api_key": "AIzaSyD-test1234567890abcdefghijklmnopq",
+            }
+        )
 
     # Add any extra config
     config_data.update(extra_config)
@@ -1087,26 +1065,32 @@ def cli_helper():
 @pytest.fixture
 def mock_provider_factory():
     """Factory fixture for creating mock providers."""
+
     def _create_provider(**kwargs):
         return create_mock_provider(**kwargs)
+
     return _create_provider
 
 
 @pytest.fixture
 def temp_audio_factory(tmp_path):
     """Factory fixture for creating temporary audio files."""
+
     def _create_audio(filename: str = "test.mp3", **kwargs):
         file_path = tmp_path / filename
         return create_mock_audio_file(file_path, **kwargs)
+
     return _create_audio
 
 
 @pytest.fixture
 def config_factory(tmp_path):
     """Factory fixture for creating test configurations."""
+
     def _create_config(**kwargs):
         config_dir = tmp_path / "config"
         return create_test_config(config_dir, **kwargs)
+
     return _create_config
 
 
@@ -1134,10 +1118,7 @@ def parametrize_provider_shortcuts():
 
 
 def create_mock_api_response(
-    provider: str,
-    endpoint: str,
-    success: bool = True,
-    data: Optional[Dict[str, Any]] = None
+    provider: str, endpoint: str, success: bool = True, data: Optional[Dict[str, Any]] = None
 ) -> MagicMock:
     """
     Create a mock API response for different providers.
@@ -1170,9 +1151,7 @@ def create_mock_api_response(
         mock_response.content = b"mock openai audio"
 
     elif provider == "google":
-        mock_response.json.return_value = data or {
-            "audioContent": "bW9jayBnb29nbGUgYXVkaW8="
-        }
+        mock_response.json.return_value = data or {"audioContent": "bW9jayBnb29nbGUgYXVkaW8="}
 
     return mock_response
 
@@ -1214,7 +1193,7 @@ def handle_rate_limiting_test(
     max_requests: int = 5,
     provider_name: str = "unknown",
     min_requests_before_limit: int = 2,
-    request_delay: float = 0.0
+    request_delay: float = 0.0,
 ) -> None:
     """
     Test provider rate limiting handling in a standardized way.
@@ -1238,9 +1217,7 @@ def handle_rate_limiting_test(
         temp_file = f"/tmp/rate_test_{provider_name}_{i}.mp3"
         try:
             provider.synthesize(
-                text=f"Rate limit test {i} for {provider_name}",
-                output_path=temp_file,
-                voice=test_voice
+                text=f"Rate limit test {i} for {provider_name}", output_path=temp_file, voice=test_voice
             )
 
             # Validate the output file exists and has content
@@ -1252,8 +1229,7 @@ def handle_rate_limiting_test(
             if any(keyword in error_msg for keyword in ["rate", "limit", "quota", "throttle"]):
                 # Expected rate limit error
                 assert successful_requests >= min_requests_before_limit, (
-                    f"Rate limit hit too early for {provider_name}: "
-                    f"only {successful_requests} successful requests"
+                    f"Rate limit hit too early for {provider_name}: " f"only {successful_requests} successful requests"
                 )
                 break
             else:
@@ -1277,7 +1253,7 @@ def handle_invalid_api_key_test(
     invalid_key: str,
     test_voice: str,
     env_var_name: str,
-    test_text: str = "This should fail with invalid API key."
+    test_text: str = "This should fail with invalid API key.",
 ) -> None:
     """
     Test provider behavior with invalid API key in a standardized way.
@@ -1299,18 +1275,14 @@ def handle_invalid_api_key_test(
     with patch.dict(os.environ, {env_var_name: invalid_key}):
         provider = provider_class()
         with pytest.raises((AuthenticationError, ProviderError)) as exc_info:
-            provider.synthesize(
-                text=test_text,
-                output_path="/tmp/should_fail.mp3",
-                voice=test_voice
-            )
+            provider.synthesize(text=test_text, output_path="/tmp/should_fail.mp3", voice=test_voice)
 
         # Verify it's an authentication-related error
         error_msg = str(exc_info.value).lower()
         auth_keywords = ["auth", "api", "key", "invalid", "unauthorized", "forbidden"]
-        assert any(keyword in error_msg for keyword in auth_keywords), (
-            f"Expected authentication error, got: {exc_info.value}"
-        )
+        assert any(
+            keyword in error_msg for keyword in auth_keywords
+        ), f"Expected authentication error, got: {exc_info.value}"
 
 
 def create_test_api_keys() -> Dict[str, str]:

@@ -19,7 +19,7 @@ def test_edge_tts_synthesize():
     # Create a more realistic mock that simulates actual edge_tts behavior
     async def mock_save_impl(path):
         """Simulate edge_tts creating an actual audio file."""
-        with open(path, 'wb') as f:
+        with open(path, "wb") as f:
             f.write(b"Mock MP3 audio data from edge_tts")
 
     mock_communicate.save.side_effect = mock_save_impl
@@ -29,7 +29,7 @@ def test_edge_tts_synthesize():
     provider.edge_tts = mock_edge_tts
 
     # Test synthesis with various parameters
-    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
         output_path = tmp.name
 
     try:
@@ -37,12 +37,7 @@ def test_edge_tts_synthesize():
         provider.synthesize("Hello world", output_path, voice="en-US-JennyNeural")
 
         # Verify edge_tts.Communicate was called with correct parameters
-        mock_edge_tts.Communicate.assert_called_once_with(
-            "Hello world",
-            "en-US-JennyNeural",
-            rate="+0%",
-            pitch="+0Hz"
-        )
+        mock_edge_tts.Communicate.assert_called_once_with("Hello world", "en-US-JennyNeural", rate="+0%", pitch="+0Hz")
 
         # Verify save was called on the communicate object
         mock_communicate.save.assert_called_once_with(output_path)
@@ -55,20 +50,11 @@ def test_edge_tts_synthesize():
         mock_edge_tts.Communicate.reset_mock()
         mock_communicate.save.reset_mock()
 
-        provider.synthesize(
-            "Test with options",
-            output_path,
-            voice="en-GB-SoniaNeural",
-            rate="+20%",
-            pitch="-5Hz"
-        )
+        provider.synthesize("Test with options", output_path, voice="en-GB-SoniaNeural", rate="+20%", pitch="-5Hz")
 
         # Verify custom parameters were passed
         mock_edge_tts.Communicate.assert_called_once_with(
-            "Test with options",
-            "en-GB-SoniaNeural",
-            rate="+20%",
-            pitch="-5Hz"
+            "Test with options", "en-GB-SoniaNeural", rate="+20%", pitch="-5Hz"
         )
 
     finally:
@@ -79,8 +65,6 @@ def test_edge_tts_synthesize():
 def test_edge_tts_lazy_load_import_error():
     provider = EdgeTTSProvider()
 
-    with patch('builtins.__import__', side_effect=ImportError):
+    with patch("builtins.__import__", side_effect=ImportError):
         with pytest.raises(DependencyError, match="edge-tts not installed"):
             provider._lazy_load()
-
-

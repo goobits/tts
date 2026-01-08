@@ -1,7 +1,7 @@
 from click.testing import CliRunner
 
-from matilda_voice.hooks import PROVIDER_SHORTCUTS
 from matilda_voice.cli import cli as cli
+from matilda_voice.hooks import PROVIDER_SHORTCUTS
 from tests.utils.test_helpers import (
     CLITestHelper,
     create_realistic_audio_file,
@@ -77,11 +77,12 @@ def test_cli_save_mode(full_cli_env, tmp_path):
         # If command fails, verify it's a synthesis issue, not CLI structure issue
         # The error message should be about synthesis, not CLI argument parsing
         error_message = str(result.exception) if result.exception else result.output
-        assert ("TTSError" in error_message or
-                "synthesis" in error_message.lower() or
-                "output file" in error_message.lower() or
-                "Missing argument" not in result.output), \
-            f"Command should fail due to synthesis issues, not CLI structure. Error: {error_message}"
+        assert (
+            "TTSError" in error_message
+            or "synthesis" in error_message.lower()
+            or "output file" in error_message.lower()
+            or "Missing argument" not in result.output
+        ), f"Command should fail due to synthesis issues, not CLI structure. Error: {error_message}"
 
         # This is actually a successful test - the CLI processed arguments correctly
         # but synthesis failed due to mocking limitations, which is expected behavior
@@ -183,8 +184,9 @@ class TestProviderShortcuts:
         # Verify all common providers have shortcuts
         expected_shortcuts = {"edge", "chatterbox", "openai", "elevenlabs", "google"}
         actual_shortcuts = set(PROVIDER_SHORTCUTS.keys())
-        assert expected_shortcuts.issubset(actual_shortcuts), \
-            f"Missing shortcuts: {expected_shortcuts - actual_shortcuts}"
+        assert expected_shortcuts.issubset(
+            actual_shortcuts
+        ), f"Missing shortcuts: {expected_shortcuts - actual_shortcuts}"
 
     def test_info_with_provider_shortcut(self, mock_cli_environment):
         """Test that @provider shortcuts work with info command"""
@@ -424,7 +426,18 @@ class TestCLIBehavior:
         result = runner.invoke(cli, ["--help"])
 
         assert result.exit_code == 0
-        required_commands = ["speak", "save", "voices", "config", "status", "providers", "install", "info", "voice", "document"]
+        required_commands = [
+            "speak",
+            "save",
+            "voices",
+            "config",
+            "status",
+            "providers",
+            "install",
+            "info",
+            "voice",
+            "document",
+        ]
 
         for cmd in required_commands:
             assert cmd in result.output, f"Command '{cmd}' not found in help"
@@ -630,7 +643,7 @@ class TestCLIAudioValidationIntegration:
                         duration=max(1.0, estimated_duration),
                         sample_rate=44100,
                         channels=2,
-                        frequency=220.0  # A3 note
+                        frequency=220.0,  # A3 note
                     )
                 return True
 
@@ -638,11 +651,7 @@ class TestCLIAudioValidationIntegration:
             mock_get_engine.return_value = mock_engine
 
             # Execute save command
-            result, actual_output = self.cli_helper.invoke_save(
-                text,
-                output_path=str(output_file),
-                format="wav"
-            )
+            result, actual_output = self.cli_helper.invoke_save(text, output_path=str(output_file), format="wav")
 
             # Verify command succeeded
             self.cli_helper.assert_success(result)
@@ -656,7 +665,7 @@ class TestCLIAudioValidationIntegration:
                 expected_sample_rate=44100,
                 expected_channels=2,
                 min_file_size=1000,
-                check_silence=True
+                check_silence=True,
             )
 
             # Assert comprehensive validation
@@ -668,7 +677,7 @@ class TestCLIAudioValidationIntegration:
             assert validation_result.file_size > 1000
             # Check silence detection if available
             if validation_result.has_silence is not None:
-                assert validation_result.has_silence == False  # Should contain audio content
+                assert not validation_result.has_silence  # Should contain audio content
 
     def test_multiple_providers_audio_consistency(self, full_cli_env, tmp_path):
         """Test that different providers produce consistent audio output."""
@@ -696,7 +705,7 @@ class TestCLIAudioValidationIntegration:
                             duration=2.0,
                             sample_rate=22050,
                             channels=1,
-                            frequency=440.0 if provider == "@edge" else 330.0
+                            frequency=440.0 if provider == "@edge" else 330.0,
                         )
                     return True
 
@@ -704,9 +713,7 @@ class TestCLIAudioValidationIntegration:
                 mock_get_engine.return_value = mock_engine
 
                 result, actual_output = self.cli_helper.invoke_save(
-                    text,
-                    provider=provider,
-                    output_path=str(output_file)
+                    text, provider=provider, output_path=str(output_file)
                 )
 
                 # Command should succeed
@@ -714,11 +721,7 @@ class TestCLIAudioValidationIntegration:
 
                 # Validate each provider's output
                 validation_result = validate_audio_file_comprehensive(
-                    actual_output,
-                    expected_format="mp3",
-                    min_duration=1.0,
-                    max_duration=5.0,
-                    min_file_size=500
+                    actual_output, expected_format="mp3", min_duration=1.0, max_duration=5.0, min_file_size=500
                 )
 
                 assert validation_result.valid, f"Validation failed for {provider}: {validation_result.error}"
@@ -749,11 +752,7 @@ class TestCLIAudioValidationIntegration:
                         audio_path = Path(output_path)
                         try:
                             create_realistic_audio_file(
-                                audio_path,
-                                format=format_name,
-                                duration=1.5,
-                                sample_rate=44100,
-                                channels=2
+                                audio_path, format=format_name, duration=1.5, sample_rate=44100, channels=2
                             )
                         except Exception:
                             # Skip if format not supported
@@ -764,9 +763,7 @@ class TestCLIAudioValidationIntegration:
                 mock_get_engine.return_value = mock_engine
 
                 result, actual_output = self.cli_helper.invoke_save(
-                    text,
-                    output_path=str(output_file),
-                    format=format_name
+                    text, output_path=str(output_file), format=format_name
                 )
 
                 # Skip format if command failed (format not supported)
@@ -775,18 +772,15 @@ class TestCLIAudioValidationIntegration:
 
                 # Validate the output
                 validation_result = validate_audio_file_comprehensive(
-                    actual_output,
-                    expected_format=format_name,
-                    min_duration=1.0,
-                    max_duration=3.0,
-                    min_file_size=500
+                    actual_output, expected_format=format_name, min_duration=1.0, max_duration=3.0, min_file_size=500
                 )
 
                 # File should exist and have correct format
                 assert actual_output.exists(), f"Output file missing for format {format_name}"
                 if validation_result.format:  # Only check if metadata extraction succeeded
-                    assert validation_result.format == format_name, \
-                        f"Format mismatch: expected {format_name}, got {validation_result.format}"
+                    assert (
+                        validation_result.format == format_name
+                    ), f"Format mismatch: expected {format_name}, got {validation_result.format}"
 
     def test_streaming_audio_mock_validation(self, integration_test_env):
         """Test streaming audio behavior with validation helpers."""
@@ -831,16 +825,12 @@ class TestCLIAudioValidationIntegration:
             mock_engine.synthesize_text.side_effect = mock_synthesize_with_errors
             mock_get_engine.return_value = mock_engine
 
-            result, actual_output = self.cli_helper.invoke_save(
-                text, output_path=str(output_file)
-            )
+            result, actual_output = self.cli_helper.invoke_save(text, output_path=str(output_file))
 
             # CLI command might succeed (engine reported success)
             # But our validation can detect the issue
             validation_result = validate_audio_file_comprehensive(
-                actual_output,
-                expected_format="mp3",
-                min_file_size=100
+                actual_output, expected_format="mp3", min_file_size=100
             )
 
             # Validation should catch the empty/missing file

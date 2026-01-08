@@ -70,7 +70,7 @@ def calculate_backoff(
     Returns:
         Delay in seconds with added jitter
     """
-    delay = min(base_delay * (backoff_factor ** attempt), max_delay)
+    delay = min(base_delay * (backoff_factor**attempt), max_delay)
     # Add jitter (±25% of delay)
     jitter = delay * 0.25 * (2 * random.random() - 1)
     return max(0.1, delay + jitter)
@@ -169,9 +169,7 @@ def request_with_retry(
             # For non-idempotent requests (like TTS synthesis), don't retry HTTP errors
             # to avoid duplicate charges
             if not idempotent and response.status_code not in {429}:
-                logger.warning(
-                    f"[{provider_name}] HTTP {response.status_code} on non-idempotent request, not retrying"
-                )
+                logger.warning(f"[{provider_name}] HTTP {response.status_code} on non-idempotent request, not retrying")
                 return response
 
             # Retryable error
@@ -186,9 +184,7 @@ def request_with_retry(
                 )
                 time.sleep(delay)
             else:
-                logger.error(
-                    f"[{provider_name}] {reason}. All {max_retries + 1} attempts exhausted."
-                )
+                logger.error(f"[{provider_name}] {reason}. All {max_retries + 1} attempts exhausted.")
 
         except httpx.TimeoutException as e:
             last_exception = e
@@ -218,7 +214,9 @@ def request_with_retry(
 
     # All retries exhausted
     if last_exception:
-        raise NetworkError(f"{provider_name} request failed after {max_retries + 1} attempts: {last_exception}") from last_exception
+        raise NetworkError(
+            f"{provider_name} request failed after {max_retries + 1} attempts: {last_exception}"
+        ) from last_exception
 
     if last_response is not None:
         # Return the last response so caller can handle the error
@@ -274,9 +272,7 @@ def stream_with_retry(
                     time.sleep(delay)
                     continue
 
-                logger.error(
-                    f"[{provider_name}] {reason}. All {max_retries + 1} attempts exhausted."
-                )
+                logger.error(f"[{provider_name}] {reason}. All {max_retries + 1} attempts exhausted.")
                 raise NetworkError(f"{provider_name} stream failed after {max_retries + 1} attempts")
 
         except httpx.TimeoutException as e:
@@ -306,7 +302,9 @@ def stream_with_retry(
                 logger.error(f"[{provider_name}] Stream network error: {e}. All {max_retries + 1} attempts exhausted.")
 
     if last_exception:
-        raise NetworkError(f"{provider_name} stream failed after {max_retries + 1} attempts: {last_exception}") from last_exception
+        raise NetworkError(
+            f"{provider_name} stream failed after {max_retries + 1} attempts: {last_exception}"
+        ) from last_exception
 
     raise NetworkError(f"{provider_name} stream failed after {max_retries + 1} attempts")
 
@@ -341,9 +339,7 @@ def call_with_retry(
             last_exception = e
             breaker.record_failure()
             if not idempotent and attempt == 0:
-                logger.warning(
-                    f"[{provider_name}] Non-idempotent call failed ({e}); retrying once."
-                )
+                logger.warning(f"[{provider_name}] Non-idempotent call failed ({e}); retrying once.")
             if attempt < max_retries:
                 delay = calculate_backoff(attempt, base_delay, max_delay, backoff_factor)
                 logger.warning(
@@ -352,9 +348,7 @@ def call_with_retry(
                 )
                 time.sleep(delay)
             else:
-                logger.error(
-                    f"[{provider_name}] Call failed: {e}. All {max_retries + 1} attempts exhausted."
-                )
+                logger.error(f"[{provider_name}] Call failed: {e}. All {max_retries + 1} attempts exhausted.")
         except Exception as e:
             logger.exception(f"[{provider_name}] Unexpected error during call")
             last_exception = e
@@ -367,6 +361,7 @@ def call_with_retry(
         ) from last_exception
 
     raise NetworkError(f"{provider_name} call failed after {max_retries + 1} attempts")
+
 
 class CircuitBreaker:
     """Basic circuit breaker to prevent cascading failures."""

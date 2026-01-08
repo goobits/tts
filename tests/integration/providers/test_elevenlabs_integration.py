@@ -39,9 +39,7 @@ class TestElevenLabsIntegration(BaseProviderIntegrationTest):
             output_file = f"{temp_audio_file}_{voice}.mp3"
             try:
                 provider.synthesize(
-                    text=f"Testing {voice} voice from ElevenLabs.",
-                    output_path=output_file,
-                    voice=voice
+                    text=f"Testing {voice} voice from ElevenLabs.", output_path=output_file, voice=voice
                 )
                 self.validate_audio_file(output_file)
             finally:
@@ -54,9 +52,9 @@ class TestElevenLabsIntegration(BaseProviderIntegrationTest):
     def test_voice_settings(self, provider, temp_audio_file):
         """Test voice stability and clarity settings."""
         settings_tests = [
-            {"stability": 0.3, "similarity_boost": 0.7},   # More variable
-            {"stability": 0.7, "similarity_boost": 0.3},   # More stable
-            {"stability": 0.5, "similarity_boost": 0.5},   # Balanced
+            {"stability": 0.3, "similarity_boost": 0.7},  # More variable
+            {"stability": 0.7, "similarity_boost": 0.3},  # More stable
+            {"stability": 0.5, "similarity_boost": 0.5},  # Balanced
         ]
 
         for i, settings in enumerate(settings_tests):
@@ -66,7 +64,7 @@ class TestElevenLabsIntegration(BaseProviderIntegrationTest):
                     text=f"Testing voice settings: stability {settings['stability']}, similarity {settings['similarity_boost']}.",
                     output_path=output_file,
                     voice=self.get_test_voice(),
-                    voice_settings=settings
+                    voice_settings=settings,
                 )
                 self.validate_audio_file(output_file)
             finally:
@@ -87,10 +85,7 @@ class TestElevenLabsIntegration(BaseProviderIntegrationTest):
             output_file = f"{temp_audio_file}_{model}.mp3"
             try:
                 provider.synthesize(
-                    text=f"Testing {model} model.",
-                    output_path=output_file,
-                    voice=self.get_test_voice(),
-                    model_id=model
+                    text=f"Testing {model} model.", output_path=output_file, voice=self.get_test_voice(), model_id=model
                 )
                 self.validate_audio_file(output_file)
             except ProviderError as e:
@@ -106,12 +101,9 @@ class TestElevenLabsIntegration(BaseProviderIntegrationTest):
 
     def test_streaming_mode(self, provider):
         """Test streaming functionality."""
-        with patch('matilda_voice.providers.elevenlabs.stream_via_tempfile') as mock_stream:
+        with patch("matilda_voice.providers.elevenlabs.stream_via_tempfile") as mock_stream:
             provider.synthesize(
-                text="Testing streaming mode.",
-                output_path=None,
-                voice=self.get_test_voice(),
-                stream=True
+                text="Testing streaming mode.", output_path=None, voice=self.get_test_voice(), stream=True
             )
             mock_stream.assert_called_once()
 
@@ -137,11 +129,7 @@ class TestElevenLabsIntegration(BaseProviderIntegrationTest):
         custom_voice_id = "custom_voice_test_12345"
 
         with pytest.raises((VoiceNotFoundError, ProviderError)):
-            provider.synthesize(
-                text="Testing custom voice.",
-                output_path=temp_audio_file,
-                voice=custom_voice_id
-            )
+            provider.synthesize(text="Testing custom voice.", output_path=temp_audio_file, voice=custom_voice_id)
 
     def test_multilingual_model(self, provider, temp_audio_file):
         """Test multilingual model with different languages."""
@@ -155,10 +143,7 @@ class TestElevenLabsIntegration(BaseProviderIntegrationTest):
             output_file = f"{temp_audio_file}_{lang}.mp3"
             try:
                 provider.synthesize(
-                    text=text,
-                    output_path=output_file,
-                    voice=self.get_test_voice(),
-                    model_id="eleven_multilingual_v2"
+                    text=text, output_path=output_file, voice=self.get_test_voice(), model_id="eleven_multilingual_v2"
                 )
                 self.validate_audio_file(output_file)
             except ProviderError as e:
@@ -177,50 +162,36 @@ class TestElevenLabsIntegration(BaseProviderIntegrationTest):
         with patch.dict(os.environ, {"ELEVENLABS_API_KEY": "invalid_key_12345"}):
             provider = ElevenLabsProvider()
             with pytest.raises((AuthenticationError, ProviderError)):
-                provider.synthesize(
-                    text="This should fail.",
-                    output_path="/tmp/fail.mp3",
-                    voice=self.get_test_voice()
-                )
+                provider.synthesize(text="This should fail.", output_path="/tmp/fail.mp3", voice=self.get_test_voice())
 
     def test_quota_limits(self, provider):
         """Test quota/usage tracking."""
         # ElevenLabs provides usage info in headers
         # This test just verifies the provider can handle quota responses
-        with patch('matilda_voice.providers.elevenlabs.requests.post') as mock_post:
+        with patch("matilda_voice.providers.elevenlabs.requests.post") as mock_post:
             mock_response = mock_post.return_value
             mock_response.status_code = 429
             mock_response.json.return_value = {"detail": {"message": "Quota exceeded"}}
 
             with pytest.raises(ProviderError):
                 provider.synthesize(
-                    text="This should fail.",
-                    output_path="/tmp/quota_fail.mp3",
-                    voice=self.get_test_voice()
+                    text="This should fail.", output_path="/tmp/quota_fail.mp3", voice=self.get_test_voice()
                 )
 
     def test_network_error_handling(self, provider, temp_audio_file):
         """Test network error handling."""
-        with patch('matilda_voice.providers.elevenlabs.requests.post') as mock_post:
+        with patch("matilda_voice.providers.elevenlabs.requests.post") as mock_post:
             mock_post.side_effect = NetworkError("Connection failed")
 
             with pytest.raises(NetworkError):
-                provider.synthesize(
-                    text="This should fail.",
-                    output_path=temp_audio_file,
-                    voice=self.get_test_voice()
-                )
+                provider.synthesize(text="This should fail.", output_path=temp_audio_file, voice=self.get_test_voice())
 
     def test_long_text_handling(self, provider, temp_audio_file):
         """Test handling of longer text."""
         # ElevenLabs has character limits per request
         long_text = self.TEST_TEXT_MEDIUM  # Use medium text to avoid limits
 
-        provider.synthesize(
-            text=long_text,
-            output_path=temp_audio_file,
-            voice=self.get_test_voice()
-        )
+        provider.synthesize(text=long_text, output_path=temp_audio_file, voice=self.get_test_voice())
         self.validate_audio_file(temp_audio_file)
 
     def test_output_format_optimization(self, provider, temp_audio_file):
@@ -234,7 +205,7 @@ class TestElevenLabsIntegration(BaseProviderIntegrationTest):
                     text="Testing optimization setting.",
                     output_path=output_file,
                     voice=self.get_test_voice(),
-                    optimize_streaming_latency=optimize
+                    optimize_streaming_latency=optimize,
                 )
                 self.validate_audio_file(output_file)
             finally:
@@ -250,11 +221,7 @@ class TestElevenLabsIntegration(BaseProviderIntegrationTest):
         for i in range(3):  # Limited to avoid hitting actual limits
             temp_file = f"/tmp/rate_test_{i}.mp3"
             try:
-                provider.synthesize(
-                    text=f"Rate limit test {i}",
-                    output_path=temp_file,
-                    voice=self.get_test_voice()
-                )
+                provider.synthesize(text=f"Rate limit test {i}", output_path=temp_file, voice=self.get_test_voice())
                 self.validate_audio_file(temp_file)
             except ProviderError as e:
                 if "rate" in str(e).lower() or "limit" in str(e).lower():

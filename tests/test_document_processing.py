@@ -1,4 +1,3 @@
-
 import pytest
 
 from matilda_voice.document_processing.parser_factory import DocumentParserFactory
@@ -20,6 +19,7 @@ class TestDocumentProcessing:
         assert len(elements) > 0
         # Check for heading - type is an enum, need to check value
         from matilda_voice.document_processing.base_parser import SemanticType
+
         assert any(e.type == SemanticType.HEADING or e.type.value == "heading" for e in elements)
         assert any("important" in e.content for e in elements)
 
@@ -41,6 +41,7 @@ class TestDocumentProcessing:
         assert len(elements) > 0
         # Check type value or enum
         from matilda_voice.document_processing.base_parser import SemanticType
+
         assert elements[0].type == SemanticType.HEADING or elements[0].type.value == "heading"
 
     def test_ssml_generation_azure(self):
@@ -57,9 +58,7 @@ class TestDocumentProcessing:
         import time
 
         # Generate large markdown document
-        large_content = "\n".join([
-            f"# Section {i}\n\nContent for section {i}." for i in range(100)
-        ])
+        large_content = "\n".join([f"# Section {i}\n\nContent for section {i}." for i in range(100)])
 
         factory = DocumentParserFactory()
         start = time.time()
@@ -92,18 +91,14 @@ class TestDocumentProcessing:
         processor = MixedContentProcessor()
 
         # Test document content processing
-        doc_result = processor.process_mixed_content(
-            "# Title\n\nDocument content",
-            content_type="document"
-        )
+        doc_result = processor.process_mixed_content("# Title\n\nDocument content", content_type="document")
         assert "Title" in doc_result, "Title should be preserved in document processing"
         assert len(doc_result) > 0, "Document result should not be empty"
         assert isinstance(doc_result, str), "Document result should be a string"
 
         # Test transcription content processing
         trans_result = processor.process_mixed_content(
-            "Um, this is like, you know, spoken text",
-            content_type="transcription"
+            "Um, this is like, you know, spoken text", content_type="transcription"
         )
         assert isinstance(trans_result, str), "Transcription result should be a string"
         assert len(trans_result) > 0, "Transcription result should not be empty"
@@ -159,11 +154,7 @@ class TestDocumentProcessing:
         """Test SSML generation for different platforms"""
         speech_md = "Hello [pause] world"
 
-        platforms = [
-            SSMLPlatform.AZURE,
-            SSMLPlatform.GOOGLE,
-            SSMLPlatform.AMAZON
-        ]
+        platforms = [SSMLPlatform.AZURE, SSMLPlatform.GOOGLE, SSMLPlatform.AMAZON]
 
         for platform in platforms:
             generator = SSMLGenerator(platform)
@@ -198,10 +189,9 @@ class TestDocumentProcessing:
         optimizer = PerformanceOptimizer(enable_caching=False)
 
         # Create a very large document
-        large_content = "\n\n".join([
-            f"# Chapter {i}\n\n" + "\n".join([f"Paragraph {j} content." for j in range(50)])
-            for i in range(20)
-        ])
+        large_content = "\n\n".join(
+            [f"# Chapter {i}\n\n" + "\n".join([f"Paragraph {j} content." for j in range(50)]) for i in range(20)]
+        )
 
         elements = optimizer.process_document(large_content, "markdown", max_chunk_size=5000)
 
@@ -222,7 +212,7 @@ class TestDocumentProcessing:
             "default_format": "markdown",
             "emotion_detection": False,
             "cache_enabled": False,
-            "cache_ttl": 1800
+            "cache_ttl": 1800,
         }
 
         save_config(test_config)

@@ -54,7 +54,9 @@ class GoogleTTSProvider(TTSProvider):
         if self._client is None:
             api_key = get_api_key("google")
             if not api_key:
-                raise AuthenticationError("Google Cloud API key not found. Set with: voice config google_api_key YOUR_KEY")
+                raise AuthenticationError(
+                    "Google Cloud API key not found. Set with: voice config google_api_key YOUR_KEY"
+                )
 
             # Determine authentication method
             if api_key.startswith("AIza"):
@@ -277,7 +279,9 @@ class GoogleTTSProvider(TTSProvider):
                 )
 
                 # Perform synthesis
-                response = client.synthesize_speech(input=synthesis_input, voice=voice_selection, audio_config=audio_config)
+                response = client.synthesize_speech(
+                    input=synthesis_input, voice=voice_selection, audio_config=audio_config
+                )
 
                 audio_content = response.audio_content
                 self.logger.info("Synthesis completed via service account")

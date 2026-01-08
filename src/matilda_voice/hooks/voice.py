@@ -2,7 +2,6 @@
 """Hook handlers for TTS CLI."""
 
 
-
 def on_voice_load(voice_files: tuple, **kwargs) -> int:
     """Handle the voice load command"""
     try:
@@ -66,7 +65,6 @@ def on_voice_load(voice_files: tuple, **kwargs) -> int:
     except (ImportError, IOError, OSError) as e:
         print(f"Error in voice load command: {e}")
         return 1
-
 
 
 def on_voice_unload(voice_files: tuple, all: bool, **kwargs) -> int:
@@ -148,7 +146,6 @@ def on_voice_unload(voice_files: tuple, all: bool, **kwargs) -> int:
     except (ImportError, IOError, OSError) as e:
         print(f"Error in voice unload command: {e}")
         return 1
-
 
 
 def on_voice_status(**kwargs) -> int:

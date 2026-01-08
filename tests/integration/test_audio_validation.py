@@ -33,13 +33,7 @@ class TestAudioValidationResult:
     def test_result_creation(self):
         """Test creating AudioValidationResult with various metadata."""
         result = AudioValidationResult(
-            valid=True,
-            format="mp3",
-            duration=5.2,
-            sample_rate=44100,
-            channels=2,
-            bitrate=128000,
-            file_size=1024000
+            valid=True, format="mp3", duration=5.2, sample_rate=44100, channels=2, bitrate=128000, file_size=1024000
         )
 
         assert result.valid is True
@@ -62,10 +56,10 @@ class TestAudioValidationResult:
         if valid_result:
             assert True
         else:
-            assert False, "Should not reach here"
+            raise AssertionError("Should not reach here")
 
         if invalid_result:
-            assert False, "Should not reach here"
+            raise AssertionError("Should not reach here")
         else:
             assert True
 
@@ -138,11 +132,7 @@ class TestComprehensiveAudioValidation:
     def test_validate_realistic_wav(self, tmp_path):
         """Test validation of realistic WAV file."""
         wav_file = create_realistic_audio_file(
-            tmp_path / "test",
-            format="wav",
-            duration=2.0,
-            sample_rate=44100,
-            channels=2
+            tmp_path / "test", format="wav", duration=2.0, sample_rate=44100, channels=2
         )
 
         result = validate_audio_file_comprehensive(
@@ -151,7 +141,7 @@ class TestComprehensiveAudioValidation:
             min_duration=1.0,
             max_duration=3.0,
             expected_sample_rate=44100,
-            expected_channels=2
+            expected_channels=2,
         )
 
         assert result.valid is True
@@ -166,12 +156,7 @@ class TestComprehensiveAudioValidation:
         mock_file = create_mock_audio_file(tmp_path / "test", "mp3")
 
         with patch("tests.utils.test_helpers.extract_audio_metadata") as mock_extract:
-            mock_extract.return_value = {
-                'valid': True,
-                'duration': 5.0,
-                'sample_rate': 44100,
-                'channels': 2
-            }
+            mock_extract.return_value = {"valid": True, "duration": 5.0, "sample_rate": 44100, "channels": 2}
 
             # Test duration too short
             result = validate_audio_file_comprehensive(mock_file, min_duration=6.0)
@@ -184,11 +169,7 @@ class TestComprehensiveAudioValidation:
             assert "too long" in result.error.lower()
 
             # Test duration within range
-            result = validate_audio_file_comprehensive(
-                mock_file,
-                min_duration=4.0,
-                max_duration=6.0
-            )
+            result = validate_audio_file_comprehensive(mock_file, min_duration=4.0, max_duration=6.0)
             assert result.valid is True
 
 
@@ -200,47 +181,45 @@ class TestAudioMetadataExtraction:
         nonexistent = tmp_path / "does_not_exist.wav"
         metadata = extract_audio_metadata(nonexistent)
 
-        assert metadata['valid'] is False
-        assert 'error' in metadata
+        assert metadata["valid"] is False
+        assert "error" in metadata
 
     def test_extract_metadata_corrupted(self, tmp_path):
         """Test metadata extraction from corrupted file."""
         corrupted = create_corrupted_audio_file(tmp_path / "corrupted", "mp3")
         metadata = extract_audio_metadata(corrupted)
 
-        assert metadata['valid'] is False
-        assert 'error' in metadata
+        assert metadata["valid"] is False
+        assert "error" in metadata
 
     @pytest.mark.skipif(not WAVE_SUPPORT, reason="Wave module not available")
     def test_extract_metadata_realistic_wav(self, tmp_path):
         """Test metadata extraction from realistic WAV file."""
         wav_file = create_realistic_audio_file(
-            tmp_path / "test",
-            format="wav",
-            duration=1.5,
-            sample_rate=22050,
-            channels=1
+            tmp_path / "test", format="wav", duration=1.5, sample_rate=22050, channels=1
         )
 
         metadata = extract_audio_metadata(wav_file)
 
-        assert metadata['valid'] is True
-        assert abs(metadata['duration'] - 1.5) < 0.1
-        assert metadata['sample_rate'] == 22050
-        assert metadata['channels'] == 1
+        assert metadata["valid"] is True
+        assert abs(metadata["duration"] - 1.5) < 0.1
+        assert metadata["sample_rate"] == 22050
+        assert metadata["channels"] == 1
 
     def test_extract_metadata_no_libraries(self, tmp_path):
         """Test metadata extraction when no audio libraries available."""
         mock_file = create_mock_audio_file(tmp_path / "test", "mp3")
 
         # Mock all audio library support to False
-        with patch("tests.utils.test_helpers.MUTAGEN_SUPPORT", False), \
-             patch("tests.utils.test_helpers.SOUNDFILE_SUPPORT", False), \
-             patch("tests.utils.test_helpers.WAVE_SUPPORT", False):
+        with (
+            patch("tests.utils.test_helpers.MUTAGEN_SUPPORT", False),
+            patch("tests.utils.test_helpers.SOUNDFILE_SUPPORT", False),
+            patch("tests.utils.test_helpers.WAVE_SUPPORT", False),
+        ):
 
             metadata = extract_audio_metadata(mock_file)
-            assert metadata['valid'] is False
-            assert "no audio libraries" in metadata['error'].lower()
+            assert metadata["valid"] is False
+            assert "no audio libraries" in metadata["error"].lower()
 
 
 class TestSilenceDetection:
@@ -251,27 +230,21 @@ class TestSilenceDetection:
         """Test silence detection on file with no audio content."""
         # Create a file with very low amplitude (should be detected as silence)
         silent_file = create_realistic_audio_file(
-            tmp_path / "silent",
-            format="wav",
-            duration=1.0,
-            frequency=0.0  # No frequency = silence
+            tmp_path / "silent", format="wav", duration=1.0, frequency=0.0  # No frequency = silence
         )
 
         is_silent = detect_silence(silent_file, silence_threshold=0.1)
-        assert is_silent == True
+        assert is_silent
 
     @pytest.mark.skipif(not SOUNDFILE_SUPPORT, reason="Soundfile not available")
     def test_detect_silence_with_audio(self, tmp_path):
         """Test silence detection on file with actual audio content."""
         audio_file = create_realistic_audio_file(
-            tmp_path / "audio",
-            format="wav",
-            duration=1.0,
-            frequency=440.0  # A4 note
+            tmp_path / "audio", format="wav", duration=1.0, frequency=440.0  # A4 note
         )
 
         is_silent = detect_silence(audio_file, silence_threshold=0.01)
-        assert is_silent == False
+        assert not is_silent
 
     def test_detect_silence_no_soundfile(self, tmp_path):
         """Test silence detection when soundfile not available."""
@@ -367,12 +340,7 @@ class TestAudioFileCreation:
     def test_create_realistic_wav_file(self, tmp_path):
         """Test realistic WAV file creation."""
         wav_file = create_realistic_audio_file(
-            tmp_path / "test",
-            format="wav",
-            duration=2.0,
-            sample_rate=44100,
-            channels=2,
-            frequency=440.0
+            tmp_path / "test", format="wav", duration=2.0, sample_rate=44100, channels=2, frequency=440.0
         )
 
         assert wav_file.exists()
@@ -393,7 +361,7 @@ class TestAudioFileCreation:
 
         # Should fail validation due to corruption
         metadata = extract_audio_metadata(corrupted)
-        assert metadata['valid'] is False
+        assert metadata["valid"] is False
 
     def test_create_empty_audio_file(self, tmp_path):
         """Test empty audio file creation."""
@@ -434,21 +402,21 @@ class TestAudioValidationPerformance:
         # Create fewer realistic files (they take longer to create)
         files = []
         for i in range(3):
-            files.append(create_realistic_audio_file(
-                tmp_path / f"realistic_{i}",
-                format="wav",
-                duration=0.5,  # Short duration for speed
-                sample_rate=22050,  # Lower sample rate for speed
-                channels=1
-            ))
+            files.append(
+                create_realistic_audio_file(
+                    tmp_path / f"realistic_{i}",
+                    format="wav",
+                    duration=0.5,  # Short duration for speed
+                    sample_rate=22050,  # Lower sample rate for speed
+                    channels=1,
+                )
+            )
 
         # Time the validation
         start_time = time.time()
         for file_path in files:
             result = validate_audio_file_comprehensive(
-                file_path,
-                expected_format="wav",
-                check_silence=True  # Include silence detection
+                file_path, expected_format="wav", check_silence=True  # Include silence detection
             )
             assert result.valid is True
         end_time = time.time()
@@ -478,7 +446,7 @@ class TestAudioValidationEdgeCases:
                 assert result.valid is False
                 # Check for either permission error or library availability error
                 error_str = str(result.error).lower()
-                assert ('error' in error_str or 'no audio libraries available' in error_str)
+                assert "error" in error_str or "no audio libraries available" in error_str
             finally:
                 # Restore permissions for cleanup
                 os.chmod(test_file, stat.S_IRUSR | stat.S_IWUSR)
@@ -492,26 +460,14 @@ class TestAudioValidationEdgeCases:
         mock_file = create_mock_audio_file(tmp_path / "test", "mp3")
 
         with patch("tests.utils.test_helpers.extract_audio_metadata") as mock_extract:
-            mock_extract.return_value = {
-                'valid': True,
-                'duration': 1.0,
-                'sample_rate': 44100,
-                'channels': 2
-            }
+            mock_extract.return_value = {"valid": True, "duration": 1.0, "sample_rate": 44100, "channels": 2}
 
             # Test with extremely large duration constraints
-            result = validate_audio_file_comprehensive(
-                mock_file,
-                min_duration=0.0,
-                max_duration=999999.0
-            )
+            result = validate_audio_file_comprehensive(mock_file, min_duration=0.0, max_duration=999999.0)
             assert result.valid is True
 
             # Test with extremely large file size constraint
-            result = validate_audio_file_comprehensive(
-                mock_file,
-                min_file_size=0
-            )
+            result = validate_audio_file_comprehensive(mock_file, min_file_size=0)
             assert result.valid is True
 
     def test_validation_unicode_file_paths(self, tmp_path):
@@ -530,7 +486,7 @@ class TestAudioValidationEdgeCases:
             long_path = tmp_path / long_name
             mock_file = create_mock_audio_file(long_path, "mp3")
 
-            result = validate_audio_file_comprehensive(mock_file)
+            validate_audio_file_comprehensive(mock_file)
             # Should handle long filenames if filesystem supports them
 
         except OSError:
@@ -552,7 +508,7 @@ class TestAudioValidationIntegration:
             duration=3.0,
             sample_rate=44100,
             channels=2,
-            frequency=220.0  # A3 note
+            frequency=220.0,  # A3 note
         )
 
         # Perform comprehensive validation
@@ -564,7 +520,7 @@ class TestAudioValidationIntegration:
             expected_sample_rate=44100,
             expected_channels=2,
             min_file_size=1000,
-            check_silence=True
+            check_silence=True,
         )
 
         # Verify all aspects
@@ -575,7 +531,11 @@ class TestAudioValidationIntegration:
         assert result.channels == 2
         assert result.file_size >= 1000
         # has_silence may be None if silence detection fails, or numpy False, accept that
-        assert result.has_silence == False or result.has_silence is None or (hasattr(result.has_silence, 'item') and not result.has_silence.item())
+        assert (
+            not result.has_silence
+            or result.has_silence is None
+            or (hasattr(result.has_silence, "item") and not result.has_silence.item())
+        )
 
         # Test format compatibility
         assert validate_audio_format_compatibility(audio_file, "mp3") is True

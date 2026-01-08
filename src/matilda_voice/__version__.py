@@ -13,4 +13,5 @@ def _get_version() -> str:
         # Fallback version if pyproject.toml can't be read
         return "1.1.4"
 
+
 __version__ = _get_version()

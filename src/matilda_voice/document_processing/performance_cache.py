@@ -23,10 +23,7 @@ def _serialize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(value, SemanticElement):
             result[key] = _serialize_element(value)
         elif isinstance(value, list):
-            result[key] = [
-                _serialize_element(item) if isinstance(item, SemanticElement) else item
-                for item in value
-            ]
+            result[key] = [_serialize_element(item) if isinstance(item, SemanticElement) else item for item in value]
         elif isinstance(value, dict):
             result[key] = _serialize_metadata(value)
         else:
@@ -130,9 +127,7 @@ class DocumentCache:
             self._update_access_time(cache_key)
 
             # Deserialize elements from JSON
-            elements: List[SemanticElement] = [
-                _deserialize_element(elem_data) for elem_data in cached_data["elements"]
-            ]
+            elements: List[SemanticElement] = [_deserialize_element(elem_data) for elem_data in cached_data["elements"]]
             return elements
 
         except (json.JSONDecodeError, KeyError, FileNotFoundError, ValueError):
@@ -331,7 +326,9 @@ class PerformanceOptimizer:
             "total_content_length": 0,
         }
 
-    def process_document(self, content: str, format_hint: str = "auto", max_chunk_size: int = 5000) -> List[SemanticElement]:
+    def process_document(
+        self, content: str, format_hint: str = "auto", max_chunk_size: int = 5000
+    ) -> List[SemanticElement]:
         """Process document with caching and chunking optimization.
 
         Args:

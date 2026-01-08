@@ -64,8 +64,8 @@ class TestCleanupFile:
         assert "Cleaned up temporary file" in debug_call_args
         assert temp_path in debug_call_args
 
-    @patch('os.path.exists')
-    @patch('os.unlink')
+    @patch("os.path.exists")
+    @patch("os.unlink")
     def test_cleanup_permission_error(self, mock_unlink, mock_exists):
         """Test cleanup behavior when file cannot be deleted due to permissions."""
         # Setup mocks
@@ -107,7 +107,6 @@ class TestCleanupFile:
         # Verify file is deleted
         assert not temp_path.exists()
 
-
     def test_cleanup_directory_path(self):
         """Test cleanup when path points to directory instead of file."""
         # Create temporary directory
@@ -127,7 +126,7 @@ class TestFileOperations:
     def test_temporary_file_creation_and_cleanup(self):
         """Test creation and cleanup of temporary files in context."""
         # This tests the pattern used in our audio utilities
-        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
             temp_file = tmp.name
             tmp.write(b"fake audio data")
 
@@ -146,7 +145,7 @@ class TestFileOperations:
 
         # Create multiple temporary files
         for i in range(5):
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f'_{i}.wav') as tmp:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{i}.wav") as tmp:
                 temp_files.append(tmp.name)
                 tmp.write(f"test content {i}".encode())
 
@@ -164,7 +163,7 @@ class TestFileOperations:
 
     def test_file_size_handling(self):
         """Test cleanup of files with different sizes."""
-        file_sizes = [0, 1, 1024, 1024*1024]  # 0B, 1B, 1KB, 1MB
+        file_sizes = [0, 1, 1024, 1024 * 1024]  # 0B, 1B, 1KB, 1MB
 
         for size in file_sizes:
             with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -190,12 +189,12 @@ class TestAudioUtilityIntegration:
         # This simulates the pattern used in our refactored providers
 
         # Step 1: Create temporary file
-        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
             temp_file = tmp.name
 
         try:
             # Step 2: Simulate writing audio data
-            with open(temp_file, 'wb') as f:
+            with open(temp_file, "wb") as f:
                 f.write(b"fake mp3 data")
 
             # Step 3: Verify file exists and has content
@@ -206,7 +205,7 @@ class TestAudioUtilityIntegration:
             # In real usage, this is where play_audio_with_ffplay would be called
 
             # For testing, just verify file is accessible
-            with open(temp_file, 'rb') as f:
+            with open(temp_file, "rb") as f:
                 content = f.read()
                 assert content == b"fake mp3 data"
 
@@ -244,7 +243,7 @@ class TestAudioUtilityIntegration:
         try:
             # Create multiple temp files (simulating concurrent synthesis)
             for i in range(3):
-                suffix = f'_concurrent_{i}.wav'
+                suffix = f"_concurrent_{i}.wav"
                 with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
                     temp_files.append(tmp.name)
                     tmp.write(f"concurrent audio data {i}".encode())
@@ -255,7 +254,7 @@ class TestAudioUtilityIntegration:
 
             # Simulate concurrent processing (all files exist simultaneously)
             for i, temp_file in enumerate(temp_files):
-                with open(temp_file, 'rb') as f:
+                with open(temp_file, "rb") as f:
                     content = f.read()
                     assert f"concurrent audio data {i}".encode() in content
 
@@ -296,7 +295,6 @@ class TestPathHandling:
         finally:
             # Cleanup
             cleanup_file(temp_path)
-
 
 
 class TestErrorScenarios:
@@ -342,7 +340,7 @@ class TestErrorScenarios:
             "\n",  # Newline
             "\t",  # Tab
             "\\",  # Just backslash (Windows)
-            "/",   # Just forward slash (Unix)
+            "/",  # Just forward slash (Unix)
         ]
 
         for invalid_path in invalid_paths:

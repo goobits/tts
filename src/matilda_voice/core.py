@@ -417,7 +417,8 @@ class TTSEngine:
         }
 
         return static_info.get(
-            provider_name, {"description": f"Unknown provider: {provider_name}", "capabilities": [], "sample_voices": []}
+            provider_name,
+            {"description": f"Unknown provider: {provider_name}", "capabilities": [], "sample_voices": []},
         )
 
     def test_provider(self, provider_name: str) -> Dict[str, Any]:

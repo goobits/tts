@@ -25,23 +25,23 @@ class TestParseEnvValue:
     def test_parse_bool_values(self):
         """Test parsing boolean values for configuration."""
         # Test key true values that matter in practice
-        assert _parse_env_value('true', bool) is True
-        assert _parse_env_value('1', bool) is True
-        assert _parse_env_value('yes', bool) is True
+        assert _parse_env_value("true", bool) is True
+        assert _parse_env_value("1", bool) is True
+        assert _parse_env_value("yes", bool) is True
 
         # Test key false values
-        assert _parse_env_value('false', bool) is False
-        assert _parse_env_value('0', bool) is False
-        assert _parse_env_value('no', bool) is False
+        assert _parse_env_value("false", bool) is False
+        assert _parse_env_value("0", bool) is False
+        assert _parse_env_value("no", bool) is False
 
         # Test case insensitivity for common cases
-        assert _parse_env_value('TRUE', bool) is True
-        assert _parse_env_value('FALSE', bool) is False
+        assert _parse_env_value("TRUE", bool) is True
+        assert _parse_env_value("FALSE", bool) is False
 
         # Test unknown values default to False (important behavior)
-        assert _parse_env_value('maybe', bool) is False
-        assert _parse_env_value('', bool) is False
-        assert _parse_env_value('invalid', bool) is False
+        assert _parse_env_value("maybe", bool) is False
+        assert _parse_env_value("", bool) is False
+        assert _parse_env_value("invalid", bool) is False
 
     def test_parse_int_valid(self):
         """Test parsing valid integer values."""
@@ -134,7 +134,7 @@ class TestParseVoiceSetting:
         assert voice == "~/my_voice.wav"
 
         # Different audio extensions
-        for ext in ['wav', 'mp3', 'flac', 'ogg', 'm4a']:
+        for ext in ["wav", "mp3", "flac", "ogg", "m4a"]:
             provider, voice = parse_voice_setting(f"voice.{ext}")
             assert provider == "chatterbox"
             assert voice == f"voice.{ext}"
@@ -147,7 +147,7 @@ class TestParseVoiceSetting:
             "en-IE-EmilyNeural",
             "en-AU-NatashaNeural",
             "fr-FR-DeniseNeural",
-            "de-DE-KatjaNeural"
+            "de-DE-KatjaNeural",
         ]
 
         for voice_name in edge_voices:
@@ -157,13 +157,7 @@ class TestParseVoiceSetting:
 
     def test_google_tts_auto_detection(self):
         """Test Google TTS voices auto-detected by pattern."""
-        google_voices = [
-            "en-US-Neural2-A",
-            "en-US-Neural2-B",
-            "en-GB-Neural2-A",
-            "fr-FR-Neural2-A",
-            "de-DE-Neural2-A"
-        ]
+        google_voices = ["en-US-Neural2-A", "en-US-Neural2-B", "en-GB-Neural2-A", "fr-FR-Neural2-A", "de-DE-Neural2-A"]
 
         for voice_name in google_voices:
             provider, voice = parse_voice_setting(voice_name)
@@ -220,7 +214,7 @@ class TestValidateApiKey:
         valid_keys = [
             "sk-1234567890abcdef1234567890abcdef12345678901234",  # 48 chars
             "sk-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRST",  # mixed case
-            "sk-123456789012345678901234567890123456789012345678"  # all numbers
+            "sk-123456789012345678901234567890123456789012345678",  # all numbers
         ]
 
         for key in valid_keys:
@@ -351,17 +345,11 @@ class TestSSMLProcessing:
 
     def test_strip_ssml_tags_complex(self):
         """Test removal of complex nested SSML tags."""
-        complex_ssml = (
-            "<speak>Hello <break time='1s'/> "
-            "<prosody rate='slow'>slow</prosody> world</speak>"
-        )
+        complex_ssml = "<speak>Hello <break time='1s'/> " "<prosody rate='slow'>slow</prosody> world</speak>"
         expected = "Hello  slow world"
         assert strip_ssml_tags(complex_ssml) == expected
 
-        nested_ssml = (
-            "<speak><prosody rate='fast'><emphasis>Important</emphasis> "
-            "message</prosody></speak>"
-        )
+        nested_ssml = "<speak><prosody rate='fast'><emphasis>Important</emphasis> " "message</prosody></speak>"
         expected = "Important message"
         assert strip_ssml_tags(nested_ssml) == expected
 
@@ -390,44 +378,40 @@ class TestConfigDefaults:
     def test_config_defaults_exist(self):
         """Test that expected configuration defaults exist."""
         # Network settings
-        assert 'chatterbox_server_port' in CONFIG_DEFAULTS
-        assert 'http_streaming_chunk_size' in CONFIG_DEFAULTS
+        assert "chatterbox_server_port" in CONFIG_DEFAULTS
+        assert "http_streaming_chunk_size" in CONFIG_DEFAULTS
 
         # Timeout settings
-        assert 'server_startup_timeout' in CONFIG_DEFAULTS
-        assert 'ffplay_timeout' in CONFIG_DEFAULTS
+        assert "server_startup_timeout" in CONFIG_DEFAULTS
+        assert "ffplay_timeout" in CONFIG_DEFAULTS
 
         # Performance settings
-        assert 'thread_pool_max_workers' in CONFIG_DEFAULTS
-        assert 'streaming_progress_interval' in CONFIG_DEFAULTS
+        assert "thread_pool_max_workers" in CONFIG_DEFAULTS
+        assert "streaming_progress_interval" in CONFIG_DEFAULTS
 
     def test_config_default_types(self):
         """Test that configuration defaults have expected types."""
         # Should be integers
         int_configs = [
-            'chatterbox_server_port',
-            'http_streaming_chunk_size',
-            'server_startup_timeout',
-            'thread_pool_max_workers'
+            "chatterbox_server_port",
+            "http_streaming_chunk_size",
+            "server_startup_timeout",
+            "thread_pool_max_workers",
         ]
 
         for config_key in int_configs:
             if config_key in CONFIG_DEFAULTS:
-                assert isinstance(
-                    CONFIG_DEFAULTS[config_key], int
-                ), f"{config_key} should be an integer"
+                assert isinstance(CONFIG_DEFAULTS[config_key], int), f"{config_key} should be an integer"
 
     def test_get_config_value_defaults(self):
         """Test getting configuration values returns defaults when no override."""
         # Test some known defaults
-        assert (get_config_value('chatterbox_server_port') ==
-                CONFIG_DEFAULTS['chatterbox_server_port'])
-        assert (get_config_value('http_streaming_chunk_size') ==
-                CONFIG_DEFAULTS['http_streaming_chunk_size'])
+        assert get_config_value("chatterbox_server_port") == CONFIG_DEFAULTS["chatterbox_server_port"]
+        assert get_config_value("http_streaming_chunk_size") == CONFIG_DEFAULTS["http_streaming_chunk_size"]
 
         # Test with custom default
-        assert get_config_value('nonexistent_key', 'custom_default') == 'custom_default'
+        assert get_config_value("nonexistent_key", "custom_default") == "custom_default"
 
     def test_get_config_value_unknown_key(self):
         """Test getting unknown configuration key returns None."""
-        assert get_config_value('completely_unknown_key_12345') is None
+        assert get_config_value("completely_unknown_key_12345") is None

@@ -122,8 +122,7 @@ class EdgeTTSProvider(TTSProvider):
             # Use transform to extract data from EdgeTTS chunk dicts
             # Chunk format: {'type': 'audio', 'data': bytes}
             await player.play_async(
-                communicate.stream(),
-                transform=lambda chunk: chunk["data"] if chunk.get("type") == "audio" else None
+                communicate.stream(), transform=lambda chunk: chunk["data"] if chunk.get("type") == "audio" else None
             )
 
         except KeyboardInterrupt:

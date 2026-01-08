@@ -107,9 +107,7 @@ def show_browser_snapshot(providers_registry: Dict[str, str], load_provider_func
     click.echo("ACTIVE FILTERS:")
     enabled_providers = [p for p, enabled in filters["providers"].items() if enabled]
     click.echo("  Providers: " + ", ".join(enabled_providers))
-    quality_stars = [
-        f"{'*' * q}" for q, enabled in filters["quality"].items() if enabled
-    ]
+    quality_stars = [f"{'*' * q}" for q, enabled in filters["quality"].items() if enabled]
     click.echo("  Quality: " + ", ".join(quality_stars))
     enabled_regions = [r for r, enabled in filters["regions"].items() if enabled]
     click.echo("  Regions: " + ", ".join(enabled_regions))

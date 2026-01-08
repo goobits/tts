@@ -43,17 +43,12 @@ class TestExceptionHierarchy:
             NetworkError,
             AudioPlaybackError,
             DependencyError,
-            VoiceNotFoundError
+            VoiceNotFoundError,
         ]
 
         for exc_class in exception_classes:
-            assert issubclass(exc_class, TTSError), (
-                f"{exc_class.__name__} should inherit from TTSError"
-            )
-            assert issubclass(exc_class, Exception), (
-                f"{exc_class.__name__} should inherit from Exception"
-            )
-
+            assert issubclass(exc_class, TTSError), f"{exc_class.__name__} should inherit from TTSError"
+            assert issubclass(exc_class, Exception), f"{exc_class.__name__} should inherit from Exception"
 
     def test_exception_raising_and_catching(self):
         """Test that exceptions can be raised and caught correctly."""
@@ -144,9 +139,7 @@ class TestHttpErrorMapping:
 
         for status_code in client_error_codes:
             error = map_http_error(status_code)
-            assert isinstance(error, ProviderError), (
-                f"Status {status_code} should map to ProviderError"
-            )
+            assert isinstance(error, ProviderError), f"Status {status_code} should map to ProviderError"
             assert f"API error {status_code}" in str(error)
 
     def test_generic_client_errors_with_response_text(self):
@@ -196,7 +189,6 @@ class TestHttpErrorMapping:
         # Full message might be truncated based on config
         assert len(error_str) < len(f"API error 400: {long_message}")  # Should be shorter than full
 
-
     def test_provider_context_formatting(self):
         """Test that provider context is formatted correctly in error messages."""
         # Test various provider names
@@ -208,7 +200,6 @@ class TestHttpErrorMapping:
             error_str = str(error)
             assert error_str.startswith(f"{provider}:")
             assert "API authentication failed" in error_str
-
 
 
 class TestErrorMessageFormatting:

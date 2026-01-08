@@ -25,8 +25,7 @@ class BaseProviderIntegrationTest(ABC):
     # Test configuration
     TEST_TEXT_SHORT = "Hello, this is a test."
     TEST_TEXT_MEDIUM = (
-        "The quick brown fox jumps over the lazy dog. "
-        "This pangram contains all letters of the alphabet."
+        "The quick brown fox jumps over the lazy dog. " "This pangram contains all letters of the alphabet."
     )
     TEST_TEXT_LONG = TEST_TEXT_MEDIUM * 5  # ~500 chars
 
@@ -116,48 +115,31 @@ class BaseProviderIntegrationTest(ABC):
 
     def test_basic_synthesis(self, provider, temp_audio_file):
         """Test basic text-to-speech synthesis."""
-        provider.synthesize(
-            text=self.TEST_TEXT_SHORT,
-            output_path=temp_audio_file,
-            voice=self.get_test_voice()
-        )
+        provider.synthesize(text=self.TEST_TEXT_SHORT, output_path=temp_audio_file, voice=self.get_test_voice())
         self.validate_audio_file(temp_audio_file)
 
     def test_synthesis_without_voice(self, provider, temp_audio_file):
         """Test synthesis with default voice."""
-        provider.synthesize(
-            text=self.TEST_TEXT_SHORT,
-            output_path=temp_audio_file
-        )
+        provider.synthesize(text=self.TEST_TEXT_SHORT, output_path=temp_audio_file)
         self.validate_audio_file(temp_audio_file)
 
     def test_long_text_synthesis(self, provider, temp_audio_file):
         """Test synthesis with longer text."""
-        provider.synthesize(
-            text=self.TEST_TEXT_LONG,
-            output_path=temp_audio_file,
-            voice=self.get_test_voice()
-        )
+        provider.synthesize(text=self.TEST_TEXT_LONG, output_path=temp_audio_file, voice=self.get_test_voice())
         self.validate_audio_file(temp_audio_file)
 
     def test_invalid_voice_error(self, provider, temp_audio_file):
         """Test that invalid voice raises appropriate error."""
         with pytest.raises((VoiceNotFoundError, ProviderError)):
             provider.synthesize(
-                text=self.TEST_TEXT_SHORT,
-                output_path=temp_audio_file,
-                voice="invalid_voice_that_does_not_exist_12345"
+                text=self.TEST_TEXT_SHORT, output_path=temp_audio_file, voice="invalid_voice_that_does_not_exist_12345"
             )
 
     def test_empty_text_handling(self, provider, temp_audio_file):
         """Test handling of empty text input."""
         # Most providers should handle this gracefully
         with pytest.raises((ValueError, ProviderError)):
-            provider.synthesize(
-                text="",
-                output_path=temp_audio_file,
-                voice=self.get_test_voice()
-            )
+            provider.synthesize(text="", output_path=temp_audio_file, voice=self.get_test_voice())
 
     def test_provider_info(self, provider):
         """Test that provider returns valid info."""
@@ -170,14 +152,10 @@ class BaseProviderIntegrationTest(ABC):
     def test_special_characters(self, provider, temp_audio_file):
         """Test synthesis with special characters and punctuation."""
         test_text = "Hello! How are you? I'm testing @ 100% capacity & it's great."
-        provider.synthesize(
-            text=test_text,
-            output_path=temp_audio_file,
-            voice=self.get_test_voice()
-        )
+        provider.synthesize(text=test_text, output_path=temp_audio_file, voice=self.get_test_voice())
         self.validate_audio_file(temp_audio_file)
 
-    @pytest.mark.slow
+    @pytest.mark.slow  # noqa: B027
     def test_rate_limiting_handling(self, provider):
         """Test multiple rapid requests to check rate limiting."""
         # This test is marked slow and can be skipped in quick test runs

@@ -156,7 +156,9 @@ class VoiceBrowser:
         stdscr.addstr(0, 0, header[: width - 1], curses.color_pair(2) | curses.A_BOLD)
 
         # Draw borders
-        border_line = "+" + "-" * (filter_width - 1) + "+" + "-" * (voice_width - 1) + "+" + "-" * (preview_width - 1) + "+"
+        border_line = (
+            "+" + "-" * (filter_width - 1) + "+" + "-" * (voice_width - 1) + "+" + "-" * (preview_width - 1) + "+"
+        )
         stdscr.addstr(1, 0, border_line)
 
         # Panel headers
@@ -171,13 +173,17 @@ class VoiceBrowser:
                 stdscr.addstr(row, filter_width + voice_width, "|")
 
         # Bottom border
-        bottom_border = "+" + "-" * (filter_width - 1) + "+" + "-" * (voice_width - 1) + "+" + "-" * (preview_width - 1) + "+"
+        bottom_border = (
+            "+" + "-" * (filter_width - 1) + "+" + "-" * (voice_width - 1) + "+" + "-" * (preview_width - 1) + "+"
+        )
         stdscr.addstr(height - 1, 0, bottom_border)
 
         # Draw panels
         self.draw_filters_panel(stdscr, 2, 0, filter_width - 1, height - 3)
         self.draw_voices_panel(stdscr, 2, filter_width + 1, voice_width - 1, height - 3, filtered_voices)
-        self.draw_preview_panel(stdscr, 2, filter_width + voice_width + 1, preview_width - 1, height - 3, filtered_voices)
+        self.draw_preview_panel(
+            stdscr, 2, filter_width + voice_width + 1, preview_width - 1, height - 3, filtered_voices
+        )
 
         # Only refresh if full redraw
         if full_redraw:
@@ -223,7 +229,16 @@ class VoiceBrowser:
             row += 1
 
             # Show only most common regions to fit in panel
-            common_regions = ["Irish", "British", "American", "Australian", "Canadian", "Indian", "General", "Chatterbox"]
+            common_regions = [
+                "Irish",
+                "British",
+                "American",
+                "Australian",
+                "Canadian",
+                "Indian",
+                "General",
+                "Chatterbox",
+            ]
             for region in common_regions:
                 if row >= start_row + height:
                     break
@@ -345,7 +360,14 @@ class VoiceBrowser:
             stdscr.addstr(row, start_col + 1, "Controls:", curses.color_pair(7) | curses.A_BOLD)
             row += 1
 
-            controls = ["Click = Select", "Dbl-Click = Play", "Space = Play", "Enter = Set Voice", "/ = Search", "Q/Esc = Quit"]
+            controls = [
+                "Click = Select",
+                "Dbl-Click = Play",
+                "Space = Play",
+                "Enter = Set Voice",
+                "/ = Search",
+                "Q/Esc = Quit",
+            ]
             for control in controls:
                 if row >= start_row + height:
                     break
@@ -497,7 +519,10 @@ class VoiceBrowser:
 
             # Enable mouse events
             curses.mousemask(
-                curses.BUTTON1_CLICKED | curses.BUTTON1_DOUBLE_CLICKED | curses.BUTTON1_PRESSED | curses.BUTTON1_RELEASED
+                curses.BUTTON1_CLICKED
+                | curses.BUTTON1_DOUBLE_CLICKED
+                | curses.BUTTON1_PRESSED
+                | curses.BUTTON1_RELEASED
             )
 
             # Color scheme
@@ -559,11 +584,20 @@ class VoiceBrowser:
                         if prev_pos != self.current_pos:
                             # Clear and redraw voice panel
                             self.clear_panel_area(stdscr, 2, filter_width + 1, voice_width - 1, height - 3)
-                            self.draw_voices_panel(stdscr, 2, filter_width + 1, voice_width - 1, height - 3, filtered_voices)
+                            self.draw_voices_panel(
+                                stdscr, 2, filter_width + 1, voice_width - 1, height - 3, filtered_voices
+                            )
                             # Clear and redraw preview panel
-                            self.clear_panel_area(stdscr, 2, filter_width + voice_width + 1, preview_width - 1, height - 3)
+                            self.clear_panel_area(
+                                stdscr, 2, filter_width + voice_width + 1, preview_width - 1, height - 3
+                            )
                             self.draw_preview_panel(
-                                stdscr, 2, filter_width + voice_width + 1, preview_width - 1, height - 3, filtered_voices
+                                stdscr,
+                                2,
+                                filter_width + voice_width + 1,
+                                preview_width - 1,
+                                height - 3,
+                                filtered_voices,
                             )
                         # Update header if playing status changed
                         if playing_changed:
@@ -652,7 +686,10 @@ class VoiceBrowser:
                                 stdscr.move(0, 0)
                                 stdscr.clrtoeol()
                                 stdscr.addstr(
-                                    0, 0, f"Set default voice to {voice}"[: width - 1], curses.color_pair(5) | curses.A_BOLD
+                                    0,
+                                    0,
+                                    f"Set default voice to {voice}"[: width - 1],
+                                    curses.color_pair(5) | curses.A_BOLD,
                                 )
                                 stdscr.refresh()
                                 curses.napms(1500)

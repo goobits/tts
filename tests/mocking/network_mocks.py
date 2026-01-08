@@ -75,7 +75,9 @@ class NetworkMockRegistry:
         self.url_patterns: Dict[str, Callable[[str, str, Dict[str, Any]], MockHTTPResponse]] = {}
         self.default_response = MockHTTPResponse(404, text="Not Found")
 
-    def register_pattern(self, pattern: str, response_factory: Callable[[str, str, Dict[str, Any]], MockHTTPResponse]) -> None:
+    def register_pattern(
+        self, pattern: str, response_factory: Callable[[str, str, Dict[str, Any]], MockHTTPResponse]
+    ) -> None:
         """Register a URL pattern with a response factory function."""
         self.url_patterns[pattern] = response_factory
 

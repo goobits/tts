@@ -103,4 +103,3 @@ def on_document(
     except Exception:
         # Re-raise to let CLI handle it with user-friendly messages
         raise
-

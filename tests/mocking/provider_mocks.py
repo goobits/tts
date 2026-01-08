@@ -145,7 +145,9 @@ class GoogleTTSMockProvider:
         registry.register_pattern("texttospeech.googleapis.com/v1/voices", GoogleTTSMockProvider._handle_voices)
 
         # Text-to-speech synthesis endpoint
-        registry.register_pattern("texttospeech.googleapis.com/v1/text:synthesize", GoogleTTSMockProvider._handle_synthesis)
+        registry.register_pattern(
+            "texttospeech.googleapis.com/v1/text:synthesize", GoogleTTSMockProvider._handle_synthesis
+        )
 
     @staticmethod
     def _handle_voices(method: str, url: str, kwargs: Dict[str, Any]) -> MockHTTPResponse:
@@ -173,7 +175,12 @@ class GoogleTTSMockProvider:
                     "ssmlGender": "FEMALE",
                     "naturalSampleRateHertz": 24000,
                 },
-                {"name": "en-US-Neural2-D", "languageCodes": ["en-US"], "ssmlGender": "MALE", "naturalSampleRateHertz": 24000},
+                {
+                    "name": "en-US-Neural2-D",
+                    "languageCodes": ["en-US"],
+                    "ssmlGender": "MALE",
+                    "naturalSampleRateHertz": 24000,
+                },
                 {
                     "name": "en-GB-Neural2-A",
                     "languageCodes": ["en-GB"],
@@ -376,7 +383,9 @@ def create_api_key_error_scenario(registry: NetworkMockRegistry, provider: str) 
 def create_quota_exceeded_scenario(registry: NetworkMockRegistry, provider: str) -> None:
     """Create a scenario where API quota is exceeded."""
     if provider == "elevenlabs":
-        registry.register_pattern("api.elevenlabs.io", lambda method, url, kwargs: create_error_response(429, "Quota exceeded"))
+        registry.register_pattern(
+            "api.elevenlabs.io", lambda method, url, kwargs: create_error_response(429, "Quota exceeded")
+        )
     elif provider == "google":
         registry.register_pattern(
             "texttospeech.googleapis.com", lambda method, url, kwargs: create_error_response(429, "Quota exceeded")
