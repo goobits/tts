@@ -96,3 +96,4 @@ filterwarnings = [ "ignore::DeprecationWarning", "ignore::PendingDeprecationWarn
 "src/matilda_voice/helpers/__init__.py" = [ "F401",]
 "src/matilda_voice/i18n/__init__.py" = [ "F401",]
 "src/matilda_voice/cli.py" = [ "F401",]
+"tests/**/*.py" = [ "S101",]
