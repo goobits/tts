@@ -695,7 +695,7 @@ class TestCLIAudioValidationIntegration:
             with patch("matilda_voice.hooks.core.get_engine") as mock_get_engine:
                 mock_engine = MagicMock()
 
-                def mock_synthesize(text, output_path=None, **kwargs):
+                def mock_synthesize(text, output_path=None, _provider=provider, **kwargs):
                     if output_path:
                         audio_path = Path(output_path)
                         # Create slightly different but valid audio for each provider
@@ -705,7 +705,7 @@ class TestCLIAudioValidationIntegration:
                             duration=2.0,
                             sample_rate=22050,
                             channels=1,
-                            frequency=440.0 if provider == "@edge" else 330.0,
+                            frequency=440.0 if _provider == "@edge" else 330.0,
                         )
                     return True
 
@@ -747,12 +747,12 @@ class TestCLIAudioValidationIntegration:
             with patch("matilda_voice.hooks.core.get_engine") as mock_get_engine:
                 mock_engine = MagicMock()
 
-                def mock_synthesize(text, output_path=None, **kwargs):
+                def mock_synthesize(text, output_path=None, _format=format_name, **kwargs):
                     if output_path:
                         audio_path = Path(output_path)
                         try:
                             create_realistic_audio_file(
-                                audio_path, format=format_name, duration=1.5, sample_rate=44100, channels=2
+                                audio_path, format=_format, duration=1.5, sample_rate=44100, channels=2
                             )
                         except Exception:
                             # Skip if format not supported

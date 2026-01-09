@@ -36,11 +36,11 @@ except ImportError:
     SOUNDFILE_SUPPORT = False
 
 try:
-    import mutagen
-    from mutagen.flac import FLAC
-    from mutagen.mp3 import MP3
-    from mutagen.oggvorbis import OggVorbis
-    from mutagen.wave import WAVE
+    import mutagen  # noqa: F401
+    from mutagen.flac import FLAC  # noqa: F401
+    from mutagen.mp3 import MP3  # noqa: F401
+    from mutagen.oggvorbis import OggVorbis  # noqa: F401
+    from mutagen.wave import WAVE  # noqa: F401
 
     MUTAGEN_SUPPORT = True
 except ImportError:
